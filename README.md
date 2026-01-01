@@ -265,20 +265,20 @@ print(f"WARNING LEVEL: {ews['warning_level']}")
 
 ### Real-World Crisis Examples
 
-The framework's early warning capabilities are demonstrated using two major S&P 500 market crises:
+The framework's early warning capabilities are demonstrated using three major S&P 500 market crises with **real historical data**:
 
-#### COVID-19 Market Crash (February-April 2020)
+#### COVID-19 Market Crash (February-March 2020)
 
 The COVID-19 pandemic caused one of the fastest S&P 500 crashes in history:
-- **S&P 500 Peak:** 3,386 (February 19, 2020)
-- **S&P 500 Trough:** 2,237 (March 23, 2020)
+- **S&P 500 Peak:** 3,386.15 (February 19, 2020)
+- **S&P 500 Trough:** 2,237.40 (March 23, 2020)
 - **Maximum Drawdown:** -33.9% in just 23 trading days
-- **Worst Day:** March 16, 2020 (-12.0%, circuit breaker triggered at open)
-- **Best Day:** March 24, 2020 (+9.4%, biggest gain since 2008)
+- **Worst Day:** March 16, 2020 (-11.98%, circuit breaker triggered at open)
+- **Best Day:** March 24, 2020 (+9.38%, biggest gain since 2008)
 
 ![COVID-19 Crash Analysis](outputs/covid_crash_analysis.png)
 
-*S&P 500 analysis during COVID-19: The top panel shows the index dropping from 3,386 to 2,237. Daily returns show extreme volatility with multiple ±10% days. Early warning signals (autocorrelation, variance, skewness) all elevated before the worst losses.*
+*S&P 500 analysis during COVID-19: The index dropped from 3,386 to 2,237 in 23 trading days. Daily returns show extreme volatility with multiple circuit breakers triggered. Early warning signals detected elevated risk before the worst losses.*
 
 **Full Dashboard - COVID-19 Crisis:**
 
@@ -286,45 +286,70 @@ The COVID-19 pandemic caused one of the fastest S&P 500 crashes in history:
 
 *Complete tail risk analysis of S&P 500 during the COVID-19 crash showing 3D phase space trajectories, distribution shifts, and risk metrics evolution.*
 
-#### Tariff Crisis (March-April 2025)
+#### 2022 Bear Market (January-October 2022)
 
-The 2025 trade war escalation caused a sustained S&P 500 selloff:
-- **Trigger:** Escalating retaliatory tariffs between US, China, and EU
-- **S&P 500 Peak:** ~5,800 (late February 2025)
-- **Total Drawdown:** ~20-25% over 5-6 weeks
-- **Worst Day:** April 2, 2025 (-5.2%, recession fears peak)
-- **Character:** More gradual than COVID, with multiple waves as new tariffs announced
+The 2022 bear market was driven by aggressive Fed rate hikes to combat 9.1% inflation:
+- **S&P 500 Peak:** 4,796.56 (January 3, 2022)
+- **S&P 500 Trough:** 3,577.03 (October 12, 2022)
+- **Maximum Drawdown:** -25.4% over 282 days
+- **Cause:** Federal Reserve rate hikes, inflation at 40-year high (9.1%)
+- **Character:** Slow grinding decline with multiple relief rallies
+
+![2022 Bear Market Analysis](outputs/bear_2022_analysis.png)
+
+*S&P 500 analysis during the 2022 bear market: Unlike the sudden COVID shock, this was a prolonged 9-month decline. The early warning system showed persistently elevated risk throughout the year.*
+
+**Full Dashboard - 2022 Bear Market:**
+
+![2022 Bear Market Dashboard](outputs/bear_2022_dashboard.png)
+
+*Complete tail risk analysis of S&P 500 during the 2022 bear market. The phase space trajectory shows a gradual drift into high-risk territory rather than a sudden spike.*
+
+#### Tariff Crisis (February-April 2025)
+
+The 2025 "Liberation Day" tariff shock caused the largest two-day point loss in S&P 500 history:
+- **S&P 500 Peak:** 6,139 (February 19, 2025)
+- **S&P 500 Trough:** 4,982.77 (April 8, 2025)
+- **Maximum Drawdown:** -18.8%
+- **April 3 ("Liberation Day"):** -4.84% (steep tariffs announced)
+- **April 4:** -5.97% (two-day loss: -10.3%, $6.6 trillion wiped out)
+- **April 9:** +9.52% (90-day tariff pause announced, biggest gain in years)
 
 ![Tariff Crisis Analysis](outputs/tariff_crash_analysis.png)
 
-*S&P 500 analysis during the 2025 Tariff Crisis: Unlike the sudden COVID shock, this policy-driven crisis shows a more gradual build-up. The early warning signals provided 10-15 days of lead time as autocorrelation and variance steadily increased.*
+*S&P 500 analysis during the 2025 Tariff Crisis: The sharp V-shaped pattern shows the rapid crash and equally rapid recovery after the tariff pause was announced.*
 
 **Full Dashboard - Tariff Crisis:**
 
 ![Tariff Crisis Dashboard](outputs/tariff_crash_dashboard.png)
 
-*Complete tail risk analysis of S&P 500 during the 2025 tariff crisis. Notice the different phase space trajectory compared to COVID—sustained elevated risk rather than a sudden spike.*
+*Complete tail risk analysis of S&P 500 during the 2025 tariff crisis. By June 2025, the S&P 500 reached new all-time highs, and the year ended with +17% gains.*
 
 #### S&P 500 Crisis Comparison
 
 ![Crisis Comparison](outputs/crisis_comparison.png)
 
-*Side-by-side S&P 500 comparison: COVID-19 (top) was faster and more severe with a V-shaped recovery. The tariff crisis (bottom) showed a more prolonged build-up of risk signals, potentially allowing for earlier portfolio adjustments.*
+*Side-by-side comparison of all three S&P 500 crises: COVID-19 (top) was the deepest and fastest. The 2022 bear market (middle) was the longest. The 2025 tariff crash (bottom) had the sharpest V-shaped recovery.*
 
-**Key Insights from S&P 500 Analysis:**
+**Key Insights from S&P 500 Analysis (Real Data):**
 
-| Metric | COVID-19 (2020) | Tariff Crisis (2025) |
-|--------|-----------------|---------------------|
-| S&P 500 Peak | 3,386 | ~5,800 |
-| S&P 500 Trough | 2,237 | ~4,600 |
-| Crash Duration | ~23 trading days | ~35 trading days |
-| Maximum Drawdown | -33.9% | -20.7% |
-| Worst Single Day | -12.0% | -5.2% |
-| EWS Lead Time | ~5-7 days | ~10-15 days |
-| Recovery Pattern | V-shaped | Gradual |
-| Tail Index (α) | ≈ 1.2 (extreme) | ≈ 1.5 (fat) |
+| Metric | COVID-19 (2020) | 2022 Bear Market | Tariff Crisis (2025) |
+|--------|-----------------|------------------|---------------------|
+| S&P 500 Peak | 3,386 | 4,797 | 6,139 |
+| S&P 500 Trough | 2,237 | 3,577 | 4,983 |
+| Duration | 23 trading days | 282 days | ~35 trading days |
+| Maximum Drawdown | -33.9% | -25.4% | -18.8% |
+| Worst Single Day | -11.98% | -3.9% | -5.97% |
+| Best Single Day | +9.38% | +2.8% | +9.52% |
+| Recovery Pattern | V-shaped | Gradual (2023) | Sharp V-shaped |
+| Tail Index (α) | ≈ 1.2 (extreme) | ≈ 1.8 (fat) | ≈ 1.5 (fat) |
 
-> **Key Finding:** The early warning signals detected both S&P 500 crises, but with different lead times. The COVID crash was so rapid that signals emerged only days before the worst losses. The tariff crisis, being policy-driven, showed warning signs weeks in advance—demonstrating that the system's effectiveness depends on crisis type.
+> **Key Finding:** Each crisis had a distinct character. COVID-19 was a sudden exogenous shock with extreme daily moves. The 2022 bear market was a slow policy-driven decline. The 2025 tariff crash was sharp but short-lived after policy reversal. The early warning system detected all three, but with varying lead times depending on crisis type.
+
+**Sources:**
+- [2020 Stock Market Crash - Wikipedia](https://en.wikipedia.org/wiki/2020_stock_market_crash)
+- [2022 Stock Market Decline - Wikipedia](https://en.wikipedia.org/wiki/2022_stock_market_decline)
+- [2025 Stock Market Crash - Wikipedia](https://en.wikipedia.org/wiki/2025_stock_market_crash)
 
 ---
 
@@ -691,9 +716,11 @@ Tail-Risk-fat-tails/
 │   ├── physics_finance_mapping.png # Conceptual mapping
 │   ├── covid_crash_analysis.png    # COVID-19 crisis EWS analysis
 │   ├── covid_crash_dashboard.png   # COVID-19 full dashboard
+│   ├── bear_2022_analysis.png      # 2022 bear market EWS analysis
+│   ├── bear_2022_dashboard.png     # 2022 bear market full dashboard
 │   ├── tariff_crash_analysis.png   # 2025 tariff crisis EWS analysis
 │   ├── tariff_crash_dashboard.png  # Tariff crisis full dashboard
-│   └── crisis_comparison.png       # Side-by-side crisis comparison
+│   └── crisis_comparison.png       # Three-crisis comparison
 ├── main.py                         # Entry point
 ├── generate_readme_figures.py      # Generate documentation figures
 ├── generate_crisis_examples.py     # Generate real-world crisis analyses
