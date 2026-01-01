@@ -1,0 +1,32 @@
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           TAIL RISK ANALYSIS REPORT                          ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  BASIC STATISTICS                                                            ║
+║  ───────────────                                                             ║
+║  Mean Return:            0.0556%                                      ║
+║  Standard Deviation:     0.8966%                                       ║
+║  Skewness:               0.8826                                       ║
+║  Excess Kurtosis:       10.2791                                       ║
+║                                                                              ║
+║  TAIL RISK METRICS                                                           ║
+║  ─────────────────                                                           ║
+║  Tail Index (α):         3.7038         (Normal) ║
+║  VaR (99%):              1.7396%                                    ║
+║  ES (99%):              -2.6438%                                     ║
+║  ES/VaR Ratio:          -1.5198                  ║
+║                                                                              ║
+║  TAIL PROBABILITY COMPARISON (3σ)                                            ║
+║  ────────────────────────────────                                            ║
+║  Gaussian Probability:     0.1350%                           ║
+║  Empirical Probability:    0.6000%                           ║
+║  Fat Tail Ratio:             0.74x                                    ║
+║                                                                              ║
+║  INTERPRETATION                                                              ║
+║  ──────────────                                                              ║
+║  ⚠️  Distribution has significant fat tails                                 ║
+║  ✓  Symmetric distribution                                                  ║
+║  ✓  Tail probabilities close to Gaussian                                    ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝

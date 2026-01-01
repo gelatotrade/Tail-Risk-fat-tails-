@@ -66,6 +66,12 @@ Traditional finance assumes market returns follow **Gaussian (Normal) distributi
 
 > "The 1987 crash was a 22-sigma event. Under Gaussian assumptions, this should happen once every 10^91 billion years—far longer than the age of the universe." — *Nassim Taleb*
 
+### Visual Evidence: Fat Tails in Action
+
+![Fat Tails Comparison](outputs/fat_tails_comparison.png)
+
+*Left: Linear scale shows similar peaks. Center: Log scale reveals the fat tails—real markets have far more extreme events. Right: Quantified underestimation at each sigma level.*
+
 ---
 
 ## The Solution: Physics-Based Tail Modeling
@@ -87,6 +93,12 @@ This framework replaces naive Gaussian assumptions with **physics-derived models
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+### Physics-Finance Conceptual Mapping
+
+![Physics Finance Mapping](outputs/physics_finance_mapping.png)
+
+*Each physics concept provides mathematical tools that naturally capture market behavior that Gaussian models miss.*
 
 ---
 
@@ -128,6 +140,12 @@ print(f"Tail index α = {levy.alpha:.2f}")  # α < 2 confirms fat tails
 # Compute tail probability
 prob_crash = levy.tail_probability(-0.10, tail='left')  # P(loss > 10%)
 ```
+
+#### Understanding the Tail Index (α)
+
+![Tail Index Interpretation](outputs/tail_index_interpretation.png)
+
+*Left: How different α values affect distribution shape. Right: Interpretation guide—lower α means fatter tails and more extreme events.*
 
 ### 2. Fokker-Planck Equation
 
@@ -239,6 +257,12 @@ print(f"WARNING LEVEL: {ews['warning_level']}")
 # Positive trends with p < 0.05 indicate approaching critical point
 ```
 
+#### Early Warning Signals in Action
+
+![Early Warning Signals](outputs/early_warning_signals.png)
+
+*Before a crisis: autocorrelation rises (critical slowing down), variance increases, and skewness becomes negative. These signals can provide advance warning of impending market stress.*
+
 ---
 
 ## 3D Tail Risk Coordinate System
@@ -309,6 +333,12 @@ fig = create_comprehensive_3d_dashboard(
 )
 ```
 
+### 3D Phase Space Dashboard
+
+![3D Tail Risk Dashboard](outputs/tail_risk_3d_dashboard.png)
+
+*Four coordinate systems visualized: Lévy flight space (volatility, tail index, jumps), Thermodynamic space (q-parameter, entropy, temperature), Phase transition space (susceptibility, order, criticality), and composite risk surface.*
+
 ---
 
 ## Installation & Quick Start
@@ -341,6 +371,9 @@ python main.py --mode demo --output outputs/
 # 4. Generate 3D visualizations
 # 5. Create comprehensive dashboard
 # 6. Output analysis report
+
+# Generate educational figures for documentation
+python generate_readme_figures.py
 ```
 
 ### Basic Usage
@@ -379,39 +412,29 @@ dashboard.create_full_dashboard(save_path='my_analysis.png')
 
 ## Visualization Gallery
 
-### 1. Comprehensive 3D Dashboard
+### 1. Full Analysis Dashboard
 
-Shows all four phase spaces simultaneously:
+The comprehensive 24-panel dashboard provides a complete view of tail risk across multiple dimensions:
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  ┌──────────────────┐  ┌──────────────────┐                             │
-│  │  Lévy Flight     │  │  Thermodynamic   │                             │
-│  │  Phase Space     │  │  Phase Space     │                             │
-│  │    [3D scatter]  │  │    [3D scatter]  │                             │
-│  └──────────────────┘  └──────────────────┘                             │
-│  ┌──────────────────┐  ┌──────────────────┐                             │
-│  │  Phase Trans.    │  │  Composite Risk  │                             │
-│  │  Space           │  │  Surface         │                             │
-│  │    [3D scatter]  │  │    [3D surface]  │                             │
-│  └──────────────────┘  └──────────────────┘                             │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+![Full Dashboard](outputs/full_dashboard.png)
 
-### 2. Full Analysis Dashboard
+*Complete tail risk analysis: 3D phase spaces, distribution analysis, time series metrics, and risk indicators.*
 
-24-panel comprehensive analysis:
+### 2. Crisis Period Analysis
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Row 1: 3D Phase Spaces (4 views)                                       │
-│  Row 2: Distribution Analysis (histogram, log-scale, Q-Q, tail index)  │
-│  Row 3: Time Series (returns/vol, VaR/ES evolution)                    │
-│  Row 4: Risk Indicators (moments, composite index, summary, tail probs)│
-└─────────────────────────────────────────────────────────────────────────┘
-```
+Compare normal market conditions with crisis periods:
 
-### 3. Phase Space Trajectory
+![Crisis Dashboard](outputs/crisis_dashboard.png)
+
+*Same analysis during a crisis period—notice the dramatic changes in phase space trajectories and risk metrics.*
+
+### 3. Risk Metrics Comparison
+
+![VaR Comparison](outputs/var_comparison.png)
+
+*Left: VaR estimates across methods—Gaussian consistently underestimates risk. Right: Progressive risk metrics from VaR to extreme return levels.*
+
+### 4. Phase Space Trajectory
 
 Animated trajectory through risk space:
 
@@ -594,7 +617,17 @@ Tail-Risk-fat-tails/
 │       ├── data_loader.py          # Data generation
 │       ├── numerical.py            # Numerical helpers
 │       └── statistics.py           # Statistical tests
+├── outputs/                        # Generated visualizations
+│   ├── full_dashboard.png          # Complete analysis dashboard
+│   ├── crisis_dashboard.png        # Crisis period analysis
+│   ├── tail_risk_3d_dashboard.png  # 3D phase space views
+│   ├── fat_tails_comparison.png    # Gaussian vs fat tails
+│   ├── early_warning_signals.png   # EWS before crisis
+│   ├── var_comparison.png          # VaR method comparison
+│   ├── tail_index_interpretation.png  # Alpha interpretation
+│   └── physics_finance_mapping.png # Conceptual mapping
 ├── main.py                         # Entry point
+├── generate_readme_figures.py      # Generate documentation figures
 ├── requirements.txt
 └── README.md
 ```
