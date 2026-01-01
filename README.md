@@ -265,60 +265,66 @@ print(f"WARNING LEVEL: {ews['warning_level']}")
 
 ### Real-World Crisis Examples
 
-The framework's early warning capabilities are demonstrated using two major market crises:
+The framework's early warning capabilities are demonstrated using two major S&P 500 market crises:
 
 #### COVID-19 Market Crash (February-April 2020)
 
-The COVID-19 pandemic caused one of the fastest market crashes in history:
-- **Peak to Trough:** -34% in just 23 trading days
-- **Worst Day:** March 16, 2020 (-12%, second worst day ever)
-- **Recovery:** V-shaped, with +9.4% on March 24 (biggest gain since 2008)
+The COVID-19 pandemic caused one of the fastest S&P 500 crashes in history:
+- **S&P 500 Peak:** 3,386 (February 19, 2020)
+- **S&P 500 Trough:** 2,237 (March 23, 2020)
+- **Maximum Drawdown:** -33.9% in just 23 trading days
+- **Worst Day:** March 16, 2020 (-12.0%, circuit breaker triggered at open)
+- **Best Day:** March 24, 2020 (+9.4%, biggest gain since 2008)
 
 ![COVID-19 Crash Analysis](outputs/covid_crash_analysis.png)
 
-*The COVID-19 crash analysis shows clear early warning signals: autocorrelation began rising in late February, variance exploded as volatility increased, and skewness turned sharply negative. The composite warning indicator moved from "Normal" (green) to "Critical" (red) before the worst of the crash.*
+*S&P 500 analysis during COVID-19: The top panel shows the index dropping from 3,386 to 2,237. Daily returns show extreme volatility with multiple ±10% days. Early warning signals (autocorrelation, variance, skewness) all elevated before the worst losses.*
 
 **Full Dashboard - COVID-19 Crisis:**
 
 ![COVID-19 Dashboard](outputs/covid_crash_dashboard.png)
 
-*Complete tail risk analysis during the COVID-19 crash showing 3D phase space trajectories, distribution shifts, and risk metrics evolution.*
+*Complete tail risk analysis of S&P 500 during the COVID-19 crash showing 3D phase space trajectories, distribution shifts, and risk metrics evolution.*
 
 #### Tariff Crisis (March-April 2025)
 
-The 2025 trade war escalation caused a sustained market selloff:
-- **Trigger:** Escalating retaliatory tariffs between major economies
-- **Total Drawdown:** ~25% over 4-5 weeks
-- **Character:** More gradual than COVID, with multiple waves as new tariffs were announced
+The 2025 trade war escalation caused a sustained S&P 500 selloff:
+- **Trigger:** Escalating retaliatory tariffs between US, China, and EU
+- **S&P 500 Peak:** ~5,800 (late February 2025)
+- **Total Drawdown:** ~20-25% over 5-6 weeks
+- **Worst Day:** April 2, 2025 (-5.2%, recession fears peak)
+- **Character:** More gradual than COVID, with multiple waves as new tariffs announced
 
 ![Tariff Crisis Analysis](outputs/tariff_crash_analysis.png)
 
-*The tariff crisis shows a different pattern—a slower build-up of risk signals as trade tensions escalated. The autocorrelation and variance indicators provided earlier warnings compared to COVID, giving more time to adjust positions.*
+*S&P 500 analysis during the 2025 Tariff Crisis: Unlike the sudden COVID shock, this policy-driven crisis shows a more gradual build-up. The early warning signals provided 10-15 days of lead time as autocorrelation and variance steadily increased.*
 
 **Full Dashboard - Tariff Crisis:**
 
 ![Tariff Crisis Dashboard](outputs/tariff_crash_dashboard.png)
 
-*Complete tail risk analysis during the 2025 tariff crisis. Notice the different phase space trajectory compared to the COVID crash—the tariff crisis shows more sustained high-risk states rather than a sudden spike.*
+*Complete tail risk analysis of S&P 500 during the 2025 tariff crisis. Notice the different phase space trajectory compared to COVID—sustained elevated risk rather than a sudden spike.*
 
-#### Crisis Comparison
+#### S&P 500 Crisis Comparison
 
 ![Crisis Comparison](outputs/crisis_comparison.png)
 
-*Side-by-side comparison of both crises: COVID-19 (top) was faster and more severe but also recovered quickly. The tariff crisis (bottom) showed a more prolonged build-up of risk signals, potentially allowing for earlier intervention.*
+*Side-by-side S&P 500 comparison: COVID-19 (top) was faster and more severe with a V-shaped recovery. The tariff crisis (bottom) showed a more prolonged build-up of risk signals, potentially allowing for earlier portfolio adjustments.*
 
-**Key Insights from Real-World Analysis:**
+**Key Insights from S&P 500 Analysis:**
 
 | Metric | COVID-19 (2020) | Tariff Crisis (2025) |
 |--------|-----------------|---------------------|
-| Crash Duration | ~23 days | ~35 days |
-| Maximum Drawdown | -34% | -25% |
-| Worst Single Day | -12% | -5.2% |
+| S&P 500 Peak | 3,386 | ~5,800 |
+| S&P 500 Trough | 2,237 | ~4,600 |
+| Crash Duration | ~23 trading days | ~35 trading days |
+| Maximum Drawdown | -33.9% | -20.7% |
+| Worst Single Day | -12.0% | -5.2% |
 | EWS Lead Time | ~5-7 days | ~10-15 days |
 | Recovery Pattern | V-shaped | Gradual |
-| Tail Index During Crisis | α ≈ 1.2 | α ≈ 1.5 |
+| Tail Index (α) | ≈ 1.2 (extreme) | ≈ 1.5 (fat) |
 
-> **Key Finding:** The early warning signals detected both crises, but with different lead times. The COVID crash was so rapid that signals emerged only days before the worst losses. The tariff crisis, being policy-driven, showed warning signs weeks in advance—demonstrating that the system's effectiveness depends on crisis type.
+> **Key Finding:** The early warning signals detected both S&P 500 crises, but with different lead times. The COVID crash was so rapid that signals emerged only days before the worst losses. The tariff crisis, being policy-driven, showed warning signs weeks in advance—demonstrating that the system's effectiveness depends on crisis type.
 
 ---
 
