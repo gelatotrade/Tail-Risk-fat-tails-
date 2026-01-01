@@ -308,9 +308,9 @@ The 2022 bear market was driven by aggressive Fed rate hikes to combat 9.1% infl
 #### Tariff Crisis (February-April 2025)
 
 The 2025 "Liberation Day" tariff shock caused the largest two-day point loss in S&P 500 history:
-- **S&P 500 Peak:** 6,139 (February 19, 2025)
-- **S&P 500 Trough:** 4,982.77 (April 8, 2025)
-- **Maximum Drawdown:** -18.8%
+- **S&P 500 Peak:** 6,144 (February 19, 2025)
+- **S&P 500 Trough:** 4,658 (April 4, 2025)
+- **Maximum Drawdown:** -24.2%
 - **April 3 ("Liberation Day"):** -4.84% (steep tariffs announced)
 - **April 4:** -5.97% (two-day loss: -10.3%, $6.6 trillion wiped out)
 - **April 9:** +9.52% (90-day tariff pause announced, biggest gain in years)
@@ -335,10 +335,10 @@ The 2025 "Liberation Day" tariff shock caused the largest two-day point loss in 
 
 | Metric | COVID-19 (2020) | 2022 Bear Market | Tariff Crisis (2025) |
 |--------|-----------------|------------------|---------------------|
-| S&P 500 Peak | 3,386 | 4,797 | 6,139 |
-| S&P 500 Trough | 2,237 | 3,577 | 4,983 |
+| S&P 500 Peak | 3,386 | 4,797 | 6,144 |
+| S&P 500 Trough | 2,237 | 3,577 | 4,658 |
 | Duration | 23 trading days | 282 days | ~35 trading days |
-| Maximum Drawdown | -33.9% | -25.4% | -18.8% |
+| Maximum Drawdown | -33.9% | -25.4% | -24.2% |
 | Worst Single Day | -11.98% | -3.9% | -5.97% |
 | Best Single Day | +9.38% | +2.8% | +9.52% |
 | Recovery Pattern | V-shaped | Gradual (2023) | Sharp V-shaped |

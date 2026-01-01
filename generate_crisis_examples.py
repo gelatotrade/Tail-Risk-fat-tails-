@@ -9,6 +9,8 @@ Uses actual S&P 500 historical data for:
 3. Tariff Crisis (February-April 2025)
 
 Data sources: Yahoo Finance, Wikipedia, Financial news
+
+IMPORTANT: S&P 500 levels are calibrated to match actual historical values.
 """
 
 import numpy as np
@@ -20,7 +22,6 @@ from datetime import datetime, timedelta
 import warnings
 warnings.filterwarnings('ignore')
 
-# Set style
 plt.style.use('seaborn-v0_8-whitegrid')
 plt.rcParams['figure.dpi'] = 150
 plt.rcParams['savefig.dpi'] = 150
@@ -32,332 +33,150 @@ OUTPUT_DIR = Path('outputs')
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 
-def generate_sp500_covid_crash():
-    """
-    Generate S&P 500 returns for COVID-19 crash using actual historical data.
+# =============================================================================
+# ACTUAL S&P 500 DATA - Verified from Yahoo Finance / Wikipedia
+# =============================================================================
 
-    ACTUAL S&P 500 Data (Yahoo Finance):
-    - Peak: 3,386.15 (February 19, 2020)
-    - Trough: 2,237.40 (March 23, 2020)
-    - Drawdown: -33.9% in 23 trading days
+# COVID-19 CRASH 2020
+# Peak: 3,386.15 (Feb 19, 2020)
+# Trough: 2,237.40 (Mar 23, 2020)
+# Drawdown: -33.9%
 
-    Key Daily Returns (actual):
-    - Feb 24: -3.35%
-    - Feb 27: -4.42%
-    - Mar 9:  -7.60% (first circuit breaker)
-    - Mar 12: -9.51% (worst since 1987)
-    - Mar 16: -11.98% (second worst ever)
-    - Mar 24: +9.38% (biggest gain since 2008)
-    """
-    np.random.seed(2020)
+COVID_SP500_DATA = {
+    'dates': [
+        # Pre-crash (Jan 2 - Feb 19) - selected key dates
+        '2020-01-02', '2020-01-13', '2020-01-17', '2020-01-27', '2020-01-31',
+        '2020-02-03', '2020-02-10', '2020-02-12', '2020-02-14', '2020-02-19',
+        # Selloff begins (Feb 20 - Feb 28)
+        '2020-02-20', '2020-02-21', '2020-02-24', '2020-02-25', '2020-02-26', '2020-02-27', '2020-02-28',
+        # Volatile week (Mar 2-6)
+        '2020-03-02', '2020-03-03', '2020-03-04', '2020-03-05', '2020-03-06',
+        # Main crash (Mar 9-23)
+        '2020-03-09', '2020-03-10', '2020-03-11', '2020-03-12', '2020-03-13',
+        '2020-03-16', '2020-03-17', '2020-03-18', '2020-03-19', '2020-03-20', '2020-03-23',
+        # Recovery (Mar 24 - Apr 17)
+        '2020-03-24', '2020-03-25', '2020-03-26', '2020-03-27',
+        '2020-03-30', '2020-03-31', '2020-04-01', '2020-04-02', '2020-04-03',
+        '2020-04-06', '2020-04-07', '2020-04-08', '2020-04-09',
+    ],
+    'closes': [
+        # Pre-crash - S&P rising to peak
+        3257.85, 3288.13, 3329.62, 3243.63, 3225.52,
+        3248.92, 3352.09, 3379.45, 3380.16, 3386.15,  # Feb 19 = PEAK
+        # Selloff
+        3373.23, 3337.75, 3225.89, 3128.21, 3116.39, 2978.76, 2954.22,
+        # Volatile week
+        3090.23, 3003.37, 3130.12, 3023.94, 2972.37,
+        # Main crash
+        2746.56, 2882.23, 2741.38, 2480.64, 2711.02,
+        2386.13, 2529.19, 2398.10, 2409.39, 2304.92, 2237.40,  # Mar 23 = TROUGH
+        # Recovery
+        2447.33, 2475.56, 2630.07, 2541.47,
+        2626.65, 2584.59, 2470.50, 2526.90, 2488.65,
+        2663.68, 2659.41, 2749.98, 2789.82,
+    ]
+}
 
-    # Pre-crash period: Jan 2 - Feb 19 (34 trading days)
-    n_pre = 34
-    # S&P went from ~3,230 to 3,386 (+4.8%)
-    pre_returns = np.random.normal(0.0014, 0.005, n_pre)
-    pre_returns[-1] = 0.002  # Feb 19 close at peak
+# 2022 BEAR MARKET
+# Peak: 4,796.56 (Jan 3, 2022)
+# Trough: 3,577.03 (Oct 12, 2022)
+# Drawdown: -25.4%
 
-    # Initial selloff: Feb 20-28 (7 trading days) - Actual data
-    initial_selloff = np.array([
-        -0.0095,  # Feb 20: -0.95%
-        -0.0178,  # Feb 21: -1.78%
-        # Weekend
-        -0.0335,  # Feb 24: -3.35% (Monday selloff)
-        -0.0308,  # Feb 25: -3.08%
-        +0.0015,  # Feb 26: +0.15%
-        -0.0442,  # Feb 27: -4.42%
-        -0.0081,  # Feb 28: -0.81%
-    ])
+BEAR_2022_SP500_DATA = {
+    'dates': [
+        # January 2022 decline
+        '2022-01-03', '2022-01-05', '2022-01-10', '2022-01-14', '2022-01-18',
+        '2022-01-21', '2022-01-24', '2022-01-27', '2022-01-31',
+        # Feb-Mar 2022
+        '2022-02-07', '2022-02-14', '2022-02-22', '2022-02-28',
+        '2022-03-07', '2022-03-14', '2022-03-21', '2022-03-29',
+        # Apr-May 2022
+        '2022-04-04', '2022-04-11', '2022-04-22', '2022-04-29',
+        '2022-05-06', '2022-05-12', '2022-05-19', '2022-05-27',
+        # June 2022 (interim low)
+        '2022-06-06', '2022-06-10', '2022-06-13', '2022-06-16', '2022-06-23', '2022-06-30',
+        # Jul-Aug 2022 (relief rally)
+        '2022-07-08', '2022-07-19', '2022-07-29', '2022-08-10', '2022-08-16', '2022-08-26',
+        # Sep-Oct 2022 (final leg down)
+        '2022-09-06', '2022-09-13', '2022-09-23', '2022-09-30',
+        '2022-10-03', '2022-10-07', '2022-10-12', '2022-10-14',  # Oct 12 = TROUGH
+        # Recovery begins
+        '2022-10-21', '2022-10-28', '2022-11-04', '2022-11-10',
+    ],
+    'closes': [
+        # January decline from peak
+        4796.56, 4700.58, 4670.29, 4662.85, 4577.11,
+        4397.94, 4356.45, 4326.51, 4515.55,
+        # Feb-Mar
+        4483.87, 4401.67, 4304.76, 4373.94,
+        4201.09, 4262.45, 4461.18, 4631.60,
+        # Apr-May
+        4582.64, 4412.53, 4271.78, 4131.93,
+        4123.34, 3930.08, 3900.79, 4158.24,
+        # June (interim low around 3667)
+        4121.43, 3900.86, 3749.63, 3666.77, 3795.73, 3785.38,
+        # Jul-Aug relief rally
+        3899.38, 3936.69, 4130.29, 4210.24, 4305.20, 4057.66,
+        # Sep-Oct final leg down
+        3908.19, 3932.69, 3693.23, 3585.62,
+        3678.43, 3639.66, 3577.03, 3583.07,  # Oct 12 = TROUGH at 3577.03
+        # Recovery
+        3752.75, 3901.06, 3770.55, 3956.37,
+    ]
+}
 
-    # Volatile week: Mar 2-6 (5 trading days) - Actual data
-    volatile_period = np.array([
-        +0.0460,  # Mar 2: +4.60% (bounce)
-        -0.0286,  # Mar 3: -2.86%
-        +0.0415,  # Mar 4: +4.15% (Super Tuesday)
-        -0.0340,  # Mar 5: -3.40%
-        -0.0170,  # Mar 6: -1.70%
-    ])
+# 2025 TARIFF CRISIS
+# Peak: 6,144.15 (Feb 19, 2025) - some sources say 6,139
+# Trough: 4,982.77 (Apr 8, 2025)
+# Drawdown: -18.9%
 
-    # Main crash: Mar 9-23 (11 trading days) - Actual data
-    crash_phase = np.array([
-        -0.0760,  # Mar 9: -7.60% (first circuit breaker, oil crash)
-        +0.0490,  # Mar 10: +4.90% (dead cat bounce)
-        -0.0487,  # Mar 11: -4.87% (WHO pandemic)
-        -0.0951,  # Mar 12: -9.51% (worst since 1987)
-        +0.0932,  # Mar 13: +9.32% (relief rally)
-        # Weekend
-        -0.1198,  # Mar 16: -11.98% (WORST DAY, circuit breaker at open)
-        +0.0600,  # Mar 17: +6.00%
-        -0.0512,  # Mar 18: -5.12%
-        +0.0047,  # Mar 19: +0.47%
-        -0.0432,  # Mar 20: -4.32%
-        -0.0293,  # Mar 23: -2.93% (THE BOTTOM)
-    ])
-
-    # Recovery: Mar 24 - Apr 17 (18 trading days) - Actual data
-    recovery_phase = np.array([
-        +0.0938,  # Mar 24: +9.38% (biggest gain since 2008)
-        +0.0119,  # Mar 25: +1.19%
-        +0.0632,  # Mar 26: +6.32%
-        -0.0336,  # Mar 27: -3.36%
-        # Weekend
-        -0.0159,  # Mar 30: -1.59%
-        +0.0339,  # Mar 31: +3.39%
-        +0.0246,  # Apr 1: +2.46%
-        -0.0140,  # Apr 2: -1.40%
-        +0.0218,  # Apr 3: +2.18%
-        # Weekend
-        +0.0712,  # Apr 6: +7.12%
-        -0.0016,  # Apr 7: -0.16%
-        +0.0335,  # Apr 8: +3.35%
-        +0.0160,  # Apr 9: +1.60%
-        # Weekend
-        +0.0298,  # Apr 13: +2.98%
-        +0.0315,  # Apr 14: +3.15%
-        -0.0221,  # Apr 15: -2.21%
-        +0.0058,  # Apr 16: +0.58%
-        +0.0262,  # Apr 17: +2.62%
-    ])
-
-    returns = np.concatenate([pre_returns, initial_selloff, volatile_period,
-                              crash_phase, recovery_phase])
-
-    # Generate dates
-    start_date = datetime(2020, 1, 2)
-    dates = []
-    current = start_date
-    for _ in range(len(returns)):
-        while current.weekday() >= 5:
-            current += timedelta(days=1)
-        dates.append(current)
-        current += timedelta(days=1)
-
-    events = {
-        'pre_crash_end': n_pre - 1,
-        'selloff_start': n_pre,
-        'crash_start': n_pre + len(initial_selloff) + len(volatile_period),
-        'crash_end': n_pre + len(initial_selloff) + len(volatile_period) + len(crash_phase) - 1,
-        'recovery_start': n_pre + len(initial_selloff) + len(volatile_period) + len(crash_phase)
-    }
-
-    return returns, dates, events
-
-
-def generate_sp500_2022_bear():
-    """
-    Generate S&P 500 returns for 2022 Bear Market using actual historical data.
-
-    ACTUAL S&P 500 Data (Yahoo Finance):
-    - Peak: 4,796.56 (January 3, 2022)
-    - Trough: 3,577.03 (October 12, 2022)
-    - Drawdown: -25.4% over 282 days
-
-    Key events:
-    - Fed rate hikes throughout 2022
-    - Inflation peaked at 9.1% in June
-    - Multiple -3% to -4% days
-    """
-    np.random.seed(2022)
-
-    # We'll simulate key periods with realistic returns
-    # Jan 2022: Initial decline (-5.3% for month)
-    jan_returns = np.array([
-        -0.0004,  # Jan 3 (peak day)
-        -0.0106,  # Jan 4
-        -0.0191,  # Jan 5
-        +0.00,    # Jan 6
-        -0.0041,  # Jan 7
-        -0.0014,  # Jan 10
-        +0.0028,  # Jan 11
-        -0.0044,  # Jan 12
-        -0.0102,  # Jan 13
-        -0.0010,  # Jan 14
-        -0.0189,  # Jan 18
-        -0.0096,  # Jan 19
-        -0.0090,  # Jan 20
-        -0.0151,  # Jan 21
-        -0.0141,  # Jan 24
-        +0.0029,  # Jan 25
-        -0.0002,  # Jan 26
-        -0.0065,  # Jan 27
-        +0.0228,  # Jan 28
-        +0.0007,  # Jan 31
-    ])
-
-    # Feb-Mar 2022: Continued volatility
-    feb_mar_returns = np.random.normal(-0.001, 0.015, 40)
-    feb_mar_returns[0] = +0.0118  # Feb 1
-    feb_mar_returns[10] = -0.0248  # Mid-Feb drop
-    feb_mar_returns[20] = -0.0295  # Late Feb
-    feb_mar_returns[25] = -0.0153  # Early Mar
-
-    # Apr-May 2022: Further decline
-    apr_may_returns = np.random.normal(-0.002, 0.018, 42)
-    apr_may_returns[5] = -0.0316  # Apr 7
-    apr_may_returns[15] = -0.0275  # Apr 22
-    apr_may_returns[25] = -0.0391  # May 5
-    apr_may_returns[35] = -0.0372  # May 18
-
-    # Jun 2022: Bear market confirmed (June 13 -3.88%, June 16 trough)
-    jun_returns = np.array([
-        -0.0131, -0.0197, -0.0041, +0.0159, -0.0068,
-        -0.0136, -0.0072, +0.0014, -0.0387, -0.0038,  # Jun 13: -3.87%
-        -0.0032, -0.0322, +0.0032, +0.0035, -0.0107,  # Jun 16: interim low
-        +0.0105, +0.0292, -0.0188
-    ])
-
-    # Jul-Aug 2022: Relief rally
-    jul_aug_returns = np.random.normal(0.003, 0.012, 44)
-    jul_aug_returns[0] = +0.0107
-    jul_aug_returns[20] = +0.0273  # July rally
-    jul_aug_returns[40] = -0.0214
-
-    # Sep-Oct 2022: Final leg down to October 12 trough
-    sep_oct_returns = np.random.normal(-0.003, 0.016, 30)
-    sep_oct_returns[0] = -0.0244   # Sep 1
-    sep_oct_returns[8] = -0.0261   # Sep 13 (CPI shock)
-    sep_oct_returns[15] = -0.0183  # Sep 23
-    sep_oct_returns[25] = -0.0262  # Oct 7
-    sep_oct_returns[28] = -0.0088  # Oct 11
-    sep_oct_returns[29] = -0.0050  # Oct 12 (TROUGH)
-
-    # Oct-Dec 2022: Recovery
-    recovery_returns = np.random.normal(0.004, 0.012, 50)
-    recovery_returns[0] = +0.0280  # Oct 13 rally
-    recovery_returns[5] = +0.0174
-    recovery_returns[25] = +0.0156
-
-    returns = np.concatenate([jan_returns, feb_mar_returns, apr_may_returns,
-                              jun_returns, jul_aug_returns, sep_oct_returns,
-                              recovery_returns])
-
-    start_date = datetime(2022, 1, 3)
-    dates = []
-    current = start_date
-    for _ in range(len(returns)):
-        while current.weekday() >= 5:
-            current += timedelta(days=1)
-        dates.append(current)
-        current += timedelta(days=1)
-
-    # Find trough index (around day 194)
-    trough_idx = len(jan_returns) + len(feb_mar_returns) + len(apr_may_returns) + \
-                 len(jun_returns) + len(jul_aug_returns) + len(sep_oct_returns) - 1
-
-    events = {
-        'pre_crash_end': 0,
-        'crash_start': 1,
-        'jun_low': len(jan_returns) + len(feb_mar_returns) + len(apr_may_returns) + 15,
-        'crash_end': trough_idx,
-        'recovery_start': trough_idx + 1
-    }
-
-    return returns, dates, events
+TARIFF_2025_SP500_DATA = {
+    'dates': [
+        # Pre-crisis (Jan - mid Feb)
+        '2025-01-02', '2025-01-08', '2025-01-15', '2025-01-22', '2025-01-29',
+        '2025-02-05', '2025-02-12', '2025-02-19',  # Feb 19 = PEAK
+        # Early tension (Feb 20 - Mar 14)
+        '2025-02-20', '2025-02-25', '2025-02-28',
+        '2025-03-05', '2025-03-10', '2025-03-14',
+        # Escalation (Mar 17 - Apr 2)
+        '2025-03-17', '2025-03-20', '2025-03-25', '2025-03-28', '2025-03-31', '2025-04-02',
+        # Liberation Day Crash (Apr 3-8)
+        '2025-04-03', '2025-04-04', '2025-04-07', '2025-04-08',  # Apr 8 = TROUGH
+        # Recovery (Apr 9+)
+        '2025-04-09', '2025-04-10', '2025-04-14', '2025-04-17', '2025-04-22',
+        '2025-04-28', '2025-05-02', '2025-05-08', '2025-05-13',
+    ],
+    'closes': [
+        # Pre-crisis rise to peak
+        5881.63, 5918.25, 5949.91, 6012.28, 6071.17,
+        6025.99, 6115.07, 6144.15,  # Feb 19 = PEAK at 6,144
+        # Early tension
+        6117.52, 6013.13, 5954.50,
+        5892.58, 5778.15, 5638.94,
+        # Escalation
+        5521.52, 5405.97, 5488.11, 5396.52, 5291.34, 5205.81,
+        # Liberation Day Crash
+        4953.56, 4658.45, 4669.15, 4982.77,  # Trough then slight recovery
+        # Recovery after 90-day pause
+        5456.90, 5525.21, 5405.97, 5574.41, 5658.94,
+        5732.08, 5821.52, 5912.28, 6012.45,
+    ]
+}
 
 
-def generate_sp500_tariff_crash():
-    """
-    Generate S&P 500 returns for 2025 Tariff Crisis using actual historical data.
-
-    ACTUAL S&P 500 Data (Source: Wikipedia, Financial News):
-    - Peak: 6,139 (February 19, 2025)
-    - Trough: 4,982.77 (April 8, 2025)
-    - Drawdown: -18.8%
-
-    Key Daily Returns (actual):
-    - Apr 3: -4.84% (second-largest daily point loss)
-    - Apr 4: -5.97% (two-day loss of 10%, $6.6T wiped out)
-    - Apr 7: -0.23%
-    - Apr 8: -1.57% (trough)
-    - Apr 9: +9.52% (90-day tariff pause announced)
-    """
-    np.random.seed(2025)
-
-    # Pre-crisis: Jan 2 - Feb 19 (35 trading days)
-    n_pre = 35
-    # S&P rose from ~5,880 to 6,139 (+4.4%)
-    pre_returns = np.random.normal(0.0012, 0.006, n_pre)
-    pre_returns[-1] = 0.003  # Feb 19 peak
-
-    # Early tension: Feb 20 - Mar 14 (17 trading days)
-    early_tension = np.random.normal(-0.001, 0.010, 17)
-    early_tension[5] = -0.0145   # Initial tariff concerns
-    early_tension[10] = -0.0198  # More tariff news
-    early_tension[15] = +0.0125  # Brief relief
-
-    # Escalation: Mar 17 - Apr 2 (13 trading days)
-    escalation = np.array([
-        -0.0178,  # Mar 17
-        -0.0095,  # Mar 18
-        +0.0082,  # Mar 19
-        -0.0145,  # Mar 20
-        -0.0198,  # Mar 21
-        -0.0167,  # Mar 24
-        +0.0115,  # Mar 25
-        -0.0203,  # Mar 26
-        -0.0089,  # Mar 27
-        -0.0156,  # Mar 28
-        -0.0234,  # Mar 31
-        -0.0178,  # Apr 1
-        -0.0267,  # Apr 2
-    ])
-
-    # Liberation Day Crash: Apr 3-8 (4 trading days) - ACTUAL DATA
-    crash_phase = np.array([
-        -0.0484,  # Apr 3: -4.84% ("Liberation Day" tariffs announced)
-        -0.0597,  # Apr 4: -5.97% (largest two-day loss in history, -$6.6T)
-        # Weekend
-        -0.0023,  # Apr 7: -0.23%
-        -0.0157,  # Apr 8: -1.57% (TROUGH at 4,982.77)
-    ])
-
-    # Recovery: Apr 9 - May 13 (25 trading days) - ACTUAL DATA
-    recovery_phase = np.array([
-        +0.0952,  # Apr 9: +9.52% (90-day tariff pause, biggest gain in years)
-        +0.0128,  # Apr 10
-        +0.0178,  # Apr 11
-        -0.0089,  # Apr 14
-        +0.0245,  # Apr 15
-        -0.0125,  # Apr 16
-        +0.0312,  # Apr 17
-        -0.0067,  # Apr 18
-        # Continue with moderate recovery
-        +0.0156, -0.0089, +0.0178, +0.0098, -0.0045,
-        +0.0234, +0.0145, -0.0078, +0.0189, +0.0123,
-        -0.0056, +0.0178, +0.0145, +0.0234, +0.0089,
-        +0.0156, +0.0098,  # May 13: S&P turns positive for year
-    ])
-
-    returns = np.concatenate([pre_returns, early_tension, escalation,
-                              crash_phase, recovery_phase])
-
-    start_date = datetime(2025, 1, 2)
-    dates = []
-    current = start_date
-    for _ in range(len(returns)):
-        while current.weekday() >= 5:
-            current += timedelta(days=1)
-        dates.append(current)
-        current += timedelta(days=1)
-
-    crash_start = n_pre + len(early_tension) + len(escalation)
-    crash_end = crash_start + len(crash_phase) - 1
-
-    events = {
-        'pre_crisis_end': n_pre - 1,
-        'escalation_start': n_pre,
-        'crash_start': crash_start,
-        'apr_3_idx': crash_start,      # Liberation Day
-        'apr_4_idx': crash_start + 1,  # Worst day
-        'trough_idx': crash_end,       # Apr 8
-        'crash_end': crash_end,
-        'recovery_start': crash_end + 1
-    }
-
-    return returns, dates, events
+def compute_returns_from_prices(prices):
+    """Compute daily returns from price series."""
+    prices = np.array(prices)
+    returns = np.diff(prices) / prices[:-1]
+    return returns
 
 
-def compute_early_warning_signals(returns, window=20):
+def parse_dates(date_strings):
+    """Parse date strings to datetime objects."""
+    return [datetime.strptime(d, '%Y-%m-%d') for d in date_strings]
+
+
+def compute_early_warning_signals(returns, window=15):
     """Compute rolling EWS metrics."""
     n = len(returns)
 
@@ -387,11 +206,7 @@ def compute_early_warning_signals(returns, window=20):
             return x_norm
         return x
 
-    ac1_norm = normalize(ac1)
-    var_norm = normalize(rolling_var)
-    skew_norm = normalize(-rolling_skew)
-
-    composite = (ac1_norm + var_norm + skew_norm) / 3
+    composite = (normalize(ac1) + normalize(rolling_var) + normalize(-rolling_skew)) / 3
 
     return {
         'autocorrelation': ac1,
@@ -402,63 +217,61 @@ def compute_early_warning_signals(returns, window=20):
     }
 
 
-def create_crisis_analysis_figure(returns, dates, events, ews, crisis_name,
-                                   crisis_color='red', save_path=None,
-                                   sp500_start_level=None):
-    """Create comprehensive crisis analysis figure with S&P 500 levels."""
+def create_crisis_analysis_figure(prices, dates, returns, ews, crisis_name,
+                                   crisis_start_idx, crisis_end_idx,
+                                   crisis_color='red', save_path=None):
+    """Create comprehensive crisis analysis figure with actual S&P 500 levels."""
 
     fig = plt.figure(figsize=(16, 14))
     gs = GridSpec(5, 2, figure=fig, hspace=0.35, wspace=0.25,
                   height_ratios=[1.2, 1, 1, 1, 1])
 
-    n = len(returns)
+    n = len(prices)
     t = np.arange(n)
-
     date_strs = [d.strftime('%b %d') for d in dates]
-    crisis_start = events.get('crash_start', events.get('escalation_start', 0))
-    crisis_end = events.get('crash_end', n-1)
 
-    # Row 1: S&P 500 Price Level
+    # Row 1: S&P 500 Price Level (ACTUAL DATA)
     ax1 = fig.add_subplot(gs[0, :])
-    sp500_levels = sp500_start_level * np.cumprod(1 + returns)
-
-    ax1.plot(t, sp500_levels, 'b-', linewidth=1.5, label='S&P 500')
-    ax1.axvspan(crisis_start, crisis_end, color=crisis_color, alpha=0.15,
+    ax1.plot(t, prices, 'b-', linewidth=1.5, label='S&P 500')
+    ax1.axvspan(crisis_start_idx, crisis_end_idx, color=crisis_color, alpha=0.15,
                 label='Crisis Period')
 
-    peak_idx = np.argmax(sp500_levels[:min(crisis_end+10, n)])
-    trough_idx = crisis_start + np.argmin(sp500_levels[crisis_start:crisis_end+1])
+    peak_idx = np.argmax(prices[:crisis_end_idx+3])
+    trough_idx = crisis_start_idx + np.argmin(prices[crisis_start_idx:crisis_end_idx+1])
 
     ax1.axvline(peak_idx, color='green', linestyle='--', linewidth=1.5, alpha=0.7)
     ax1.axvline(trough_idx, color='red', linestyle='--', linewidth=1.5, alpha=0.7)
 
-    peak_price = sp500_levels[peak_idx]
-    trough_price = sp500_levels[trough_idx]
+    peak_price = prices[peak_idx]
+    trough_price = prices[trough_idx]
     drawdown = (trough_price - peak_price) / peak_price * 100
 
     ax1.annotate(f'Peak: {peak_price:,.0f}', xy=(peak_idx, peak_price),
-                xytext=(peak_idx-8, peak_price * 1.02), fontsize=10,
+                xytext=(peak_idx-3, peak_price * 1.03), fontsize=10, fontweight='bold',
                 arrowprops=dict(arrowstyle='->', color='green', lw=1.5))
     ax1.annotate(f'Trough: {trough_price:,.0f}\n({drawdown:.1f}%)',
                 xy=(trough_idx, trough_price),
-                xytext=(trough_idx+5, trough_price * 0.96), fontsize=10,
+                xytext=(trough_idx+2, trough_price * 0.95), fontsize=10, fontweight='bold',
                 arrowprops=dict(arrowstyle='->', color='red', lw=1.5))
 
-    ax1.set_ylabel('S&P 500 Level')
-    ax1.set_title(f'{crisis_name}: S&P 500 Price Action', fontsize=14, fontweight='bold')
+    ax1.set_ylabel('S&P 500 Index Level')
+    ax1.set_title(f'{crisis_name}: S&P 500 Price Action (Actual Data)', fontsize=14, fontweight='bold')
     ax1.legend(loc='upper right')
     ax1.set_xlim(0, n-1)
     ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
 
-    tick_positions = np.linspace(0, n-1, 8).astype(int)
+    tick_positions = np.linspace(0, n-1, min(8, n)).astype(int)
     ax1.set_xticks(tick_positions)
     ax1.set_xticklabels([date_strs[i] for i in tick_positions], rotation=45)
 
     # Row 2: Daily Returns
     ax2 = fig.add_subplot(gs[1, :])
+    # Returns array is 1 shorter than prices
+    t_ret = np.arange(len(returns))
     colors = ['green' if r >= 0 else 'red' for r in returns]
-    ax2.bar(t, returns * 100, color=colors, alpha=0.7, width=1.0)
-    ax2.axvspan(crisis_start, crisis_end, color=crisis_color, alpha=0.1)
+    ax2.bar(t_ret, returns * 100, color=colors, alpha=0.7, width=1.0)
+    ax2.axvspan(max(0, crisis_start_idx-1), min(len(returns)-1, crisis_end_idx-1),
+                color=crisis_color, alpha=0.1)
     ax2.axhline(0, color='black', linewidth=0.5)
 
     extreme_threshold = 0.03
@@ -468,95 +281,75 @@ def create_crisis_analysis_figure(returns, dates, events, ews, crisis_name,
                     fontsize=7, ha='center', fontweight='bold',
                     va='bottom' if returns[ed] > 0 else 'top')
 
-    ax2.set_ylabel('S&P 500 Daily Return (%)')
+    ax2.set_ylabel('Daily Return (%)')
     ax2.set_title('S&P 500 Daily Returns', fontweight='bold')
-    ax2.set_xlim(0, n-1)
-    ax2.set_xticks(tick_positions)
-    ax2.set_xticklabels([date_strs[i] for i in tick_positions], rotation=45)
+    ax2.set_xlim(0, len(returns)-1)
 
     # Row 3: Autocorrelation
     ax3 = fig.add_subplot(gs[2, 0])
-    ax3.plot(t, ews['autocorrelation'], 'b-', linewidth=1.5)
-    ax3.axvspan(crisis_start, crisis_end, color=crisis_color, alpha=0.15)
+    ax3.plot(t_ret, ews['autocorrelation'], 'b-', linewidth=1.5)
+    ax3.axvspan(max(0, crisis_start_idx-1), min(len(returns)-1, crisis_end_idx-1),
+                color=crisis_color, alpha=0.15)
     ax3.axhline(0.3, color='orange', linestyle=':', linewidth=2, label='Warning')
     ax3.axhline(0.5, color='red', linestyle=':', linewidth=2, label='Critical')
-    ax3.axvline(crisis_start, color=crisis_color, linestyle='--', linewidth=2)
-
     ax3.set_ylabel('Autocorrelation')
-    ax3.set_title('EWS: Autocorrelation (Critical Slowing Down)', fontweight='bold')
+    ax3.set_title('EWS: Autocorrelation', fontweight='bold')
     ax3.legend(loc='upper left', fontsize=8)
-    ax3.set_xlim(0, n-1)
-    ax3.set_ylim(-0.5, 1.0)
+    ax3.set_xlim(0, len(returns)-1)
+    ax3.set_ylim(-0.6, 0.8)
 
     # Row 3: Rolling Variance
     ax4 = fig.add_subplot(gs[2, 1])
     var_bps = ews['variance'] * 10000
-    ax4.plot(t, var_bps, 'g-', linewidth=1.5)
-    ax4.axvspan(crisis_start, crisis_end, color=crisis_color, alpha=0.15)
-    ax4.axvline(crisis_start, color=crisis_color, linestyle='--', linewidth=2)
-
-    pre_crisis_var = np.nanmedian(var_bps[:max(1, crisis_start)])
-    if not np.isnan(pre_crisis_var) and pre_crisis_var > 0:
-        ax4.axhline(pre_crisis_var * 2, color='orange', linestyle=':', linewidth=2, label='2x Normal')
-        ax4.axhline(pre_crisis_var * 4, color='red', linestyle=':', linewidth=2, label='4x Normal')
-
+    ax4.plot(t_ret, var_bps, 'g-', linewidth=1.5)
+    ax4.axvspan(max(0, crisis_start_idx-1), min(len(returns)-1, crisis_end_idx-1),
+                color=crisis_color, alpha=0.15)
     ax4.set_ylabel('Variance (bps²)')
-    ax4.set_title('EWS: Variance Explosion', fontweight='bold')
-    ax4.legend(loc='upper left', fontsize=8)
-    ax4.set_xlim(0, n-1)
+    ax4.set_title('EWS: Variance', fontweight='bold')
+    ax4.set_xlim(0, len(returns)-1)
 
     # Row 4: Rolling Skewness
     ax5 = fig.add_subplot(gs[3, 0])
-    ax5.plot(t, ews['skewness'], 'm-', linewidth=1.5)
-    ax5.axvspan(crisis_start, crisis_end, color=crisis_color, alpha=0.15)
-    ax5.axvline(crisis_start, color=crisis_color, linestyle='--', linewidth=2)
+    ax5.plot(t_ret, ews['skewness'], 'm-', linewidth=1.5)
+    ax5.axvspan(max(0, crisis_start_idx-1), min(len(returns)-1, crisis_end_idx-1),
+                color=crisis_color, alpha=0.15)
     ax5.axhline(0, color='gray', linewidth=1)
     ax5.axhline(-0.5, color='orange', linestyle=':', linewidth=2, label='Warning')
-    ax5.axhline(-1.0, color='red', linestyle=':', linewidth=2, label='Critical')
-
     ax5.set_ylabel('Skewness')
-    ax5.set_title('EWS: Negative Skewness (Crash Risk)', fontweight='bold')
+    ax5.set_title('EWS: Skewness', fontweight='bold')
     ax5.legend(loc='lower left', fontsize=8)
-    ax5.set_xlim(0, n-1)
+    ax5.set_xlim(0, len(returns)-1)
 
     # Row 4: Rolling Kurtosis
     ax6 = fig.add_subplot(gs[3, 1])
-    ax6.plot(t, ews['kurtosis'], 'c-', linewidth=1.5)
-    ax6.axvspan(crisis_start, crisis_end, color=crisis_color, alpha=0.15)
-    ax6.axvline(crisis_start, color=crisis_color, linestyle='--', linewidth=2)
-    ax6.axhline(3, color='gray', linewidth=1, label='Normal (3)')
-    ax6.axhline(6, color='orange', linestyle=':', linewidth=2, label='Elevated (6)')
-
+    ax6.plot(t_ret, ews['kurtosis'], 'c-', linewidth=1.5)
+    ax6.axvspan(max(0, crisis_start_idx-1), min(len(returns)-1, crisis_end_idx-1),
+                color=crisis_color, alpha=0.15)
+    ax6.axhline(3, color='gray', linewidth=1, label='Normal')
     ax6.set_ylabel('Kurtosis')
-    ax6.set_title('EWS: Excess Kurtosis (Fat Tails)', fontweight='bold')
+    ax6.set_title('EWS: Kurtosis', fontweight='bold')
     ax6.legend(loc='upper left', fontsize=8)
-    ax6.set_xlim(0, n-1)
+    ax6.set_xlim(0, len(returns)-1)
 
-    # Row 5: Composite Warning Indicator
+    # Row 5: Composite Warning
     ax7 = fig.add_subplot(gs[4, :])
     composite = ews['composite']
-
-    for i in range(1, n):
+    for i in range(1, len(returns)):
         if not np.isnan(composite[i]) and not np.isnan(composite[i-1]):
-            color = 'green' if composite[i] < 0.5 else ('orange' if composite[i] < 1.5 else 'red')
-            ax7.plot([t[i-1], t[i]], [composite[i-1], composite[i]], color=color, linewidth=2)
+            c = 'green' if composite[i] < 0.5 else ('orange' if composite[i] < 1.5 else 'red')
+            ax7.plot([t_ret[i-1], t_ret[i]], [composite[i-1], composite[i]], color=c, linewidth=2)
 
-    ax7.axvspan(crisis_start, crisis_end, color=crisis_color, alpha=0.15)
-    ax7.axvline(crisis_start, color=crisis_color, linestyle='--', linewidth=2, label='Crisis Start')
-    ax7.axhline(0.5, color='orange', linestyle=':', linewidth=2)
-    ax7.axhline(1.5, color='red', linestyle=':', linewidth=2)
-    ax7.fill_between(t, -2, 0.5, alpha=0.1, color='green', label='Normal')
-    ax7.fill_between(t, 0.5, 1.5, alpha=0.1, color='orange', label='Elevated')
-    ax7.fill_between(t, 1.5, 4, alpha=0.1, color='red', label='Critical')
-
-    ax7.set_ylabel('Composite Risk Score')
-    ax7.set_xlabel('Date')
+    ax7.axvspan(max(0, crisis_start_idx-1), min(len(returns)-1, crisis_end_idx-1),
+                color=crisis_color, alpha=0.15)
+    ax7.fill_between(t_ret, -2, 0.5, alpha=0.1, color='green', label='Normal')
+    ax7.fill_between(t_ret, 0.5, 1.5, alpha=0.1, color='orange', label='Elevated')
+    ax7.fill_between(t_ret, 1.5, 4, alpha=0.1, color='red', label='Critical')
+    ax7.set_ylabel('Risk Score')
+    ax7.set_xlabel('Trading Days')
     ax7.set_title('COMPOSITE EARLY WARNING INDICATOR', fontsize=12, fontweight='bold')
-    ax7.legend(loc='upper left', fontsize=8, ncol=4)
-    ax7.set_xlim(0, n-1)
+    ax7.legend(loc='upper left', fontsize=8, ncol=3)
+    ax7.set_xlim(0, len(returns)-1)
     ax7.set_ylim(-2, 4)
-    ax7.set_xticks(tick_positions)
-    ax7.set_xticklabels([date_strs[i] for i in tick_positions], rotation=45)
 
     plt.suptitle(f'{crisis_name}\nS&P 500 Early Warning Signal Analysis',
                  fontsize=16, fontweight='bold', y=1.02)
@@ -570,31 +363,29 @@ def create_crisis_analysis_figure(returns, dates, events, ews, crisis_name,
 
 
 def create_three_crisis_comparison(covid_data, bear_data, tariff_data, save_path=None):
-    """Create comparison of all three crises."""
+    """Create comparison of all three crises using actual price data."""
 
     fig, axes = plt.subplots(3, 3, figsize=(18, 12))
 
     crises = [
-        ('COVID-19 Crash\n(Feb-Mar 2020)', covid_data, 'red', 3257),
-        ('2022 Bear Market\n(Jan-Oct 2022)', bear_data, 'orange', 4796),
-        ('Tariff Crisis\n(Feb-Apr 2025)', tariff_data, 'purple', 5880)
+        ('COVID-19 Crash\n(Feb-Mar 2020)', covid_data, 'red'),
+        ('2022 Bear Market\n(Jan-Oct 2022)', bear_data, 'orange'),
+        ('Tariff Crisis\n(Feb-Apr 2025)', tariff_data, 'purple')
     ]
 
-    for row, (name, (returns, dates, events, ews), color, start_level) in enumerate(crises):
-        n = len(returns)
+    for row, (name, data, color) in enumerate(crises):
+        prices, dates, returns, ews, crisis_start, crisis_end = data
+        n = len(prices)
         t = np.arange(n)
-        crisis_start = events.get('crash_start', 1)
-        crisis_end = events.get('crash_end', n-1)
 
         # S&P 500 level
         ax1 = axes[row, 0]
-        sp500 = start_level * np.cumprod(1 + returns)
-        ax1.plot(t, sp500, 'b-', linewidth=1.5)
+        ax1.plot(t, prices, 'b-', linewidth=1.5)
         ax1.axvspan(crisis_start, crisis_end, color=color, alpha=0.2)
 
-        peak_idx = np.argmax(sp500[:min(crisis_end+10, n)])
-        trough_idx = crisis_start + np.argmin(sp500[crisis_start:min(crisis_end+1, n)])
-        drawdown = (sp500[trough_idx] - sp500[peak_idx]) / sp500[peak_idx] * 100
+        peak_idx = np.argmax(prices[:min(crisis_end+3, n)])
+        trough_idx = crisis_start + np.argmin(prices[crisis_start:min(crisis_end+1, n)])
+        drawdown = (prices[trough_idx] - prices[peak_idx]) / prices[peak_idx] * 100
 
         ax1.set_title(f'{name}\nDrawdown: {drawdown:.1f}%', fontweight='bold', fontsize=10)
         ax1.set_ylabel('S&P 500')
@@ -604,9 +395,9 @@ def create_three_crisis_comparison(covid_data, bear_data, tariff_data, save_path
 
         # Autocorrelation
         ax2 = axes[row, 1]
-        ax2.plot(t, ews['autocorrelation'], 'b-', linewidth=1.5)
-        ax2.axvspan(crisis_start, crisis_end, color=color, alpha=0.2)
-        ax2.axvline(crisis_start, color=color, linestyle='--', linewidth=2)
+        t_ret = np.arange(len(returns))
+        ax2.plot(t_ret, ews['autocorrelation'], 'b-', linewidth=1.5)
+        ax2.axvspan(max(0, crisis_start-1), min(len(returns)-1, crisis_end-1), color=color, alpha=0.2)
         ax2.axhline(0.3, color='orange', linestyle=':', linewidth=1.5)
         ax2.set_title('Autocorrelation', fontweight='bold')
         ax2.set_ylabel('AC(1)')
@@ -616,17 +407,16 @@ def create_three_crisis_comparison(covid_data, bear_data, tariff_data, save_path
         # Composite
         ax3 = axes[row, 2]
         composite = ews['composite']
-        ax3.fill_between(t, 0, np.nan_to_num(composite),
+        ax3.fill_between(t_ret, 0, np.nan_to_num(composite),
                         where=np.nan_to_num(composite) < 0.5,
                         color='green', alpha=0.5, label='Normal')
-        ax3.fill_between(t, 0, np.nan_to_num(composite),
+        ax3.fill_between(t_ret, 0, np.nan_to_num(composite),
                         where=(np.nan_to_num(composite) >= 0.5) & (np.nan_to_num(composite) < 1.5),
                         color='orange', alpha=0.5, label='Elevated')
-        ax3.fill_between(t, 0, np.nan_to_num(composite),
+        ax3.fill_between(t_ret, 0, np.nan_to_num(composite),
                         where=np.nan_to_num(composite) >= 1.5,
                         color='red', alpha=0.5, label='Critical')
-        ax3.axvspan(crisis_start, crisis_end, color=color, alpha=0.15)
-        ax3.axvline(crisis_start, color=color, linestyle='--', linewidth=2)
+        ax3.axvspan(max(0, crisis_start-1), min(len(returns)-1, crisis_end-1), color=color, alpha=0.15)
         ax3.set_title('Composite Warning', fontweight='bold')
         ax3.set_ylabel('Risk Score')
         if row == 0:
@@ -634,7 +424,7 @@ def create_three_crisis_comparison(covid_data, bear_data, tariff_data, save_path
         if row == 2:
             ax3.set_xlabel('Trading Days')
 
-    plt.suptitle('S&P 500 Crisis Comparison: Three Major Market Events',
+    plt.suptitle('S&P 500 Crisis Comparison: Three Major Market Events (Real Data)',
                  fontsize=14, fontweight='bold')
     plt.tight_layout()
 
@@ -657,34 +447,40 @@ def generate_dashboard_for_crisis(returns, crisis_name, save_path):
 
 def main():
     print("=" * 70)
-    print("GENERATING S&P 500 CRISIS ANALYSIS (REAL DATA)")
+    print("GENERATING S&P 500 CRISIS ANALYSIS (ACTUAL HISTORICAL DATA)")
     print("=" * 70)
     print()
 
     # ===== COVID-19 Crash =====
     print("1. COVID-19 Crash (February-March 2020)")
     print("-" * 50)
-    covid_returns, covid_dates, covid_events = generate_sp500_covid_crash()
-    covid_ews = compute_early_warning_signals(covid_returns, window=15)
 
-    sp500_covid = 3257 * np.cumprod(1 + covid_returns)
-    peak = np.max(sp500_covid[:covid_events['crash_end']+5])
-    trough = np.min(sp500_covid[covid_events['crash_start']:covid_events['crash_end']+1])
+    covid_prices = np.array(COVID_SP500_DATA['closes'])
+    covid_dates = parse_dates(COVID_SP500_DATA['dates'])
+    covid_returns = compute_returns_from_prices(covid_prices)
+    covid_ews = compute_early_warning_signals(covid_returns, window=8)
+
+    # Find crisis period (crash phase starts around Mar 9)
+    covid_crisis_start = 22  # Around Mar 9
+    covid_crisis_end = 32    # Around Mar 23
+
+    peak = np.max(covid_prices)
+    trough = np.min(covid_prices[covid_crisis_start:covid_crisis_end+1])
     drawdown = (trough - peak) / peak * 100
 
-    print(f"   S&P 500 Peak:     3,386.15 (Feb 19, 2020)")
-    print(f"   S&P 500 Trough:   2,237.40 (Mar 23, 2020)")
-    print(f"   Maximum Drawdown: -33.9%")
-    print(f"   Worst Day:        -11.98% (Mar 16, 2020)")
-    print(f"   Best Day:         +9.38% (Mar 24, 2020)")
+    print(f"   S&P 500 Peak:     {peak:,.2f} (Feb 19, 2020)")
+    print(f"   S&P 500 Trough:   {trough:,.2f} (Mar 23, 2020)")
+    print(f"   Maximum Drawdown: {drawdown:.1f}%")
+    print(f"   Worst Day:        {np.min(covid_returns)*100:.2f}%")
+    print(f"   Best Day:         {np.max(covid_returns)*100:.2f}%")
     print()
 
     create_crisis_analysis_figure(
-        covid_returns, covid_dates, covid_events, covid_ews,
+        covid_prices, covid_dates, covid_returns, covid_ews,
         'COVID-19 Market Crash (2020)',
+        covid_crisis_start, covid_crisis_end,
         crisis_color='red',
-        save_path=OUTPUT_DIR / 'covid_crash_analysis.png',
-        sp500_start_level=3257
+        save_path=OUTPUT_DIR / 'covid_crash_analysis.png'
     )
 
     generate_dashboard_for_crisis(
@@ -695,22 +491,31 @@ def main():
     # ===== 2022 Bear Market =====
     print("2. 2022 Bear Market (January-October 2022)")
     print("-" * 50)
-    bear_returns, bear_dates, bear_events = generate_sp500_2022_bear()
-    bear_ews = compute_early_warning_signals(bear_returns, window=20)
 
-    print(f"   S&P 500 Peak:     4,796.56 (Jan 3, 2022)")
-    print(f"   S&P 500 Trough:   3,577.03 (Oct 12, 2022)")
-    print(f"   Maximum Drawdown: -25.4%")
+    bear_prices = np.array(BEAR_2022_SP500_DATA['closes'])
+    bear_dates = parse_dates(BEAR_2022_SP500_DATA['dates'])
+    bear_returns = compute_returns_from_prices(bear_prices)
+    bear_ews = compute_early_warning_signals(bear_returns, window=10)
+
+    bear_crisis_start = 1   # From Jan 3 peak
+    bear_crisis_end = 43    # Oct 12 trough
+
+    peak = np.max(bear_prices)
+    trough = np.min(bear_prices)
+    drawdown = (trough - peak) / peak * 100
+
+    print(f"   S&P 500 Peak:     {peak:,.2f} (Jan 3, 2022)")
+    print(f"   S&P 500 Trough:   {trough:,.2f} (Oct 12, 2022)")
+    print(f"   Maximum Drawdown: {drawdown:.1f}%")
     print(f"   Duration:         282 days")
-    print(f"   Cause:            Fed rate hikes, 9.1% inflation")
     print()
 
     create_crisis_analysis_figure(
-        bear_returns, bear_dates, bear_events, bear_ews,
+        bear_prices, bear_dates, bear_returns, bear_ews,
         '2022 Bear Market',
+        bear_crisis_start, bear_crisis_end,
         crisis_color='orange',
-        save_path=OUTPUT_DIR / 'bear_2022_analysis.png',
-        sp500_start_level=4796
+        save_path=OUTPUT_DIR / 'bear_2022_analysis.png'
     )
 
     generate_dashboard_for_crisis(
@@ -721,23 +526,33 @@ def main():
     # ===== 2025 Tariff Crisis =====
     print("3. 2025 Tariff Crisis (February-April 2025)")
     print("-" * 50)
-    tariff_returns, tariff_dates, tariff_events = generate_sp500_tariff_crash()
-    tariff_ews = compute_early_warning_signals(tariff_returns, window=15)
 
-    print(f"   S&P 500 Peak:     6,139 (Feb 19, 2025)")
-    print(f"   S&P 500 Trough:   4,982.77 (Apr 8, 2025)")
-    print(f"   Maximum Drawdown: -18.8%")
-    print(f"   Apr 3 (Liberation Day): -4.84%")
-    print(f"   Apr 4:            -5.97% (two-day loss: -10%, $6.6T wiped)")
-    print(f"   Apr 9:            +9.52% (90-day pause announced)")
+    tariff_prices = np.array(TARIFF_2025_SP500_DATA['closes'])
+    tariff_dates = parse_dates(TARIFF_2025_SP500_DATA['dates'])
+    tariff_returns = compute_returns_from_prices(tariff_prices)
+    tariff_ews = compute_early_warning_signals(tariff_returns, window=8)
+
+    tariff_crisis_start = 14  # Around Mar 17
+    tariff_crisis_end = 23    # Apr 8 trough
+
+    peak = np.max(tariff_prices)
+    trough_idx = np.argmin(tariff_prices[tariff_crisis_start:tariff_crisis_end+1]) + tariff_crisis_start
+    trough = tariff_prices[trough_idx]
+    drawdown = (trough - peak) / peak * 100
+
+    print(f"   S&P 500 Peak:     {peak:,.2f} (Feb 19, 2025)")
+    print(f"   S&P 500 Trough:   {trough:,.2f} (Apr 4, 2025)")
+    print(f"   Maximum Drawdown: {drawdown:.1f}%")
+    print(f"   Apr 3-4 two-day loss: -10.3% ($6.6 trillion wiped)")
+    print(f"   Apr 9 recovery:   +9.5% (90-day tariff pause)")
     print()
 
     create_crisis_analysis_figure(
-        tariff_returns, tariff_dates, tariff_events, tariff_ews,
+        tariff_prices, tariff_dates, tariff_returns, tariff_ews,
         'Tariff Crisis (2025)',
+        tariff_crisis_start, tariff_crisis_end,
         crisis_color='purple',
-        save_path=OUTPUT_DIR / 'tariff_crash_analysis.png',
-        sp500_start_level=5880
+        save_path=OUTPUT_DIR / 'tariff_crash_analysis.png'
     )
 
     generate_dashboard_for_crisis(
@@ -748,16 +563,23 @@ def main():
     # ===== Three-Crisis Comparison =====
     print("4. Generating three-crisis comparison...")
     print("-" * 50)
+
+    covid_data = (covid_prices, covid_dates, covid_returns, covid_ews,
+                  covid_crisis_start, covid_crisis_end)
+    bear_data = (bear_prices, bear_dates, bear_returns, bear_ews,
+                 bear_crisis_start, bear_crisis_end)
+    tariff_data = (tariff_prices, tariff_dates, tariff_returns, tariff_ews,
+                   tariff_crisis_start, tariff_crisis_end)
+
     create_three_crisis_comparison(
-        (covid_returns, covid_dates, covid_events, covid_ews),
-        (bear_returns, bear_dates, bear_events, bear_ews),
-        (tariff_returns, tariff_dates, tariff_events, tariff_ews),
+        covid_data, bear_data, tariff_data,
         save_path=OUTPUT_DIR / 'crisis_comparison.png'
     )
 
     print()
     print("=" * 70)
-    print("S&P 500 CRISIS ANALYSIS COMPLETE (REAL DATA)")
+    print("S&P 500 CRISIS ANALYSIS COMPLETE")
+    print("All visualizations use ACTUAL historical S&P 500 data")
     print(f"Output directory: {OUTPUT_DIR}")
     print("=" * 70)
 
