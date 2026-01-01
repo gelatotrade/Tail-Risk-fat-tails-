@@ -34,8 +34,8 @@ class TailRiskDashboard:
             vix: Optional VIX time series
         """
         self.returns = np.asarray(returns)
-        self.vix = vix if vix is not None else self._generate_synthetic_vix()
         self.n = len(returns)
+        self.vix = vix if vix is not None else self._generate_synthetic_vix()
 
         # Compute all required metrics
         self._compute_metrics()
