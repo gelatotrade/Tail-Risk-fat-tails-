@@ -1,1 +1,613 @@
-# Tail-Risk-fat-tails-
+# Tail Risk Modeling Framework
+## Physics-Based Fat Tail Analysis for Financial Markets
+
+> **A comprehensive framework for modeling Black Swan events and tail risk in financial markets using physics-inspired models including Lévy flights, Fokker-Planck equations, Tsallis statistics, and phase transition theory.**
+
+---
+
+## Table of Contents
+
+1. [The Problem: Why Normal Distributions Fail](#the-problem-why-normal-distributions-fail)
+2. [The Solution: Physics-Based Tail Modeling](#the-solution-physics-based-tail-modeling)
+3. [Core Physics Models](#core-physics-models)
+   - [Lévy Flights](#1-lévy-flights)
+   - [Fokker-Planck Equation](#2-fokker-planck-equation)
+   - [Tsallis Statistics](#3-tsallis-statistics)
+   - [Phase Transitions](#4-phase-transitions)
+4. [3D Tail Risk Coordinate System](#3d-tail-risk-coordinate-system)
+5. [Installation & Quick Start](#installation--quick-start)
+6. [Visualization Gallery](#visualization-gallery)
+7. [API Reference](#api-reference)
+8. [Mathematical Foundations](#mathematical-foundations)
+9. [Research References](#research-references)
+
+---
+
+## The Problem: Why Normal Distributions Fail
+
+Traditional finance assumes market returns follow **Gaussian (Normal) distributions**. This assumption underlies:
+- Modern Portfolio Theory (Markowitz)
+- Black-Scholes Option Pricing
+- Value at Risk (VaR) calculations
+- Most risk management systems
+
+### The Reality: Fat Tails Everywhere
+
+```
+                    RETURN DISTRIBUTION COMPARISON
+
+    Probability
+         │
+         │    ●●●                                    ●●●
+         │   ●   ●                                  ●   ●
+         │  ●     ●        Gaussian               ●     ●
+         │ ●       ●    (What models assume)     ●       ●
+         │●         ●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●         ●
+         │
+         │██                                              ██
+         │████                                          ████
+         │  ████                                      ████
+         │    ████████████████████████████████████████
+         │         Actual Market Returns
+         │              (Fat Tails!)
+         └──────────────────────────────────────────────────►
+              -4σ    -3σ    -2σ    -1σ    0    +1σ    +2σ    +3σ    +4σ
+                            Return Magnitude
+```
+
+### Catastrophic Underestimation
+
+| Event | Gaussian Probability | Actual Frequency | Underestimation |
+|-------|---------------------|------------------|-----------------|
+| 3σ move | 0.27% (once/year) | ~2-5% | **10-20x** |
+| 4σ move | 0.006% (once/44 years) | ~0.5% | **80x** |
+| 5σ move | 0.00006% (once/4,776 years) | ~0.1% | **1,600x** |
+| Black Monday 1987 (22σ) | 10^-99 | **It happened** | **Infinity** |
+
+> "The 1987 crash was a 22-sigma event. Under Gaussian assumptions, this should happen once every 10^91 billion years—far longer than the age of the universe." — *Nassim Taleb*
+
+---
+
+## The Solution: Physics-Based Tail Modeling
+
+This framework replaces naive Gaussian assumptions with **physics-derived models** that naturally generate fat tails:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     PHYSICS → FINANCE MAPPING                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  PHYSICS CONCEPT              │  FINANCIAL APPLICATION                      │
+│  ─────────────────────────────┼─────────────────────────────────────────    │
+│  Lévy Flights (particle paths)│  Price jumps, Black Swan events             │
+│  Fokker-Planck (prob. flow)   │  Distribution evolution, risk dynamics      │
+│  Tsallis Entropy (thermo)     │  Non-equilibrium markets, fat tails         │
+│  Phase Transitions (magnets)  │  Market crashes, regime changes             │
+│  Ornstein-Uhlenbeck (springs) │  Volatility mean reversion + jumps          │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Core Physics Models
+
+### 1. Lévy Flights
+
+**Origin:** Particle physics, describing random walks with occasional large jumps
+
+**The Math:**
+```
+Characteristic function: φ(t) = exp(iδt - γ^α|t|^α [1 - iβ sign(t) tan(πα/2)])
+
+Parameters:
+  α (alpha): Stability index, 0 < α ≤ 2
+    - α = 2: Gaussian (normal diffusion)
+    - α < 2: Fat tails (super-diffusion, jumps)
+    - α ≈ 1.7: Typical for stock returns
+
+  β (beta): Skewness, -1 ≤ β ≤ 1
+    - β < 0: Left skew (crash tendency)
+
+  γ (gamma): Scale (volatility analog)
+  δ (delta): Location (mean analog)
+```
+
+**Why It Works for Finance:**
+- Mandelbrot first applied Lévy distributions to cotton prices (1963)
+- Large jumps (Black Swans) are built into the model, not anomalies
+- Tail probability: P(X > x) ~ x^(-α) for large x
+
+```python
+from src.physics.levy_flight import LevyStableDistribution
+
+# Fit to market returns
+levy = LevyStableDistribution.fit(returns)
+print(f"Tail index α = {levy.alpha:.2f}")  # α < 2 confirms fat tails
+
+# Compute tail probability
+prob_crash = levy.tail_probability(-0.10, tail='left')  # P(loss > 10%)
+```
+
+### 2. Fokker-Planck Equation
+
+**Origin:** Statistical mechanics, describing probability density evolution
+
+**The Equation:**
+```
+∂P/∂t = -∂(μP)/∂x + ∂²(DP)/∂x²
+
+Standard form for probability density P(x,t):
+  μ(x): Drift coefficient (expected return)
+  D(x): Diffusion coefficient (volatility)
+
+For fat tails, use Fractional Fokker-Planck:
+∂P/∂t = -∂(μP)/∂x + D_α ∂^α P/∂|x|^α
+
+where α < 2 generates power-law tails
+```
+
+**Application:**
+```python
+from src.physics.fokker_planck import FokkerPlanckTailRisk
+
+# Model probability evolution
+fpe = FokkerPlanckTailRisk(alpha=1.7)  # α < 2 for fat tails
+P0 = fpe.initial_distribution(current_return=0, current_vol=0.02)
+P_forecast = fpe.forecast_distribution(P0, horizon=20)
+
+# Get tail risk metrics
+metrics = fpe.compute_tail_risk_metrics(P_forecast)
+```
+
+### 3. Tsallis Statistics
+
+**Origin:** Non-extensive thermodynamics (Constantino Tsallis, 1988)
+
+**The Framework:**
+```
+Tsallis Entropy: S_q = k × (1 - Σ p_i^q) / (q - 1)
+
+q-Gaussian Distribution: P_q(x) ∝ [1 - β(1-q)x²]^(1/(1-q))
+
+Parameters:
+  q (entropic index):
+    - q = 1: Standard Boltzmann-Gibbs (Gaussian)
+    - q > 1: Fat tails, long-range correlations
+    - q ≈ 1.4-1.5: Typical for stock returns
+
+  Tail exponent: α = 2/(q-1)
+    - q = 1.5 → α = 4 (fat but finite variance)
+    - q = 1.67 → α = 3 (cubic law, like many markets)
+```
+
+**Why It Works:**
+- Markets have long-range correlations (memory effects)
+- Volatility clustering creates non-equilibrium conditions
+- Tsallis entropy is maximized subject to these constraints
+
+```python
+from src.physics.tsallis_statistics import TsallisTailRiskModel
+
+model = TsallisTailRiskModel()
+risk_metrics = model.update(returns)
+
+print(f"Entropic index q = {risk_metrics['q']:.2f}")
+print(f"Risk level: {risk_metrics['risk_level']}")
+```
+
+### 4. Phase Transitions
+
+**Origin:** Condensed matter physics (ferromagnets, critical phenomena)
+
+**The Insight:**
+
+Market crashes behave like phase transitions in physical systems:
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                     PHASE TRANSITION ANALOGY                            │
+├────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   PHYSICS (Magnet)           │   FINANCE (Market)                      │
+│   ──────────────────────────────────────────────────────────────────   │
+│   Spins (↑ or ↓)             │   Traders (buy or sell)                 │
+│   Coupling J (spin interact) │   Herding (social influence)            │
+│   Temperature T              │   Noise/uncertainty                      │
+│   External field h           │   Market sentiment                       │
+│   Magnetization M            │   Price trend                            │
+│   Susceptibility χ           │   Market sensitivity                     │
+│   Critical point Tc          │   Crash point                            │
+│                                                                         │
+│   Critical Slowing Down:                                                │
+│   Near Tc, system responds slowly → Early Warning Signal               │
+│                                                                         │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+**Early Warning Signals (EWS):**
+```python
+from src.physics.phase_transitions import CriticalSlowingDownDetector
+
+detector = CriticalSlowingDownDetector(window=50)
+ews = detector.compute_ews(returns)
+
+print(f"Autocorrelation trend: {ews['ac1_trend']['tau']:.2f}")
+print(f"Variance trend: {ews['var_trend']['tau']:.2f}")
+print(f"WARNING LEVEL: {ews['warning_level']}")
+
+# Positive trends with p < 0.05 indicate approaching critical point
+```
+
+---
+
+## 3D Tail Risk Coordinate System
+
+### The Phase Space Concept
+
+We map market states into a **3-dimensional phase space** inspired by physics. Each axis represents a key aspect of tail risk:
+
+```
+                          3D TAIL RISK PHASE SPACE
+
+                               Z (Risk Intensity)
+                               │
+                               │    ★ Crisis Zone
+                               │   ╱ (high vol, fat tails,
+                               │  ╱   high jump intensity)
+                               │ ╱
+                               │╱______________ Y (Tail Heaviness)
+                              ╱│
+                             ╱ │
+                            ╱  │    • Normal Zone
+                           ╱   │     (low vol, thin tails)
+                          ╱    │
+                X (Volatility)
+
+The market traces a trajectory through this space.
+Movement toward the Crisis Zone = increasing tail risk.
+```
+
+### Three Coordinate Systems
+
+We provide three complementary phase spaces, each revealing different aspects:
+
+#### 1. Lévy Flight Coordinates
+```
+X: Volatility regime σ (normalized rolling std)
+Y: Tail index α⁻¹ (inverse Hill estimator - higher = fatter tails)
+Z: Jump intensity λ (magnitude of extreme returns)
+```
+
+#### 2. Thermodynamic Coordinates (Tsallis)
+```
+X: Entropic index q (non-extensivity measure)
+Y: Tsallis entropy S_q (uncertainty/disorder)
+Z: Temperature β⁻¹ (volatility energy proxy)
+```
+
+#### 3. Phase Transition Coordinates
+```
+X: Susceptibility χ (sensitivity to shocks)
+Y: Order parameter M (trend strength / herding)
+Z: Criticality distance |T - Tc| (distance from crash point)
+```
+
+### Visualization
+
+```python
+from src.visualization.risk_surface_3d import create_comprehensive_3d_dashboard
+from src.physics.levy_flight import levy_flight_3d_coordinates
+
+# Compute coordinates
+levy_coords = levy_flight_3d_coordinates(returns)
+
+# Create comprehensive dashboard
+fig = create_comprehensive_3d_dashboard(
+    returns,
+    save_path='outputs/3d_dashboard.png'
+)
+```
+
+---
+
+## Installation & Quick Start
+
+### Installation
+
+```bash
+# Clone repository
+git clone https://github.com/yourusername/tail-risk-fat-tails.git
+cd tail-risk-fat-tails
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### Quick Start
+
+```bash
+# Run demonstration
+python main.py --mode demo --output outputs/
+
+# This will:
+# 1. Generate synthetic market data with fat tails
+# 2. Fit physics-based distributions
+# 3. Compute tail risk metrics
+# 4. Generate 3D visualizations
+# 5. Create comprehensive dashboard
+# 6. Output analysis report
+```
+
+### Basic Usage
+
+```python
+import numpy as np
+from src.physics.levy_flight import LevyStableDistribution, estimate_tail_index
+from src.models.risk_metrics import TailRiskMetrics
+from src.visualization.dashboard import TailRiskDashboard
+
+# Your return data
+returns = np.array([...])  # Daily log returns
+
+# 1. Estimate tail characteristics
+alpha = estimate_tail_index(returns)
+print(f"Tail index α = {alpha:.2f}")
+if alpha < 3:
+    print("⚠️ Fat tails detected! Variance dominated by extremes.")
+
+# 2. Fit Lévy distribution
+levy = LevyStableDistribution.fit(returns)
+print(f"Lévy parameters: α={levy.alpha:.2f}, β={levy.beta:.2f}")
+
+# 3. Compute risk metrics
+metrics = TailRiskMetrics(returns)
+print(f"VaR 99% (historical): {metrics.var_historical(0.99)*100:.2f}%")
+print(f"VaR 99% (Gaussian):   {metrics.var_parametric_gaussian(0.99)*100:.2f}%")
+print(f"Expected Shortfall:   {metrics.expected_shortfall(0.99)*100:.2f}%")
+
+# 4. Generate full dashboard
+dashboard = TailRiskDashboard(returns)
+dashboard.create_full_dashboard(save_path='my_analysis.png')
+```
+
+---
+
+## Visualization Gallery
+
+### 1. Comprehensive 3D Dashboard
+
+Shows all four phase spaces simultaneously:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  ┌──────────────────┐  ┌──────────────────┐                             │
+│  │  Lévy Flight     │  │  Thermodynamic   │                             │
+│  │  Phase Space     │  │  Phase Space     │                             │
+│  │    [3D scatter]  │  │    [3D scatter]  │                             │
+│  └──────────────────┘  └──────────────────┘                             │
+│  ┌──────────────────┐  ┌──────────────────┐                             │
+│  │  Phase Trans.    │  │  Composite Risk  │                             │
+│  │  Space           │  │  Surface         │                             │
+│  │    [3D scatter]  │  │    [3D surface]  │                             │
+│  └──────────────────┘  └──────────────────┘                             │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### 2. Full Analysis Dashboard
+
+24-panel comprehensive analysis:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Row 1: 3D Phase Spaces (4 views)                                       │
+│  Row 2: Distribution Analysis (histogram, log-scale, Q-Q, tail index)  │
+│  Row 3: Time Series (returns/vol, VaR/ES evolution)                    │
+│  Row 4: Risk Indicators (moments, composite index, summary, tail probs)│
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### 3. Phase Space Trajectory
+
+Animated trajectory through risk space:
+
+```python
+from src.visualization.animated_risk import PhaseSpaceAnimator
+
+animator = PhaseSpaceAnimator(X, Y, Z)
+anim = animator.create_animation(
+    trail_length=50,
+    save_path='phase_trajectory.gif'
+)
+```
+
+---
+
+## API Reference
+
+### Physics Models
+
+| Module | Class/Function | Description |
+|--------|---------------|-------------|
+| `physics.levy_flight` | `LevyStableDistribution` | Lévy stable distribution |
+| | `LevyFlightProcess` | Price process with Lévy jumps |
+| | `estimate_tail_index()` | Hill estimator for α |
+| | `levy_flight_3d_coordinates()` | Phase space transform |
+| `physics.fokker_planck` | `FokkerPlanckSolver` | Fractional FPE solver |
+| | `FokkerPlanckTailRisk` | Tail risk analyzer |
+| `physics.tsallis_statistics` | `TsallisDistribution` | q-Gaussian distribution |
+| | `TsallisTailRiskModel` | Non-extensive risk model |
+| `physics.phase_transitions` | `IsingMarketModel` | Agent-based crash model |
+| | `CriticalSlowingDownDetector` | EWS detector |
+| | `MarketPhaseClassifier` | Regime classifier |
+
+### Risk Metrics
+
+| Module | Class/Function | Description |
+|--------|---------------|-------------|
+| `models.risk_metrics` | `TailRiskMetrics` | Comprehensive risk measures |
+| | `RollingRiskMetrics` | Time-varying risk |
+| | `TailRiskParity` | ES-based portfolio allocation |
+| `models.extreme_value` | `GeneralizedParetoDistribution` | GPD for tails |
+| | `EVTTailRiskAnalyzer` | Full EVT analysis |
+| `models.regime_detection` | `MarkovRegimeSwitching` | Hidden Markov model |
+| | `RegimeAwareTailRisk` | Regime-conditional risk |
+
+### Visualization
+
+| Module | Class/Function | Description |
+|--------|---------------|-------------|
+| `visualization.risk_surface_3d` | `TailRisk3DSurface` | 3D surface plots |
+| | `create_comprehensive_3d_dashboard()` | Full 3D dashboard |
+| `visualization.phase_space` | `PhaseSpaceAnalyzer` | Trajectory analysis |
+| | `LyapunovExponentEstimator` | Chaos detection |
+| `visualization.dashboard` | `TailRiskDashboard` | Complete dashboard |
+| | `create_summary_report()` | Text report generator |
+
+---
+
+## Mathematical Foundations
+
+### Lévy Stable Distributions
+
+The Lévy stable distribution is defined by its characteristic function:
+
+```
+φ(t) = exp[iδt - γ^α|t|^α(1 - iβ sign(t) Φ)]
+```
+
+where Φ = tan(πα/2) for α ≠ 1.
+
+**Key Properties:**
+- For α < 2: Infinite variance (dominated by extremes)
+- For α < 1: Infinite mean
+- Tail behavior: P(X > x) ~ C_α x^(-α) for large x
+
+### Fokker-Planck Equation
+
+The Fokker-Planck equation describes probability density evolution:
+
+```
+∂P/∂t = -∂(μP)/∂x + ∂²(DP)/∂x²
+```
+
+For fat tails, we use the **Fractional Fokker-Planck Equation**:
+
+```
+∂P/∂t = -∂(μP)/∂x + D_α ∂^α P/∂|x|^α
+```
+
+where α < 2 produces power-law tails.
+
+### Tsallis Statistics
+
+Tsallis entropy generalizes Boltzmann-Gibbs:
+
+```
+S_q = k(1 - Σp_i^q)/(q - 1)
+```
+
+The maximum entropy distribution (q-Gaussian):
+
+```
+P_q(x) ∝ [1 - β(1-q)x²]^(1/(1-q))
+```
+
+For q > 1: Power-law tails with exponent α = 2/(q-1)
+
+### Extreme Value Theory
+
+**Generalized Pareto Distribution** for exceedances over threshold u:
+
+```
+G(y) = 1 - (1 + ξy/σ)^(-1/ξ)
+```
+
+- ξ > 0: Fat tails (Fréchet domain) - typical for finance
+- ξ = 0: Exponential tails (Gumbel domain)
+- ξ < 0: Bounded tails (Weibull domain)
+
+---
+
+## Research References
+
+### Foundational Papers
+
+1. **Mandelbrot, B. (1963)**. "The Variation of Certain Speculative Prices." *Journal of Business*, 36(4), 394-419.
+   - First application of Lévy distributions to finance
+
+2. **Tsallis, C. (1988)**. "Possible generalization of Boltzmann-Gibbs statistics." *Journal of Statistical Physics*, 52(1-2), 479-487.
+   - Foundation of non-extensive statistical mechanics
+
+3. **Mantegna, R. N., & Stanley, H. E. (2000)**. *An Introduction to Econophysics*. Cambridge University Press.
+   - Comprehensive treatment of physics approaches to finance
+
+### Fat Tails and Extreme Events
+
+4. **Taleb, N. N. (2020)**. *Statistical Consequences of Fat Tails*. STEM Academic Press.
+   - Modern treatment of fat tail statistics
+
+5. **Sornette, D. (2003)**. *Why Stock Markets Crash*. Princeton University Press.
+   - Critical phenomena and market crashes
+
+6. **Gabaix, X. (2009)**. "Power Laws in Economics and Finance." *Annual Review of Economics*, 1, 255-294.
+   - Review of power laws in finance
+
+### Early Warning Signals
+
+7. **Scheffer, M., et al. (2009)**. "Early-warning signals for critical transitions." *Nature*, 461, 53-59.
+   - Critical slowing down as early warning
+
+8. **Sornette, D., & Cauwels, P. (2015)**. "Financial Bubbles: Mechanisms and Diagnostics." *Review of Behavioral Economics*, 2(3), 279-305.
+   - Bubble detection methodology
+
+---
+
+## Project Structure
+
+```
+Tail-Risk-fat-tails/
+├── src/
+│   ├── physics/
+│   │   ├── levy_flight.py          # Lévy stable distributions
+│   │   ├── fokker_planck.py        # Probability evolution
+│   │   ├── tsallis_statistics.py   # Non-extensive thermodynamics
+│   │   ├── phase_transitions.py    # Critical phenomena
+│   │   └── ornstein_uhlenbeck.py   # Mean-reverting + jumps
+│   ├── models/
+│   │   ├── fat_tail_distributions.py  # Distribution zoo
+│   │   ├── extreme_value.py        # EVT (GEV, GPD)
+│   │   ├── risk_metrics.py         # VaR, ES, tail ratios
+│   │   └── regime_detection.py     # Markov switching
+│   ├── analysis/
+│   │   └── sentiment.py            # VIX, put/call, breadth
+│   ├── visualization/
+│   │   ├── risk_surface_3d.py      # 3D surfaces
+│   │   ├── phase_space.py          # Trajectory analysis
+│   │   ├── animated_risk.py        # Animations
+│   │   └── dashboard.py            # Full dashboard
+│   └── utils/
+│       ├── data_loader.py          # Data generation
+│       ├── numerical.py            # Numerical helpers
+│       └── statistics.py           # Statistical tests
+├── main.py                         # Entry point
+├── requirements.txt
+└── README.md
+```
+
+---
+
+## License
+
+MIT License - see LICENSE file for details.
+
+---
+
+<p align="center">
+  <b>Tail Risk Modeling Framework</b><br>
+  <i>Because Black Swans aren't anomalies—they're features of the distribution.</i>
+</p>
