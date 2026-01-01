@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Generate Real-World Crisis Examples
-====================================
+Generate Real-World Crisis Examples - S&P 500 Analysis
+========================================================
 
-Simulates market behavior during:
+Simulates S&P 500 behavior during:
 1. COVID-19 Crash (February-April 2020)
 2. Tariff Crisis (March-April 2025)
 
@@ -31,51 +31,93 @@ OUTPUT_DIR = Path('outputs')
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 
-def generate_covid_crash_data():
+def generate_sp500_covid_crash():
     """
-    Generate realistic market data mimicking COVID-19 crash.
+    Generate realistic S&P 500 returns mimicking COVID-19 crash.
 
-    Key characteristics:
-    - Pre-crash: Low volatility bull market (Jan-Feb 2020)
-    - Crash: -34% in ~23 trading days (Feb 19 - Mar 23, 2020)
-    - Recovery: V-shaped recovery (Mar 23 - Apr 2020)
+    Historical S&P 500 Facts:
+    - Peak: 3,386.15 (Feb 19, 2020)
+    - Trough: 2,237.40 (Mar 23, 2020)
+    - Drop: -33.9% in 23 trading days
 
-    S&P 500 facts:
-    - Peak: 3,386 (Feb 19, 2020)
-    - Trough: 2,237 (Mar 23, 2020)
-    - Drop: -33.9%
+    Key Daily Returns (actual S&P 500):
+    - Feb 24: -3.4% (first major drop)
+    - Feb 27: -4.4%
+    - Feb 28: -0.8%
+    - Mar 9:  -7.6% (first circuit breaker triggered)
+    - Mar 10: +4.9% (dead cat bounce)
+    - Mar 11: -4.9% (WHO declares pandemic)
+    - Mar 12: -9.5% (worst day since 1987)
+    - Mar 13: +9.3% (relief rally)
+    - Mar 16: -12.0% (worst day since 1987, second circuit breaker)
+    - Mar 18: -5.2%
+    - Mar 23: -2.9% (bottom)
+    - Mar 24: +9.4% (biggest gain since 2008)
     """
     np.random.seed(2020)
 
-    # Pre-crash period: ~50 days of low vol bull market (Jan 2 - Feb 19)
-    n_pre = 50
-    pre_returns = np.random.normal(0.0008, 0.008, n_pre)  # Calm market
+    # Pre-crash period: Jan 2 - Feb 19 (34 trading days of calm bull market)
+    n_pre = 34
+    pre_returns = np.random.normal(0.0006, 0.006, n_pre)  # Low vol, slight uptrend
+    # Add some actual early 2020 characteristics
+    pre_returns[-5:] = np.random.normal(0.001, 0.004, 5)  # Very calm before storm
 
-    # Building tension: ~8 days of increasing uncertainty (Feb 20-28)
-    n_tension = 8
-    tension_returns = np.random.normal(-0.002, 0.015, n_tension)  # Rising vol
+    # Initial selloff: Feb 20-28 (7 trading days)
+    initial_selloff = np.array([
+        -0.004,  # Feb 20
+        -0.016,  # Feb 21
+        -0.005,  # Weekend effect
+        -0.034,  # Feb 24 - First major drop
+        -0.030,  # Feb 25
+        -0.004,  # Feb 26
+        -0.044,  # Feb 27
+    ])
 
-    # Crash phase: ~18 days of extreme moves (Mar 2 - Mar 23)
-    n_crash = 18
-    # Large negative returns with some dead cat bounces
-    crash_base = np.random.normal(-0.025, 0.04, n_crash)
-    # Add specific extreme days (Mar 9: -7.6%, Mar 12: -9.5%, Mar 16: -12%)
-    crash_base[5] = -0.076   # Mar 9 - First circuit breaker
-    crash_base[8] = -0.095   # Mar 12 - Worst day since 1987
-    crash_base[10] = -0.12   # Mar 16 - Second worst day ever
-    crash_base[7] = 0.049    # Mar 10 - Dead cat bounce +4.9%
-    crash_base[13] = 0.06    # Mar 17 - Relief rally
-    crash_returns = crash_base
+    # Volatile period leading to crash: Mar 2-6 (5 days)
+    volatile_period = np.array([
+        -0.008,  # Feb 28
+        +0.046,  # Mar 2 - Bounce
+        -0.028,  # Mar 3
+        +0.042,  # Mar 4 - Super Tuesday rally
+        -0.034,  # Mar 5
+        -0.017,  # Mar 6
+    ])
 
-    # Recovery phase: ~30 days (Mar 24 - Apr 30)
-    n_recovery = 30
-    recovery_returns = np.random.normal(0.015, 0.025, n_recovery)  # V-shaped
-    recovery_returns[0] = 0.094  # Mar 24: +9.4% (biggest gain since 2008)
+    # Main crash phase: Mar 9-23 (11 trading days)
+    crash_phase = np.array([
+        -0.076,  # Mar 9 - First circuit breaker, oil crash
+        +0.049,  # Mar 10 - Dead cat bounce
+        -0.049,  # Mar 11 - WHO pandemic declaration
+        -0.095,  # Mar 12 - Worst since 1987
+        +0.093,  # Mar 13 - Relief rally
+        -0.005,  # Mar 14 (weekend trading effect)
+        -0.120,  # Mar 16 - WORST DAY, circuit breaker at open
+        +0.060,  # Mar 17 - Bounce
+        -0.052,  # Mar 18
+        +0.006,  # Mar 19
+        -0.043,  # Mar 20
+        -0.029,  # Mar 23 - THE BOTTOM
+    ])
+
+    # Recovery phase: Mar 24 - Apr 30 (28 trading days)
+    n_recovery = 28
+    recovery_base = np.random.normal(0.012, 0.022, n_recovery)
+    recovery_base[0] = 0.094   # Mar 24 - +9.4% biggest gain since 2008
+    recovery_base[1] = 0.011   # Mar 25
+    recovery_base[2] = 0.063   # Mar 26 - +6.3%
+    recovery_base[5] = 0.032   # Continued strength
+    recovery_returns = recovery_base
 
     # Combine all phases
-    returns = np.concatenate([pre_returns, tension_returns, crash_returns, recovery_returns])
+    returns = np.concatenate([
+        pre_returns,
+        initial_selloff,
+        volatile_period,
+        crash_phase,
+        recovery_returns
+    ])
 
-    # Generate dates (trading days only)
+    # Generate dates (trading days only, skip weekends)
     start_date = datetime(2020, 1, 2)
     dates = []
     current = start_date
@@ -86,63 +128,93 @@ def generate_covid_crash_data():
         current += timedelta(days=1)
 
     # Key event indices
+    pre_end = n_pre - 1
+    selloff_start = n_pre
+    crash_start = n_pre + len(initial_selloff) + len(volatile_period)
+    crash_end = crash_start + len(crash_phase) - 1
+
     events = {
-        'pre_crash_end': n_pre - 1,
-        'tension_start': n_pre,
-        'crash_start': n_pre + n_tension,
-        'crash_peak': n_pre + n_tension + 10,  # Mar 16
-        'crash_end': n_pre + n_tension + n_crash - 1,
-        'recovery_start': n_pre + n_tension + n_crash
+        'pre_crash_end': pre_end,
+        'selloff_start': selloff_start,
+        'crash_start': crash_start,
+        'mar_16_idx': crash_start + 6,  # Mar 16 worst day
+        'bottom_idx': crash_end,
+        'crash_end': crash_end,
+        'recovery_start': crash_end + 1
     }
 
     return returns, dates, events
 
 
-def generate_tariff_crash_data():
+def generate_sp500_tariff_crash():
     """
-    Generate realistic market data mimicking 2025 Tariff Crisis.
+    Generate realistic S&P 500 returns mimicking 2025 Tariff Crisis.
 
     Hypothetical scenario based on trade war dynamics:
-    - Pre-crisis: Normal market conditions (Jan-Feb 2025)
-    - Escalation: Tariff announcements cause uncertainty (early Mar)
-    - Crash: Retaliatory tariffs trigger selloff (mid Mar - early Apr)
-    - Stabilization: Policy negotiations bring calm (Apr)
+    - Pre-crisis: S&P 500 at ~5,800 level (Jan-Feb 2025)
+    - Escalation triggers: New tariff announcements
+    - Market reaction: More gradual than COVID, policy-driven
+    - Total drawdown: ~18-22% over 5-6 weeks
 
-    Characteristics:
-    - More gradual than COVID (policy-driven, not pandemic shock)
-    - Multiple waves as different tariffs announced
-    - ~20% drawdown over 4-5 weeks
+    Key events (hypothetical):
+    - Mar 3: Initial 25% tariff announcement (-2.8%)
+    - Mar 10: Retaliatory tariffs from China (-4.2%)
+    - Mar 17: EU joins with counter-tariffs (-3.8%)
+    - Mar 24: Supply chain disruption fears peak (-4.5%)
+    - Apr 2: Worst day as recession fears mount (-5.2%)
+    - Apr 7: Trade talks announced, recovery begins
     """
     np.random.seed(2025)
 
-    # Pre-crisis: ~40 days normal market (Jan-Feb 2025)
+    # Pre-crisis: Jan 2 - Feb 28 (40 trading days, normal market)
     n_pre = 40
-    pre_returns = np.random.normal(0.0005, 0.009, n_pre)
+    pre_returns = np.random.normal(0.0004, 0.008, n_pre)
+    # Late Feb: some nervousness emerging
+    pre_returns[-5:] = np.random.normal(-0.001, 0.010, 5)
 
-    # Escalation phase: ~15 days of rising uncertainty (early Mar)
-    n_escalation = 15
-    escalation_returns = np.random.normal(-0.003, 0.018, n_escalation)
-    escalation_returns[3] = -0.028   # First major tariff announcement
-    escalation_returns[8] = -0.035   # Retaliatory tariffs announced
-    escalation_returns[12] = 0.022   # Brief hope of negotiations
+    # Escalation phase: Mar 3-14 (10 trading days)
+    escalation = np.array([
+        -0.028,  # Mar 3 - Initial tariff announcement
+        -0.015,  # Mar 4
+        +0.012,  # Mar 5 - Bounce on negotiation hopes
+        -0.022,  # Mar 6 - Hopes fade
+        -0.018,  # Mar 7
+        -0.042,  # Mar 10 - China retaliates
+        +0.025,  # Mar 11 - Dead cat bounce
+        -0.031,  # Mar 12
+        -0.019,  # Mar 13
+        -0.025,  # Mar 14
+    ])
 
-    # Crash phase: ~20 days of sustained selling (mid Mar - early Apr)
-    n_crash = 20
-    crash_returns = np.random.normal(-0.012, 0.028, n_crash)
-    crash_returns[2] = -0.045   # Major escalation
-    crash_returns[5] = -0.052   # China retaliates
-    crash_returns[8] = 0.032    # Dead cat bounce
-    crash_returns[11] = -0.048  # EU joins tariffs
-    crash_returns[15] = -0.038  # Supply chain fears
-    crash_returns[18] = -0.042  # Peak panic
+    # Main crash phase: Mar 17 - Apr 4 (15 trading days)
+    crash_phase = np.array([
+        -0.038,  # Mar 17 - EU counter-tariffs
+        -0.022,  # Mar 18
+        +0.018,  # Mar 19 - Brief bounce
+        -0.029,  # Mar 20
+        -0.035,  # Mar 21 - Supply chain fears
+        -0.045,  # Mar 24 - Supply chain disruption peak
+        +0.022,  # Mar 25 - Oversold bounce
+        -0.028,  # Mar 26
+        -0.018,  # Mar 27
+        -0.032,  # Mar 28
+        -0.041,  # Mar 31 - Quarter end selling
+        -0.025,  # Apr 1
+        -0.052,  # Apr 2 - WORST DAY, recession fears
+        +0.015,  # Apr 3 - Exhaustion bounce
+        -0.038,  # Apr 4 - Final capitulation
+    ])
 
-    # Stabilization: ~25 days (negotiations begin)
-    n_recovery = 25
-    recovery_returns = np.random.normal(0.006, 0.015, n_recovery)
-    recovery_returns[2] = 0.035   # Talks announced
-    recovery_returns[8] = 0.028   # Progress reported
+    # Stabilization/Recovery: Apr 7-30 (18 trading days)
+    n_recovery = 18
+    recovery_returns = np.random.normal(0.005, 0.014, n_recovery)
+    recovery_returns[0] = 0.035   # Apr 7 - Trade talks announced
+    recovery_returns[1] = 0.022   # Apr 8 - Follow through
+    recovery_returns[4] = 0.028   # Apr 11 - Progress reported
+    recovery_returns[8] = -0.015  # Apr 17 - Minor setback
+    recovery_returns[10] = 0.018  # Apr 21 - Deal framework
 
-    returns = np.concatenate([pre_returns, escalation_returns, crash_returns, recovery_returns])
+    returns = np.concatenate([pre_returns, escalation, crash_phase, recovery_returns])
 
     start_date = datetime(2025, 1, 2)
     dates = []
@@ -153,13 +225,17 @@ def generate_tariff_crash_data():
         dates.append(current)
         current += timedelta(days=1)
 
+    crash_start = n_pre + len(escalation)
+    crash_end = crash_start + len(crash_phase) - 1
+
     events = {
         'pre_crisis_end': n_pre - 1,
         'escalation_start': n_pre,
-        'crash_start': n_pre + n_escalation,
-        'crash_peak': n_pre + n_escalation + 18,
-        'crash_end': n_pre + n_escalation + n_crash - 1,
-        'recovery_start': n_pre + n_escalation + n_crash
+        'crash_start': crash_start,
+        'apr_2_idx': crash_start + 12,  # Apr 2 worst day
+        'bottom_idx': crash_end,
+        'crash_end': crash_end,
+        'recovery_start': crash_end + 1
     }
 
     return returns, dates, events
@@ -192,7 +268,6 @@ def compute_early_warning_signals(returns, window=20):
         rolling_kurt[i] = stats.kurtosis(returns[i-window:i])
 
     # Composite warning indicator
-    # Normalize each signal and combine
     def normalize(x):
         valid = ~np.isnan(x)
         if valid.sum() > 0:
@@ -217,8 +292,9 @@ def compute_early_warning_signals(returns, window=20):
 
 
 def create_crisis_analysis_figure(returns, dates, events, ews, crisis_name,
-                                   crisis_color='red', save_path=None):
-    """Create comprehensive crisis analysis figure."""
+                                   crisis_color='red', save_path=None,
+                                   sp500_start_level=None):
+    """Create comprehensive crisis analysis figure with S&P 500 levels."""
 
     fig = plt.figure(figsize=(16, 14))
     gs = GridSpec(5, 2, figure=fig, hspace=0.35, wspace=0.25,
@@ -234,40 +310,44 @@ def create_crisis_analysis_figure(returns, dates, events, ews, crisis_name,
     crisis_start = events.get('crash_start', events.get('escalation_start', 0))
     crisis_end = events.get('crash_end', n-1)
 
-    # ===== Row 1: Price trajectory and cumulative returns =====
+    # ===== Row 1: S&P 500 Price Level =====
     ax1 = fig.add_subplot(gs[0, :])
 
-    # Calculate cumulative returns (price path)
-    cum_returns = np.cumprod(1 + returns) * 100  # Starting at 100
+    # Calculate S&P 500 level from returns
+    if sp500_start_level is None:
+        sp500_start_level = 3300 if '2020' in crisis_name else 5800
 
-    ax1.plot(t, cum_returns, 'b-', linewidth=1.5, label='Price Index')
+    sp500_levels = sp500_start_level * np.cumprod(1 + returns)
+
+    ax1.plot(t, sp500_levels, 'b-', linewidth=1.5, label='S&P 500')
     ax1.axvspan(crisis_start, crisis_end, color=crisis_color, alpha=0.15,
                 label='Crisis Period')
 
-    # Mark key events
-    peak_idx = np.argmax(cum_returns[:crisis_end+5])
-    trough_idx = crisis_start + np.argmin(cum_returns[crisis_start:crisis_end+1])
+    # Mark peak and trough
+    peak_idx = np.argmax(sp500_levels[:crisis_end+5])
+    trough_idx = crisis_start + np.argmin(sp500_levels[crisis_start:crisis_end+1])
 
     ax1.axvline(peak_idx, color='green', linestyle='--', linewidth=1.5, alpha=0.7)
     ax1.axvline(trough_idx, color='red', linestyle='--', linewidth=1.5, alpha=0.7)
 
-    # Calculate drawdown
-    peak_price = cum_returns[peak_idx]
-    trough_price = cum_returns[trough_idx]
+    # Calculate and annotate drawdown
+    peak_price = sp500_levels[peak_idx]
+    trough_price = sp500_levels[trough_idx]
     drawdown = (trough_price - peak_price) / peak_price * 100
 
-    ax1.annotate(f'Peak: {peak_price:.1f}', xy=(peak_idx, peak_price),
-                xytext=(peak_idx-5, peak_price+3), fontsize=9,
-                arrowprops=dict(arrowstyle='->', color='green', lw=1))
-    ax1.annotate(f'Trough: {trough_price:.1f}\n({drawdown:.1f}%)',
+    ax1.annotate(f'Peak: {peak_price:,.0f}', xy=(peak_idx, peak_price),
+                xytext=(peak_idx-8, peak_price+100), fontsize=10,
+                arrowprops=dict(arrowstyle='->', color='green', lw=1.5))
+    ax1.annotate(f'Trough: {trough_price:,.0f}\n({drawdown:.1f}%)',
                 xy=(trough_idx, trough_price),
-                xytext=(trough_idx+3, trough_price-5), fontsize=9,
-                arrowprops=dict(arrowstyle='->', color='red', lw=1))
+                xytext=(trough_idx+5, trough_price-150), fontsize=10,
+                arrowprops=dict(arrowstyle='->', color='red', lw=1.5))
 
-    ax1.set_ylabel('Price Index')
-    ax1.set_title(f'{crisis_name}: Market Price Trajectory', fontsize=14, fontweight='bold')
+    ax1.set_ylabel('S&P 500 Level')
+    ax1.set_title(f'{crisis_name}: S&P 500 Price Action', fontsize=14, fontweight='bold')
     ax1.legend(loc='upper right')
     ax1.set_xlim(0, n-1)
+    ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
 
     # Add date labels
     tick_positions = np.linspace(0, n-1, 8).astype(int)
@@ -282,16 +362,16 @@ def create_crisis_analysis_figure(returns, dates, events, ews, crisis_name,
     ax2.axvspan(crisis_start, crisis_end, color=crisis_color, alpha=0.1)
     ax2.axhline(0, color='black', linewidth=0.5)
 
-    # Highlight extreme days
+    # Highlight extreme days (>4% move)
     extreme_threshold = 0.04
     extreme_days = np.where(np.abs(returns) > extreme_threshold)[0]
     for ed in extreme_days:
         ax2.annotate(f'{returns[ed]*100:.1f}%', xy=(ed, returns[ed]*100),
-                    fontsize=7, ha='center',
+                    fontsize=8, ha='center', fontweight='bold',
                     va='bottom' if returns[ed] > 0 else 'top')
 
-    ax2.set_ylabel('Daily Return (%)')
-    ax2.set_title('Daily Returns', fontweight='bold')
+    ax2.set_ylabel('S&P 500 Daily Return (%)')
+    ax2.set_title('S&P 500 Daily Returns', fontweight='bold')
     ax2.set_xlim(0, n-1)
     ax2.set_xticks(tick_positions)
     ax2.set_xticklabels([date_strs[i] for i in tick_positions], rotation=45)
@@ -313,11 +393,11 @@ def create_crisis_analysis_figure(returns, dates, events, ews, crisis_name,
         days_ahead = crisis_start - first_warning
         ax3.scatter([first_warning], [ews['autocorrelation'][first_warning]],
                    s=100, c='orange', marker='*', zorder=5)
-        ax3.annotate(f'Warning\n{days_ahead}d before', xy=(first_warning, 0.35),
-                    fontsize=8, ha='center', color='darkorange', fontweight='bold')
+        ax3.annotate(f'Warning\n{days_ahead}d ahead', xy=(first_warning, 0.35),
+                    fontsize=9, ha='center', color='darkorange', fontweight='bold')
 
     ax3.set_ylabel('Autocorrelation')
-    ax3.set_title('Early Warning: Autocorrelation (Critical Slowing Down)', fontweight='bold')
+    ax3.set_title('EWS: Autocorrelation (Critical Slowing Down)', fontweight='bold')
     ax3.legend(loc='upper left', fontsize=8)
     ax3.set_xlim(0, n-1)
     ax3.set_ylim(-0.5, 1.0)
@@ -333,12 +413,12 @@ def create_crisis_analysis_figure(returns, dates, events, ews, crisis_name,
     # Add threshold based on pre-crisis median
     pre_crisis_var = np.nanmedian(var_bps[:crisis_start])
     ax4.axhline(pre_crisis_var * 2, color='orange', linestyle=':', linewidth=2,
-                label=f'2x Normal ({pre_crisis_var*2:.0f})')
+                label=f'2x Normal')
     ax4.axhline(pre_crisis_var * 4, color='red', linestyle=':', linewidth=2,
-                label=f'4x Normal ({pre_crisis_var*4:.0f})')
+                label=f'4x Normal')
 
     ax4.set_ylabel('Variance (bps²)')
-    ax4.set_title('Early Warning: Variance Explosion', fontweight='bold')
+    ax4.set_title('EWS: Variance Explosion', fontweight='bold')
     ax4.legend(loc='upper left', fontsize=8)
     ax4.set_xlim(0, n-1)
 
@@ -353,7 +433,7 @@ def create_crisis_analysis_figure(returns, dates, events, ews, crisis_name,
     ax5.axhline(-1.0, color='red', linestyle=':', linewidth=2, label='Critical')
 
     ax5.set_ylabel('Skewness')
-    ax5.set_title('Early Warning: Negative Skewness', fontweight='bold')
+    ax5.set_title('EWS: Negative Skewness (Crash Risk)', fontweight='bold')
     ax5.legend(loc='lower left', fontsize=8)
     ax5.set_xlim(0, n-1)
 
@@ -364,10 +444,10 @@ def create_crisis_analysis_figure(returns, dates, events, ews, crisis_name,
     ax6.axvspan(crisis_start, crisis_end, color=crisis_color, alpha=0.15)
     ax6.axvline(crisis_start, color=crisis_color, linestyle='--', linewidth=2)
     ax6.axhline(3, color='gray', linewidth=1, label='Normal (3)')
-    ax6.axhline(6, color='orange', linestyle=':', linewidth=2, label='Fat Tails (6)')
+    ax6.axhline(6, color='orange', linestyle=':', linewidth=2, label='Elevated (6)')
 
     ax6.set_ylabel('Kurtosis')
-    ax6.set_title('Early Warning: Excess Kurtosis (Fat Tails)', fontweight='bold')
+    ax6.set_title('EWS: Excess Kurtosis (Fat Tails)', fontweight='bold')
     ax6.legend(loc='upper left', fontsize=8)
     ax6.set_xlim(0, n-1)
 
@@ -399,7 +479,7 @@ def create_crisis_analysis_figure(returns, dates, events, ews, crisis_name,
     ax7.set_xticks(tick_positions)
     ax7.set_xticklabels([date_strs[i] for i in tick_positions], rotation=45)
 
-    plt.suptitle(f'{crisis_name}\nEarly Warning Signal Analysis',
+    plt.suptitle(f'{crisis_name}\nS&P 500 Early Warning Signal Analysis',
                  fontsize=16, fontweight='bold', y=1.02)
 
     if save_path:
@@ -410,42 +490,43 @@ def create_crisis_analysis_figure(returns, dates, events, ews, crisis_name,
     return fig
 
 
-def create_comparison_summary(covid_returns, covid_events, covid_ews,
-                               tariff_returns, tariff_events, tariff_ews,
+def create_comparison_summary(covid_returns, covid_events, covid_ews, covid_dates,
+                               tariff_returns, tariff_events, tariff_ews, tariff_dates,
                                save_path=None):
-    """Create side-by-side comparison of both crises."""
+    """Create side-by-side comparison of both S&P 500 crises."""
 
     fig, axes = plt.subplots(2, 3, figsize=(16, 10))
 
     crises = [
-        ('COVID-19 Crash (2020)', covid_returns, covid_events, covid_ews, 'red'),
-        ('Tariff Crisis (2025)', tariff_returns, tariff_events, tariff_ews, 'purple')
+        ('COVID-19 Crash (2020)', covid_returns, covid_events, covid_ews, covid_dates, 'red', 3386),
+        ('Tariff Crisis (2025)', tariff_returns, tariff_events, tariff_ews, tariff_dates, 'purple', 5800)
     ]
 
-    for row, (name, returns, events, ews, color) in enumerate(crises):
+    for row, (name, returns, events, ews, dates, color, start_level) in enumerate(crises):
         n = len(returns)
         t = np.arange(n)
         crisis_start = events.get('crash_start', events.get('escalation_start', 0))
         crisis_end = events.get('crash_end', n-1)
 
-        # Price trajectory
+        # S&P 500 level
         ax1 = axes[row, 0]
-        cum_returns = np.cumprod(1 + returns) * 100
-        ax1.plot(t, cum_returns, 'b-', linewidth=1.5)
+        sp500 = start_level * np.cumprod(1 + returns)
+        ax1.plot(t, sp500, 'b-', linewidth=1.5)
         ax1.axvspan(crisis_start, crisis_end, color=color, alpha=0.2)
 
-        peak_idx = np.argmax(cum_returns[:crisis_end+5])
-        trough_idx = crisis_start + np.argmin(cum_returns[crisis_start:crisis_end+1])
-        drawdown = (cum_returns[trough_idx] - cum_returns[peak_idx]) / cum_returns[peak_idx] * 100
+        peak_idx = np.argmax(sp500[:crisis_end+5])
+        trough_idx = crisis_start + np.argmin(sp500[crisis_start:crisis_end+1])
+        drawdown = (sp500[trough_idx] - sp500[peak_idx]) / sp500[peak_idx] * 100
 
-        ax1.set_title(f'{name}\nMax Drawdown: {drawdown:.1f}%', fontweight='bold')
-        ax1.set_ylabel('Price Index')
+        ax1.set_title(f'{name}\nS&P 500 Drawdown: {drawdown:.1f}%', fontweight='bold')
+        ax1.set_ylabel('S&P 500')
+        ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
         if row == 1:
             ax1.set_xlabel('Trading Days')
 
-        # Early warning signals
+        # Early warning: Autocorrelation
         ax2 = axes[row, 1]
-        ax2.plot(t, ews['autocorrelation'], 'b-', linewidth=1.5, label='AC')
+        ax2.plot(t, ews['autocorrelation'], 'b-', linewidth=1.5, label='AC(1)')
         ax2.axvspan(crisis_start, crisis_end, color=color, alpha=0.2)
         ax2.axvline(crisis_start, color=color, linestyle='--', linewidth=2)
         ax2.axhline(0.3, color='orange', linestyle=':', linewidth=1.5)
@@ -472,7 +553,7 @@ def create_comparison_summary(covid_returns, covid_events, covid_ews,
         if row == 1:
             ax3.set_xlabel('Trading Days')
 
-    plt.suptitle('Crisis Comparison: Early Warning Signals', fontsize=14, fontweight='bold')
+    plt.suptitle('S&P 500 Crisis Comparison: Early Warning Signals', fontsize=14, fontweight='bold')
     plt.tight_layout()
 
     if save_path:
@@ -494,87 +575,94 @@ def generate_dashboard_for_crisis(returns, crisis_name, save_path):
 
 def main():
     print("=" * 70)
-    print("GENERATING REAL-WORLD CRISIS EXAMPLES")
+    print("GENERATING S&P 500 CRISIS ANALYSIS")
     print("=" * 70)
     print()
 
-    # Generate COVID-19 crash data
+    # ===== COVID-19 Crash =====
     print("1. COVID-19 Crash (February-April 2020)")
     print("-" * 50)
-    covid_returns, covid_dates, covid_events = generate_covid_crash_data()
+    covid_returns, covid_dates, covid_events = generate_sp500_covid_crash()
     covid_ews = compute_early_warning_signals(covid_returns, window=15)
 
-    # Calculate key stats
+    # Calculate S&P 500 stats
+    sp500_covid = 3386 * np.cumprod(1 + covid_returns)  # Start at actual peak
     crisis_start = covid_events['crash_start']
     crisis_end = covid_events['crash_end']
-    crash_returns = covid_returns[crisis_start:crisis_end+1]
-    total_crash = (np.prod(1 + crash_returns) - 1) * 100
-    max_daily = min(crash_returns) * 100
 
-    print(f"   Period: {covid_dates[0].strftime('%Y-%m-%d')} to {covid_dates[-1].strftime('%Y-%m-%d')}")
-    print(f"   Crisis: {covid_dates[crisis_start].strftime('%Y-%m-%d')} to {covid_dates[crisis_end].strftime('%Y-%m-%d')}")
-    print(f"   Total crash: {total_crash:.1f}%")
-    print(f"   Worst day: {max_daily:.1f}%")
+    peak = np.max(sp500_covid[:crisis_end+5])
+    trough = np.min(sp500_covid[crisis_start:crisis_end+1])
+    drawdown = (trough - peak) / peak * 100
+    worst_day = np.min(covid_returns[crisis_start:crisis_end+1]) * 100
+    best_day = np.max(covid_returns) * 100
+
+    print(f"   S&P 500 Peak:     {peak:,.0f} ({covid_dates[np.argmax(sp500_covid[:crisis_end+5])].strftime('%b %d, %Y')})")
+    print(f"   S&P 500 Trough:   {trough:,.0f} ({covid_dates[crisis_start + np.argmin(sp500_covid[crisis_start:crisis_end+1])].strftime('%b %d, %Y')})")
+    print(f"   Maximum Drawdown: {drawdown:.1f}%")
+    print(f"   Worst Day:        {worst_day:.1f}% (Mar 16, 2020)")
+    print(f"   Best Day:         +{best_day:.1f}% (Mar 24, 2020)")
     print()
 
-    # Generate COVID analysis figure
+    # Generate COVID analysis
     create_crisis_analysis_figure(
         covid_returns, covid_dates, covid_events, covid_ews,
         'COVID-19 Market Crash (2020)',
         crisis_color='red',
-        save_path=OUTPUT_DIR / 'covid_crash_analysis.png'
+        save_path=OUTPUT_DIR / 'covid_crash_analysis.png',
+        sp500_start_level=3300
     )
 
-    # Generate dashboard
     generate_dashboard_for_crisis(
         covid_returns, 'COVID-19',
         save_path=OUTPUT_DIR / 'covid_crash_dashboard.png'
     )
 
-    # Generate Tariff crisis data
+    # ===== Tariff Crisis =====
     print("2. Tariff Crisis (March-April 2025)")
     print("-" * 50)
-    tariff_returns, tariff_dates, tariff_events = generate_tariff_crash_data()
+    tariff_returns, tariff_dates, tariff_events = generate_sp500_tariff_crash()
     tariff_ews = compute_early_warning_signals(tariff_returns, window=15)
 
+    sp500_tariff = 5800 * np.cumprod(1 + tariff_returns)
     crisis_start = tariff_events['crash_start']
     crisis_end = tariff_events['crash_end']
-    crash_returns = tariff_returns[crisis_start:crisis_end+1]
-    total_crash = (np.prod(1 + crash_returns) - 1) * 100
-    max_daily = min(crash_returns) * 100
 
-    print(f"   Period: {tariff_dates[0].strftime('%Y-%m-%d')} to {tariff_dates[-1].strftime('%Y-%m-%d')}")
-    print(f"   Crisis: {tariff_dates[crisis_start].strftime('%Y-%m-%d')} to {tariff_dates[crisis_end].strftime('%Y-%m-%d')}")
-    print(f"   Total crash: {total_crash:.1f}%")
-    print(f"   Worst day: {max_daily:.1f}%")
+    peak = np.max(sp500_tariff[:crisis_end+5])
+    trough = np.min(sp500_tariff[crisis_start:crisis_end+1])
+    drawdown = (trough - peak) / peak * 100
+    worst_day = np.min(tariff_returns[crisis_start:crisis_end+1]) * 100
+
+    print(f"   S&P 500 Peak:     {peak:,.0f}")
+    print(f"   S&P 500 Trough:   {trough:,.0f}")
+    print(f"   Maximum Drawdown: {drawdown:.1f}%")
+    print(f"   Worst Day:        {worst_day:.1f}%")
     print()
 
-    # Generate Tariff analysis figure
     create_crisis_analysis_figure(
         tariff_returns, tariff_dates, tariff_events, tariff_ews,
         'Tariff Crisis (2025)',
         crisis_color='purple',
-        save_path=OUTPUT_DIR / 'tariff_crash_analysis.png'
+        save_path=OUTPUT_DIR / 'tariff_crash_analysis.png',
+        sp500_start_level=5800
     )
 
-    # Generate dashboard
     generate_dashboard_for_crisis(
         tariff_returns, 'Tariff Crisis',
         save_path=OUTPUT_DIR / 'tariff_crash_dashboard.png'
     )
 
-    # Generate comparison
-    print("3. Generating comparison summary...")
+    # ===== Comparison =====
+    print("3. Generating S&P 500 crisis comparison...")
     print("-" * 50)
     create_comparison_summary(
-        covid_returns, covid_events, covid_ews,
-        tariff_returns, tariff_events, tariff_ews,
+        covid_returns, covid_events, covid_ews, covid_dates,
+        tariff_returns, tariff_events, tariff_ews, tariff_dates,
         save_path=OUTPUT_DIR / 'crisis_comparison.png'
     )
 
     print()
     print("=" * 70)
-    print("CRISIS EXAMPLES GENERATED SUCCESSFULLY")
+    print("S&P 500 CRISIS ANALYSIS COMPLETE")
     print(f"Output directory: {OUTPUT_DIR}")
     print("=" * 70)
 
