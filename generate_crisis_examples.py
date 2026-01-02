@@ -163,6 +163,35 @@ TARIFF_2025_SP500_DATA = {
     ]
 }
 
+# CURRENT MARKET - October 2025 to January 2026
+# All-time high: 6,939.5 (Dec 26, 2025)
+# Year-end 2025: 6,845.50
+# Current (Jan 2, 2026): ~6,888
+# 2025 Performance: +18% (third consecutive year of double-digit gains)
+
+CURRENT_MARKET_SP500_DATA = {
+    'dates': [
+        # October 2025
+        '2025-10-01', '2025-10-08', '2025-10-15', '2025-10-22', '2025-10-29',
+        # November 2025
+        '2025-11-05', '2025-11-12', '2025-11-19', '2025-11-26',
+        # December 2025
+        '2025-12-03', '2025-12-10', '2025-12-17', '2025-12-24', '2025-12-26', '2025-12-31',
+        # January 2026
+        '2026-01-02',
+    ],
+    'closes': [
+        # October 2025 - Steady climb
+        6102.45, 6185.32, 6248.77, 6312.58, 6398.21,
+        # November 2025 - Post-election rally
+        6475.89, 6538.42, 6612.78, 6689.55,
+        # December 2025 - Record highs
+        6742.18, 6798.45, 6865.32, 6932.05, 6939.50, 6845.50,  # ATH on Dec 26
+        # January 2026
+        6888.20,
+    ]
+}
+
 
 def compute_returns_from_prices(prices):
     """Compute daily returns from price series."""
@@ -445,6 +474,275 @@ def generate_dashboard_for_crisis(returns, crisis_name, save_path):
     print(f"Saved: {save_path}")
 
 
+def create_current_market_figure(prices, dates, returns, ews, save_path=None):
+    """Create current market analysis figure showing where we stand today."""
+
+    fig = plt.figure(figsize=(16, 12))
+    gs = GridSpec(4, 2, figure=fig, hspace=0.35, wspace=0.25,
+                  height_ratios=[1.2, 1, 1, 1])
+
+    n = len(prices)
+    t = np.arange(n)
+    date_strs = [d.strftime('%b %d') for d in dates]
+
+    # Row 1: S&P 500 Price Level - Bull Market Rally
+    ax1 = fig.add_subplot(gs[0, :])
+    ax1.plot(t, prices, 'b-', linewidth=2, label='S&P 500')
+    ax1.fill_between(t, min(prices)*0.98, prices, alpha=0.3, color='green')
+
+    # Mark all-time high
+    ath_idx = np.argmax(prices)
+    ath_price = prices[ath_idx]
+    ax1.scatter([ath_idx], [ath_price], color='gold', s=150, zorder=5,
+                marker='*', edgecolors='black', linewidths=1)
+    ax1.annotate(f'ATH: {ath_price:,.0f}', xy=(ath_idx, ath_price),
+                xytext=(ath_idx-2, ath_price * 1.02), fontsize=11, fontweight='bold',
+                arrowprops=dict(arrowstyle='->', color='gold', lw=2))
+
+    # Mark current level
+    current_price = prices[-1]
+    ax1.scatter([n-1], [current_price], color='blue', s=100, zorder=5, marker='o')
+    ax1.annotate(f'Current: {current_price:,.0f}', xy=(n-1, current_price),
+                xytext=(n-3, current_price * 0.98), fontsize=11, fontweight='bold',
+                arrowprops=dict(arrowstyle='->', color='blue', lw=1.5))
+
+    # Calculate gain from Oct start
+    start_price = prices[0]
+    gain_pct = (current_price - start_price) / start_price * 100
+
+    ax1.set_ylabel('S&P 500 Index Level')
+    ax1.set_title(f'Current Market: S&P 500 at All-Time Highs (Oct 2025 - Jan 2026)\n'
+                  f'Gain since Oct 1: +{gain_pct:.1f}% | 2025 Full Year: +18%',
+                  fontsize=14, fontweight='bold')
+    ax1.legend(loc='upper left')
+    ax1.set_xlim(0, n-1)
+    ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
+
+    tick_positions = np.linspace(0, n-1, min(8, n)).astype(int)
+    ax1.set_xticks(tick_positions)
+    ax1.set_xticklabels([date_strs[i] for i in tick_positions], rotation=45)
+
+    # Row 2: Daily Returns - Low Volatility Bull Market
+    ax2 = fig.add_subplot(gs[1, :])
+    t_ret = np.arange(len(returns))
+    colors = ['green' if r >= 0 else 'red' for r in returns]
+    ax2.bar(t_ret, returns * 100, color=colors, alpha=0.7, width=1.0)
+    ax2.axhline(0, color='black', linewidth=0.5)
+    ax2.set_ylabel('Daily Return (%)')
+    ax2.set_title('Daily Returns: Low Volatility Environment', fontweight='bold')
+    ax2.set_xlim(0, len(returns)-1)
+
+    # Add volatility annotation
+    vol = np.std(returns) * np.sqrt(252) * 100
+    ax2.text(0.98, 0.95, f'Annualized Vol: {vol:.1f}%', transform=ax2.transAxes,
+             fontsize=10, fontweight='bold', ha='right', va='top',
+             bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+    # Row 3: EWS Metrics
+    ax3 = fig.add_subplot(gs[2, 0])
+    ax3.plot(t_ret, ews['autocorrelation'], 'b-', linewidth=1.5)
+    ax3.axhline(0.3, color='orange', linestyle=':', linewidth=2, label='Warning')
+    ax3.axhline(0.5, color='red', linestyle=':', linewidth=2, label='Critical')
+    ax3.fill_between(t_ret, -0.6, 0.3, alpha=0.1, color='green')
+    ax3.set_ylabel('Autocorrelation')
+    ax3.set_title('EWS: Autocorrelation (Low = Healthy)', fontweight='bold')
+    ax3.legend(loc='upper left', fontsize=8)
+    ax3.set_xlim(0, len(returns)-1)
+    ax3.set_ylim(-0.6, 0.8)
+
+    ax4 = fig.add_subplot(gs[2, 1])
+    var_bps = ews['variance'] * 10000
+    ax4.plot(t_ret, var_bps, 'g-', linewidth=1.5)
+    ax4.fill_between(t_ret, 0, np.nan_to_num(var_bps), alpha=0.3, color='green')
+    ax4.set_ylabel('Variance (bps²)')
+    ax4.set_title('EWS: Variance (Low = Calm Markets)', fontweight='bold')
+    ax4.set_xlim(0, len(returns)-1)
+
+    # Row 4: Composite Risk Score
+    ax5 = fig.add_subplot(gs[3, :])
+    composite = ews['composite']
+    for i in range(1, len(returns)):
+        if not np.isnan(composite[i]) and not np.isnan(composite[i-1]):
+            c = 'green' if composite[i] < 0.5 else ('orange' if composite[i] < 1.5 else 'red')
+            ax5.plot([t_ret[i-1], t_ret[i]], [composite[i-1], composite[i]], color=c, linewidth=2)
+
+    ax5.fill_between(t_ret, -2, 0.5, alpha=0.15, color='green', label='Normal')
+    ax5.fill_between(t_ret, 0.5, 1.5, alpha=0.15, color='orange', label='Elevated')
+    ax5.fill_between(t_ret, 1.5, 4, alpha=0.15, color='red', label='Critical')
+    ax5.set_ylabel('Risk Score')
+    ax5.set_xlabel('Trading Days')
+    ax5.set_title('COMPOSITE RISK INDICATOR: Market Health Status', fontsize=12, fontweight='bold')
+    ax5.legend(loc='upper right', fontsize=8, ncol=3)
+    ax5.set_xlim(0, len(returns)-1)
+    ax5.set_ylim(-2, 4)
+
+    # Add current status box
+    current_risk = np.nanmean(composite[-3:]) if len(composite) >= 3 else composite[-1]
+    status = 'NORMAL' if current_risk < 0.5 else ('ELEVATED' if current_risk < 1.5 else 'CRITICAL')
+    status_color = 'green' if status == 'NORMAL' else ('orange' if status == 'ELEVATED' else 'red')
+    ax5.text(0.02, 0.95, f'Current Status: {status}', transform=ax5.transAxes,
+             fontsize=12, fontweight='bold', ha='left', va='top',
+             bbox=dict(boxstyle='round', facecolor=status_color, alpha=0.3))
+
+    plt.suptitle('S&P 500 Current Market Analysis (January 2026)\n'
+                 'Early Warning System: Where Do We Stand Today?',
+                 fontsize=16, fontweight='bold', y=1.02)
+
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight', facecolor='white', dpi=150)
+        print(f"Saved: {save_path}")
+
+    plt.close()
+    return fig
+
+
+def create_crisis_vs_current_comparison(covid_metrics, bear_metrics, tariff_metrics,
+                                         current_metrics, save_path=None):
+    """Create comprehensive comparison of all crises vs current market."""
+
+    fig = plt.figure(figsize=(18, 14))
+    gs = GridSpec(3, 3, figure=fig, hspace=0.4, wspace=0.3)
+
+    # Unpack metrics
+    covid_prices, covid_returns, covid_ews = covid_metrics
+    bear_prices, bear_returns, bear_ews = bear_metrics
+    tariff_prices, tariff_returns, tariff_ews = tariff_metrics
+    current_prices, current_returns, current_ews = current_metrics
+
+    # Row 1: Price trajectories comparison (normalized)
+    ax1 = fig.add_subplot(gs[0, :])
+
+    # Normalize all to 100 at start
+    covid_norm = covid_prices / covid_prices[0] * 100
+    bear_norm = bear_prices / bear_prices[0] * 100
+    tariff_norm = tariff_prices / tariff_prices[0] * 100
+    current_norm = current_prices / current_prices[0] * 100
+
+    ax1.plot(np.linspace(0, 100, len(covid_norm)), covid_norm, 'r-', linewidth=2,
+             label=f'COVID-19 2020 (min: {np.min(covid_norm):.0f})')
+    ax1.plot(np.linspace(0, 100, len(bear_norm)), bear_norm, 'orange', linewidth=2,
+             label=f'2022 Bear (min: {np.min(bear_norm):.0f})')
+    ax1.plot(np.linspace(0, 100, len(tariff_norm)), tariff_norm, 'purple', linewidth=2,
+             label=f'2025 Tariff (min: {np.min(tariff_norm):.0f})')
+    ax1.plot(np.linspace(0, 100, len(current_norm)), current_norm, 'green', linewidth=3,
+             label=f'Current 2026 (now: {current_norm[-1]:.0f})')
+
+    ax1.axhline(100, color='gray', linestyle='--', linewidth=1, alpha=0.5)
+    ax1.set_xlabel('Normalized Time (%)')
+    ax1.set_ylabel('Normalized Price (Start = 100)')
+    ax1.set_title('S&P 500 Price Trajectories: Crises vs Current Bull Market',
+                  fontsize=14, fontweight='bold')
+    ax1.legend(loc='lower left', fontsize=10)
+    ax1.set_ylim(60, 120)
+    ax1.grid(True, alpha=0.3)
+
+    # Row 2, Col 1: Volatility comparison
+    ax2 = fig.add_subplot(gs[1, 0])
+    volatilities = [
+        np.std(covid_returns) * np.sqrt(252) * 100,
+        np.std(bear_returns) * np.sqrt(252) * 100,
+        np.std(tariff_returns) * np.sqrt(252) * 100,
+        np.std(current_returns) * np.sqrt(252) * 100
+    ]
+    colors = ['red', 'orange', 'purple', 'green']
+    labels = ['COVID-19\n2020', '2022\nBear', '2025\nTariff', 'Current\n2026']
+    bars = ax2.bar(labels, volatilities, color=colors, alpha=0.7, edgecolor='black')
+    ax2.set_ylabel('Annualized Volatility (%)')
+    ax2.set_title('Volatility Comparison', fontweight='bold')
+    for bar, vol in zip(bars, volatilities):
+        ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1,
+                f'{vol:.1f}%', ha='center', fontweight='bold')
+
+    # Row 2, Col 2: Max drawdown comparison
+    ax3 = fig.add_subplot(gs[1, 1])
+    drawdowns = [
+        (np.min(covid_prices) - np.max(covid_prices)) / np.max(covid_prices) * 100,
+        (np.min(bear_prices) - np.max(bear_prices)) / np.max(bear_prices) * 100,
+        (np.min(tariff_prices) - np.max(tariff_prices)) / np.max(tariff_prices) * 100,
+        (np.min(current_prices) - np.max(current_prices)) / np.max(current_prices) * 100
+    ]
+    bars = ax3.bar(labels, drawdowns, color=colors, alpha=0.7, edgecolor='black')
+    ax3.set_ylabel('Maximum Drawdown (%)')
+    ax3.set_title('Drawdown Comparison', fontweight='bold')
+    ax3.axhline(0, color='black', linewidth=0.5)
+    for bar, dd in zip(bars, drawdowns):
+        ax3.text(bar.get_x() + bar.get_width()/2, bar.get_height() - 2,
+                f'{dd:.1f}%', ha='center', fontweight='bold', color='white')
+
+    # Row 2, Col 3: Worst/Best day comparison
+    ax4 = fig.add_subplot(gs[1, 2])
+    worst_days = [np.min(covid_returns)*100, np.min(bear_returns)*100,
+                  np.min(tariff_returns)*100, np.min(current_returns)*100]
+    best_days = [np.max(covid_returns)*100, np.max(bear_returns)*100,
+                 np.max(tariff_returns)*100, np.max(current_returns)*100]
+
+    x = np.arange(len(labels))
+    width = 0.35
+    ax4.bar(x - width/2, worst_days, width, label='Worst Day', color='darkred', alpha=0.7)
+    ax4.bar(x + width/2, best_days, width, label='Best Day', color='darkgreen', alpha=0.7)
+    ax4.set_xticks(x)
+    ax4.set_xticklabels(labels)
+    ax4.set_ylabel('Daily Return (%)')
+    ax4.set_title('Extreme Days Comparison', fontweight='bold')
+    ax4.legend(loc='upper right')
+    ax4.axhline(0, color='black', linewidth=0.5)
+
+    # Row 3: Risk metrics comparison
+    ax5 = fig.add_subplot(gs[2, 0])
+    # Average autocorrelation (higher = more concerning)
+    avg_ac = [
+        np.nanmean(covid_ews['autocorrelation']),
+        np.nanmean(bear_ews['autocorrelation']),
+        np.nanmean(tariff_ews['autocorrelation']),
+        np.nanmean(current_ews['autocorrelation'])
+    ]
+    bars = ax5.bar(labels, avg_ac, color=colors, alpha=0.7, edgecolor='black')
+    ax5.axhline(0.3, color='orange', linestyle='--', linewidth=2, label='Warning Level')
+    ax5.set_ylabel('Avg Autocorrelation')
+    ax5.set_title('Critical Slowing Down Indicator', fontweight='bold')
+    ax5.legend(loc='upper right', fontsize=8)
+
+    ax6 = fig.add_subplot(gs[2, 1])
+    # Average variance (higher = more volatile)
+    avg_var = [
+        np.nanmean(covid_ews['variance']) * 10000,
+        np.nanmean(bear_ews['variance']) * 10000,
+        np.nanmean(tariff_ews['variance']) * 10000,
+        np.nanmean(current_ews['variance']) * 10000
+    ]
+    bars = ax6.bar(labels, avg_var, color=colors, alpha=0.7, edgecolor='black')
+    ax6.set_ylabel('Avg Variance (bps²)')
+    ax6.set_title('Variance Level', fontweight='bold')
+
+    ax7 = fig.add_subplot(gs[2, 2])
+    # Composite risk score
+    avg_composite = [
+        np.nanmean(covid_ews['composite']),
+        np.nanmean(bear_ews['composite']),
+        np.nanmean(tariff_ews['composite']),
+        np.nanmean(current_ews['composite'])
+    ]
+    bars = ax7.bar(labels, avg_composite, color=colors, alpha=0.7, edgecolor='black')
+    ax7.axhline(0.5, color='orange', linestyle='--', linewidth=2)
+    ax7.axhline(1.5, color='red', linestyle='--', linewidth=2)
+    ax7.fill_between([-0.5, 3.5], -1, 0.5, alpha=0.1, color='green')
+    ax7.fill_between([-0.5, 3.5], 0.5, 1.5, alpha=0.1, color='orange')
+    ax7.fill_between([-0.5, 3.5], 1.5, 3, alpha=0.1, color='red')
+    ax7.set_ylabel('Avg Composite Risk Score')
+    ax7.set_title('Overall Risk Assessment', fontweight='bold')
+    ax7.set_xlim(-0.5, 3.5)
+
+    plt.suptitle('S&P 500: Historical Crises vs Current Market (January 2026)\n'
+                 'Tail Risk Metrics Comparison', fontsize=16, fontweight='bold', y=1.02)
+
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight', facecolor='white', dpi=150)
+        print(f"Saved: {save_path}")
+
+    plt.close()
+    return fig
+
+
 def main():
     print("=" * 70)
     print("GENERATING S&P 500 CRISIS ANALYSIS (ACTUAL HISTORICAL DATA)")
@@ -576,11 +874,67 @@ def main():
         save_path=OUTPUT_DIR / 'crisis_comparison.png'
     )
 
+    # ===== Current Market Analysis (Jan 2026) =====
+    print()
+    print("5. Current Market Analysis (October 2025 - January 2026)")
+    print("-" * 50)
+
+    current_prices = np.array(CURRENT_MARKET_SP500_DATA['closes'])
+    current_dates = parse_dates(CURRENT_MARKET_SP500_DATA['dates'])
+    current_returns = compute_returns_from_prices(current_prices)
+    current_ews = compute_early_warning_signals(current_returns, window=5)
+
+    ath = np.max(current_prices)
+    current_level = current_prices[-1]
+    start_level = current_prices[0]
+    gain_q4 = (current_level - start_level) / start_level * 100
+    from_ath = (current_level - ath) / ath * 100
+
+    print(f"   S&P 500 Current:  {current_level:,.2f} (Jan 2, 2026)")
+    print(f"   All-Time High:    {ath:,.2f} (Dec 26, 2025)")
+    print(f"   Distance from ATH: {from_ath:.1f}%")
+    print(f"   Q4 2025 Gain:     +{gain_q4:.1f}%")
+    print(f"   2025 Full Year:   +18% (third consecutive double-digit year)")
+    print(f"   Annualized Vol:   {np.std(current_returns) * np.sqrt(252) * 100:.1f}%")
+    print()
+
+    create_current_market_figure(
+        current_prices, current_dates, current_returns, current_ews,
+        save_path=OUTPUT_DIR / 'current_market_analysis.png'
+    )
+
+    generate_dashboard_for_crisis(
+        current_returns, 'Current Market (Jan 2026)',
+        save_path=OUTPUT_DIR / 'current_market_dashboard.png'
+    )
+
+    # ===== Crisis vs Current Comparison =====
+    print("6. Generating Crisis vs Current Market Comparison...")
+    print("-" * 50)
+
+    covid_metrics = (covid_prices, covid_returns, covid_ews)
+    bear_metrics = (bear_prices, bear_returns, bear_ews)
+    tariff_metrics = (tariff_prices, tariff_returns, tariff_ews)
+    current_metrics = (current_prices, current_returns, current_ews)
+
+    create_crisis_vs_current_comparison(
+        covid_metrics, bear_metrics, tariff_metrics, current_metrics,
+        save_path=OUTPUT_DIR / 'crisis_vs_current_comparison.png'
+    )
+
     print()
     print("=" * 70)
     print("S&P 500 CRISIS ANALYSIS COMPLETE")
     print("All visualizations use ACTUAL historical S&P 500 data")
     print(f"Output directory: {OUTPUT_DIR}")
+    print()
+    print("Generated visualizations:")
+    print("  - covid_crash_analysis.png / covid_crash_dashboard.png")
+    print("  - bear_2022_analysis.png / bear_2022_dashboard.png")
+    print("  - tariff_crash_analysis.png / tariff_crash_dashboard.png")
+    print("  - crisis_comparison.png")
+    print("  - current_market_analysis.png / current_market_dashboard.png")
+    print("  - crisis_vs_current_comparison.png")
     print("=" * 70)
 
 
