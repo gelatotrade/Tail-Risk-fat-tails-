@@ -224,22 +224,22 @@ Market crashes behave like phase transitions in physical systems:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                     PHASE TRANSITION ANALOGY                            │
+│                     PHASE TRANSITION ANALOGY                           │
 ├────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
+│                                                                        │
 │   PHYSICS (Magnet)           │   FINANCE (Market)                      │
 │   ──────────────────────────────────────────────────────────────────   │
 │   Spins (↑ or ↓)             │   Traders (buy or sell)                 │
 │   Coupling J (spin interact) │   Herding (social influence)            │
-│   Temperature T              │   Noise/uncertainty                      │
-│   External field h           │   Market sentiment                       │
-│   Magnetization M            │   Price trend                            │
-│   Susceptibility χ           │   Market sensitivity                     │
-│   Critical point Tc          │   Crash point                            │
-│                                                                         │
-│   Critical Slowing Down:                                                │
+│   Temperature T              │   Noise/uncertainty                     │
+│   External field h           │   Market sentiment                      │
+│   Magnetization M            │   Price trend                           │
+│   Susceptibility χ           │   Market sensitivity                    │
+│   Critical point Tc          │   Crash point                           │
+│                                                                        │
+│   Critical Slowing Down:                                               │
 │   Near Tc, system responds slowly → Early Warning Signal               │
-│                                                                         │
+│                                                                        │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
