@@ -80,9 +80,9 @@ This framework replaces naive Gaussian assumptions with **physics-derived models
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                     PHYSICS → FINANCE MAPPING                                │
+│                     PHYSICS → FINANCE MAPPING                               │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
+│                                                                             │
 │  PHYSICS CONCEPT              │  FINANCIAL APPLICATION                      │
 │  ─────────────────────────────┼─────────────────────────────────────────    │
 │  Lévy Flights (particle paths)│  Price jumps, Black Swan events             │
@@ -90,7 +90,7 @@ This framework replaces naive Gaussian assumptions with **physics-derived models
 │  Tsallis Entropy (thermo)     │  Non-equilibrium markets, fat tails         │
 │  Phase Transitions (magnets)  │  Market crashes, regime changes             │
 │  Ornstein-Uhlenbeck (springs) │  Volatility mean reversion + jumps          │
-│                                                                              │
+│                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
