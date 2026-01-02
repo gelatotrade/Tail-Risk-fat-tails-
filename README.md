@@ -353,6 +353,62 @@ The 2025 "Liberation Day" tariff shock caused the largest two-day point loss in 
 
 ---
 
+### Current Market Analysis (January 2026)
+
+After experiencing three major market crises, where does the S&P 500 stand today? The framework's early warning system provides real-time risk assessment.
+
+**Current Market Status (January 2, 2026):**
+- **S&P 500 Current Level:** 6,888
+- **All-Time High:** 6,940 (December 26, 2025)
+- **Distance from ATH:** -0.7%
+- **Q4 2025 Gain:** +12.9%
+- **2025 Full Year Return:** +18% (third consecutive year of double-digit gains)
+- **Annualized Volatility:** 10.4% (historically low)
+
+![Current Market Analysis](outputs/current_market_analysis.png)
+
+*Current market conditions: S&P 500 trading near all-time highs with low volatility. Early warning indicators show normal risk levels—a stark contrast to the elevated readings seen before each of the three crises.*
+
+**Full Dashboard - Current Market:**
+
+![Current Market Dashboard](outputs/current_market_dashboard.png)
+
+*Complete tail risk analysis of the current market environment. Low volatility, minimal autocorrelation, and stable skewness indicate healthy market conditions.*
+
+---
+
+### Crisis vs Current Market Comparison
+
+How do current market conditions compare to the three major crises? This analysis reveals the dramatic difference between crisis periods and today's bull market.
+
+![Crisis vs Current Comparison](outputs/crisis_vs_current_comparison.png)
+
+*Comprehensive comparison of all three crises against the current market. Current conditions show dramatically lower volatility, minimal drawdown, and normal risk scores—indicating a healthy market far from crisis territory.*
+
+**Quantitative Comparison: Crises vs Today**
+
+| Metric | COVID-19 (2020) | 2022 Bear | 2025 Tariff | **Current (2026)** |
+|--------|-----------------|-----------|-------------|-------------------|
+| S&P 500 Level | 3,386 → 2,237 | 4,797 → 3,577 | 6,144 → 4,658 | **6,888 (ATH -0.7%)** |
+| Annualized Vol | ~80% | ~25% | ~35% | **10.4%** |
+| Max Drawdown | -33.9% | -25.4% | -24.2% | **-0.7%** |
+| Worst Day | -11.98% | -3.9% | -5.97% | **-0.5%** |
+| Risk Status | CRITICAL | ELEVATED | CRITICAL | **NORMAL** |
+
+**Key Observations:**
+
+1. **Volatility Contrast:** Current annualized volatility of 10.4% is roughly 8x lower than COVID-19 crisis levels and 3x lower than the 2025 tariff shock.
+
+2. **Early Warning Signals:** All EWS metrics (autocorrelation, variance, skewness) are in the "normal" zone—unlike the elevated readings that preceded each historical crisis.
+
+3. **Market Structure:** The steady upward trend with low volatility suggests orderly market conditions without the herding behavior that characterizes pre-crash environments.
+
+4. **Risk Assessment:** The composite risk indicator remains well below warning thresholds, suggesting the market is not exhibiting the critical slowing down patterns seen before major corrections.
+
+> **Current Outlook:** As of January 2026, the S&P 500 shows none of the early warning signals that preceded the COVID-19 crash, 2022 bear market, or 2025 tariff crisis. The third consecutive year of double-digit gains has brought the index to new all-time highs with historically low volatility. While past performance does not predict future returns, the current EWS readings suggest the market is not in an imminent pre-crisis state.
+
+---
+
 ## 3D Tail Risk Coordinate System
 
 ### The Phase Space Concept
@@ -720,7 +776,10 @@ Tail-Risk-fat-tails/
 │   ├── bear_2022_dashboard.png     # 2022 bear market full dashboard
 │   ├── tariff_crash_analysis.png   # 2025 tariff crisis EWS analysis
 │   ├── tariff_crash_dashboard.png  # Tariff crisis full dashboard
-│   └── crisis_comparison.png       # Three-crisis comparison
+│   ├── crisis_comparison.png       # Three-crisis comparison
+│   ├── current_market_analysis.png # Current market (Jan 2026) analysis
+│   ├── current_market_dashboard.png # Current market full dashboard
+│   └── crisis_vs_current_comparison.png # Crises vs current comparison
 ├── main.py                         # Entry point
 ├── generate_readme_figures.py      # Generate documentation figures
 ├── generate_crisis_examples.py     # Generate real-world crisis analyses
