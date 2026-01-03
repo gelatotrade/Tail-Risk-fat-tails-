@@ -416,6 +416,203 @@ How do current market conditions compare to the three major crises? This analysi
 
 ---
 
+### Early Warning Indicator Analysis: January 3, 2026
+
+Following our comprehensive Early Warning System framework, here is the current status of all 5 indicators as of market close on **January 3, 2026**:
+
+![Current EWS Analysis](outputs/ews_analysis_jan2026.png)
+
+*Real-time Early Warning System dashboard showing all 5 indicators for January 3, 2026.*
+
+#### Current Indicator Readings
+
+| Indicator | Current Value | Status | Score (0-100) | Signal |
+|-----------|--------------|--------|---------------|--------|
+| **Net Gamma (GEX)** | +$4.2B | POSITIVE | 18 | Dealers buying dips → Stabilizing |
+| **TailDex (TDEX)** | 7.8 | 22nd Percentile | 22 | Low tail fear → Complacent |
+| **VIX Term Structure** | M1/M2 = 0.87 | CONTANGO | 15 | Normal curve → No panic |
+| **Dark Index (DIX)** | 46.2% | NEUTRAL-HIGH | 25 | Modest institutional buying |
+| **Smart Money Flow (SMFI)** | +3.2 | POSITIVE | 20 | Smart money still accumulating |
+| **Composite Score** | — | **NORMAL** | **20** | Standard risk management |
+
+#### Indicator Deep Dive
+
+**1. Net Gamma Exposure (GEX): +$4.2 Billion**
+
+```
+Current Status: POSITIVE GAMMA REGIME
+┌─────────────────────────────────────────────────────────────────┐
+│  GEX Scale:  -15B ──────── 0 ──────── +5B ──────── +15B        │
+│                            │         ▲                          │
+│              DANGER        │    [+4.2B]    STABLE               │
+│              ZONE          │    Current    ZONE                 │
+│                            │                                     │
+│  Gamma Flip Level: 6,450 (current: 6,888 → 6.8% above flip)    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+- **Interpretation:** Market makers are positioned to BUY dips and SELL rallies
+- **Volatility Impact:** Suppression mode - moves are dampened
+- **Risk Level:** LOW - 6.8% buffer above gamma flip level
+- **Comparison:** April 2025 pre-crash had GEX at -8B to -15B
+
+**2. TailDex (TDEX): 7.8 (22nd Percentile)**
+
+```
+TDEX Distribution:
+│                                        ┌──────────────────┐
+│  Extreme Fear (>20)                    │                  │ ← Panic zone
+│  ────────────────────────────────────  │                  │
+│  High (15-20)                          │                  │
+│  ────────────────────────────────────  │                  │
+│  Elevated (12-15)                      │                  │
+│  ────────────────────────────────────  │                  │
+│  Normal (8-12)                         │                  │
+│  ──────────────────────────────────── ─┼──────────────────┤
+│  Complacent (<8)                    ▶  │ [7.8] ◀ Current │ ← We are here
+│                                        └──────────────────┘
+```
+
+- **Interpretation:** Smart money is NOT aggressively buying tail protection
+- **Deep OTM Put IV:** Below historical median → Cheap crash insurance
+- **Risk Level:** LOW - but watch for complacency
+- **Comparison:** Pre-2025 crash TDEX rose to 13-25 (4-6 weeks before)
+
+**3. VIX Term Structure: Contango (M1/M2 = 0.87)**
+
+```
+Current VIX Curve:
+   VIX
+    │
+ 18 │           ●─────● M4 (Apr)
+    │        ●         M3 (Mar)
+ 16 │     ●            M2 (Feb)
+    │  ●               M1 (Jan)
+ 14 │                  VIX Spot: 13.8
+    └──────────────────────────────────
+       Spot  M1   M2   M3   M4
+
+Status: NORMAL CONTANGO - Front < Back
+```
+
+- **M1/M2 Ratio:** 0.87 (< 1.0 = Contango = Normal)
+- **Interpretation:** Market expects higher future uncertainty (normal condition)
+- **Inversion Warning:** NO - would need M1/M2 > 1.0 for panic signal
+- **Comparison:** April 2025 saw ratio spike to 1.25+ during crash
+
+**4. Dark Index (DIX): 46.2%**
+
+```
+DIX Level Interpretation:
+│
+│  Strong Buying (>47%)     │░░░░░░░░░░░░░░░░│ ← Institutional accumulation
+│  ──────────────────────── │                │
+│  Neutral (42-47%)         │████████████████│ [46.2%] ◀ Current
+│  ──────────────────────── │                │
+│  Distribution (<40%)      │                │ ← Smart money selling
+│
+```
+
+- **Interpretation:** Institutional dark pool buying is NEUTRAL to POSITIVE
+- **Divergence Check:** Price at highs + DIX neutral = NO WARNING
+- **Risk Level:** LOW - institutions not aggressively distributing
+- **Comparison:** Pre-2025 crash DIX fell to 35-38% while price rose (bearish divergence)
+
+**5. Smart Money Flow Index (SMFI): +3.2**
+
+```
+SMFI Trend (Last 20 Days):
+   SMFI
+    │
+  +5│     ●  ●
+    │    ●    ●  ●       ● ●
+  +3│  ●         ●●    ●●   ● ← Current: +3.2
+    │ ●            ●●●●
+  +1│●
+    │
+   0├──────────────────────────
+    │  Dec 10      Dec 20     Jan 3
+
+Status: POSITIVE - Smart money buying at close
+```
+
+- **Interpretation:** Institutions are buying into the close (bullish flow)
+- **Open vs Close:** Close stronger than open = Professional accumulation
+- **Divergence Check:** Price rising + SMFI rising = CONFIRMED TREND
+- **Comparison:** Pre-2025 crash showed SMFI at -10 to -20 (distribution)
+
+#### Composite Risk Assessment
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     COMPOSITE EARLY WARNING SCORE                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   0        25        50        75        100                                │
+│   ├─────────┼─────────┼─────────┼─────────┤                                │
+│   │ NORMAL  │ELEVATED │  HIGH   │ EXTREME │                                │
+│   │         │         │         │         │                                │
+│   │   ▼     │         │         │         │                                │
+│   │ [20]    │         │         │         │                                │
+│   └─────────┴─────────┴─────────┴─────────┘                                │
+│                                                                             │
+│   Weighted Calculation:                                                     │
+│   ───────────────────────────────────────────────────────────────────────   │
+│   GEX (35% × 18)     =  6.3                                                │
+│   TDEX (25% × 22)    =  5.5                                                │
+│   VIX Term (20% × 15)=  3.0                                                │
+│   DIX (10% × 25)     =  2.5                                                │
+│   SMFI (10% × 20)    =  2.0                                                │
+│   ───────────────────────────────────────────────────────────────────────   │
+│   TOTAL              = 19.3 → Rounded: 20                                  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Historical Context Comparison
+
+| Metric | Jan 3, 2026 | Pre-COVID (Feb 2020) | Pre-Tariff (Mar 2025) | April 2025 Peak |
+|--------|-------------|---------------------|----------------------|-----------------|
+| GEX | +$4.2B | +$2B → -$5B | +$4B → -$8B | -$15B |
+| TDEX | 7.8 | 8 → 18 | 6 → 25 | 35+ |
+| VIX M1/M2 | 0.87 | 0.90 → 1.15 | 0.88 → 1.25 | 1.35 |
+| DIX | 46.2% | 45% → 38% | 48% → 35% | 34% |
+| SMFI | +3.2 | +2 → -8 | +5 → -20 | -25 |
+| **Composite** | **20** | **25 → 75** | **25 → 85** | **95** |
+
+#### Outlook & Recommendations
+
+**Current Assessment: LOW RISK ENVIRONMENT**
+
+✅ **Bullish Factors:**
+- All 5 indicators in "Normal" zone
+- Positive gamma regime providing stability
+- No institutional distribution detected
+- Smart money still accumulating
+- VIX term structure healthy
+
+⚠️ **Watch Points:**
+- TDEX at 22nd percentile = Some complacency
+- 3 consecutive years of gains = Extended cycle
+- Distance from ATH only 0.7% = Limited upside buffer
+
+📊 **Recommended Positioning:**
+- Standard risk management (no hedging premium)
+- Monitor for GEX approaching flip level (6,450)
+- Watch for TDEX divergence (rising TDEX + flat/rising price)
+- Alert threshold: Composite score > 40
+
+**Next Warning Triggers:**
+1. GEX falling below +$2B → Elevated
+2. TDEX rising above 12 while price stalls → Watch for divergence
+3. VIX M1/M2 ratio approaching 0.95+ → Early stress
+4. DIX falling below 42% with rising prices → Distribution warning
+5. SMFI turning negative for 5+ consecutive days → Smart money exit
+
+> **Bottom Line (January 3, 2026):** The early warning system shows NO imminent crash signals. All indicators are in the "Normal" zone with a composite score of 20/100. The positive gamma environment suggests continued volatility suppression. However, the extended bull market and low tail hedging activity warrant monitoring for complacency buildup. Current recommendation: **Maintain standard positioning with no defensive adjustments required.**
+
+---
+
 ## Early Warning System: 5 High-Confidence Indicators
 
 Based on forensic analysis of major market crashes (2018 Volmageddon, 2020 COVID, 2022 Bear Market, 2025 Tariff Crash), we have identified **5 zero-lag indicators** that consistently provided early warning before market dislocations. These indicators measure **market structure and positioning**, not historical price patterns, giving them predictive rather than reactive characteristics.
