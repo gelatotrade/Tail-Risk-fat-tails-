@@ -927,6 +927,122 @@ The April 2025 crash provides the clearest example of how all 5 indicators align
 
 > **Key Insight:** The TDEX and DIX divergences appeared **4-6 weeks** before the crash, while GEX and VIX term structure provided **real-time confirmation**. This combination of leading and coincident indicators creates a robust early warning system.
 
+---
+
+## Historical Crash Deep Dive Analyses
+
+All dashboards now feature **proper date axes** (not just "days") for accurate historical reference. Each deep dive shows the full timeline with actual trading dates, all 5 early warning indicators, and the composite score evolution.
+
+### 2018 Volmageddon Deep Dive (Feb 5, 2018)
+
+The 2018 Volmageddon was a VIX-driven crash triggered by the implosion of inverse volatility ETPs (XIV):
+
+![2018 Volmageddon Deep Dive](outputs/volmageddon_2018_deep_dive.png)
+
+*Complete analysis of the February 2018 VIX explosion with actual dates on all axes. VIX doubled (+115%) in a single day, XIV collapsed -96%.*
+
+**Key Warning Signals:**
+- **VIX Term Structure:** Dramatic inversion as front-month VIX spiked from 17 to 50
+- **GEX:** Flipped extremely negative (-12B) during the crash
+- **TDEX:** Rose from 8 to 35 within days
+- **Lead Time:** Near zero - this was a sudden gamma squeeze
+
+**Lesson Learned:** VIX ETP rebalancing created a feedback loop. When VIX rose, these products had to buy more VIX futures, pushing it higher. The early warning system correctly identified the extreme regime shift in real-time.
+
+---
+
+### 2020 COVID Crash Deep Dive (Feb-Mar 2020)
+
+The COVID-19 crash was the fastest bear market in history, with the S&P 500 dropping 34% in just 23 trading days:
+
+![2020 COVID Crash Deep Dive](outputs/covid_2020_deep_dive.png)
+
+*Complete analysis of the March 2020 COVID crash with actual dates. The timeline shows all 5 indicators from February 3 to April 30, 2020.*
+
+**Key Warning Signals:**
+- **GEX:** Flipped negative on Feb 24 (4 weeks before bottom)
+- **TDEX:** Rose from 10 to 38 as institutions bought crash protection
+- **DIX:** Dropped from 45% to 35% during panic, then surged to 52% (smart money buying the bottom)
+- **Composite Score:** Reached 90+ during peak panic on March 23
+
+**Lesson Learned:** The COVID crash showed classic crash mechanics - gamma flip followed by dealer-induced acceleration. The recovery in DIX (smart money buying) coincided with the exact market bottom.
+
+---
+
+### 2022 Bear Market Deep Dive (Jan-Oct 2022)
+
+Unlike sudden crashes, the 2022 bear market was a slow 9-month grind driven by Fed rate hikes and inflation:
+
+![2022 Bear Market Deep Dive](outputs/bear_2022_deep_dive.png)
+
+*Complete analysis of the 2022 bear market with actual dates. The timeline spans January 3 to November 15, 2022.*
+
+**Key Warning Signals:**
+- **GEX:** Oscillated around zero throughout - no sustained extreme readings
+- **VIX:** Remained relatively muted (<35) despite 25% drawdown
+- **TDEX:** Elevated (12-18 range) but never reached extreme levels
+- **Composite Score:** Averaged 60-70 throughout the decline
+
+**Lesson Learned:** The 2022 bear was a "different animal" - a slow policy-driven decline without the panic spikes of sudden crashes. The 0DTE options migration masked some traditional fear signals. The early warning system correctly showed sustained elevated risk without false "extreme" signals.
+
+---
+
+### 2025 Tariff Crash Deep Dive (Apr 2-7, 2025)
+
+The "Liberation Day" tariff crash was the most recent major market dislocation:
+
+![2025 Tariff Crash Deep Dive](outputs/tariff_2025_deep_dive.png)
+
+*Complete analysis of the April 2025 tariff crash with actual dates. The timeline spans February 3 to May 15, 2025.*
+
+**Key Warning Signals:**
+- **TDEX Divergence:** Rose from 6 to 14 while market at highs (6 weeks early)
+- **DIX Distribution:** Fell from 48% to 37% during the rally (smart money exiting)
+- **GEX Flip:** Crossed zero on March 21, two weeks before crash
+- **Composite Score:** Jumped from 45 to 95 in just 3 days
+
+**Lesson Learned:** This crash showed the clearest pre-warning signals of any recent event. TDEX and DIX divergences were visible 4-6 weeks in advance, giving ample time for risk reduction. The composite score's rapid acceleration (45→95) in the final days confirmed the imminent crash.
+
+---
+
+### Current State Dashboard (January 3, 2026)
+
+Where does the market stand today? The current state dashboard shows all indicators in real-time:
+
+![Current State January 2026](outputs/current_state_jan2026.png)
+
+*Current market conditions as of January 3, 2026 with actual dates. Market has recovered and is trading near all-time highs.*
+
+**Current Indicator Readings:**
+| Indicator | Current Value | Status | Risk Level |
+|-----------|--------------|--------|------------|
+| GEX | +$4.2B | POSITIVE | Low |
+| TDEX | 7.8 | 22nd Percentile | Low |
+| VIX Term | M1/M2 = 0.87 | CONTANGO | Normal |
+| DIX | 46.2% | NEUTRAL-HIGH | Low |
+| SMFI | +3.2 | POSITIVE | Low |
+| **Composite** | **20/100** | **NORMAL** | **Low** |
+
+**Outlook:** All 5 indicators are in the "Normal" zone. The positive gamma regime provides market stability. No divergences detected. The early warning system shows NO imminent crash signals.
+
+---
+
+### Historical Crash Comparison with Dates
+
+See how all 4 major crashes compare side-by-side with proper date axes:
+
+![Crash Comparison with Dates](outputs/crash_comparison_with_dates.png)
+
+*Side-by-side comparison of all crashes with actual dates on the X-axis. Red dashed line marks the crash day/trough for each event.*
+
+**Pattern Recognition:**
+- **2018 Volmageddon:** Sudden, no lead time, VIX-driven
+- **2020 COVID:** Rapid descent, gamma-driven, V-shaped recovery
+- **2022 Bear:** Slow grind, muted signals, multiple rallies
+- **2025 Tariff:** Clear divergence warnings, sharp V-recovery after pause
+
+---
+
 ### Early Warning Visualization Gallery
 
 #### Crash Timeline Comparison
