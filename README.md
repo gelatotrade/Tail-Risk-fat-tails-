@@ -192,6 +192,17 @@ The "cliff" between the green plateau and the red/purple peak marks the regime t
 
 *Main panel: 3D surface with COVID-19, 2022 bear and 2025 tariff trajectories overlaid; current market (Jan 2026) marked with green diamond. Top right: top-down view with warning zones and 5 / 15 / 30 / 50 % probability contours. Bottom centre: crash probability over each crisis. Bottom right: reading guide.*
 
+### Animated Surface
+
+The animation below shows how the surface deforms when its driving variables change. The crash threshold sweeps from 3 % to 10 % so the "cliff" itself moves, a synthetic market trajectory walks from a calm regime into a crisis and back, and the camera rotates so the 3D shape stays unambiguous. Watch the crash-probability readout (bottom right) ramp up well *before* the trajectory reaches the red ridge — that lead time is the early-warning signal.
+
+![Animated 3D Tail Risk Surface](outputs/tail_risk_surface_animation.gif)
+
+```bash
+python generate_tail_risk_surface_animation.py
+# writes outputs/tail_risk_surface_animation.gif
+```
+
 ```bash
 python generate_tail_risk_surface.py
 # writes outputs/tail_risk_surface_3d.png
@@ -428,6 +439,7 @@ Tail-Risk-fat-tails/
 ├── outputs/            # Generated visualisations
 ├── main.py                            # Demo entry point
 ├── generate_tail_risk_surface.py      # 3D early-warning surface
+├── generate_tail_risk_surface_animation.py  # Animated 3D surface (GIF)
 ├── generate_readme_figures.py         # Documentation figures
 ├── generate_crisis_examples.py        # Real-world crisis analyses
 ├── generate_early_warning_figures.py  # Early-warning visuals
