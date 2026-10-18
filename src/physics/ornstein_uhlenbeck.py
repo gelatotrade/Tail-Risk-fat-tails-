@@ -446,12 +446,22 @@ def compute_ou_coordinates(returns: np.ndarray,
     """
     Transform returns into 3D OU phase space.
 
-    Coordinates represent volatility dynamics:
-    - X: Mean reversion level (θ)
-    - Y: Volatility level (σ)
-    - Z: Reversion speed (κ)
+    An OU process is fitted (dt = 1 observation) to |returns| in each
+    rolling window returns[i-window:i] (i >= 2·window; earlier entries are 0
+    before normalisation).  Coordinates represent volatility dynamics:
 
-    High X, high Y, low Z = trending volatility regime (danger)
+    - X: long-term level μ of |r| (volatility level)
+    - Y: current |r| (last value in the window)
+    - Z: mean-reversion speed θ per observation
+
+    |r| over a short window is often close to white noise, so the AR(1)
+    slope b is frequently <= 0, which no OU process can produce (θ = ∞).
+    Such windows get the white-noise limit θ = ln(1000) (b = 0.001, the
+    same cap as JumpDiffusionRiskAnalyzer); windows without mean reversion
+    (b >= 1) or with constant |r| get θ = 0.  Each coordinate is min-max
+    normalised to [0, 1].
+
+    High X, high Y, low Z = persistent high-volatility regime (danger)
     Low X, low Y, high Z = stable regime
     """
     n = len(returns)
@@ -462,23 +472,24 @@ def compute_ou_coordinates(returns: np.ndarray,
 
     # Use absolute returns as volatility proxy
     abs_returns = np.abs(returns)
+    max_theta = JumpDiffusionRiskAnalyzer.MAX_THETA_DT  # per observation (dt = 1)
 
     for i in range(2 * window, n):
         window_data = abs_returns[i-window:i]
 
         try:
-            # Fit OU to volatility
-            ou = OrnsteinUhlenbeckProcess.fit(window_data, dt=1)
+            # Fit OU to volatility (b <= 0 is capped at the white-noise limit)
+            ou = OrnsteinUhlenbeckProcess.fit(window_data, dt=1, max_theta=max_theta)
 
             X[i] = ou.mu  # Long-term volatility
             Y[i] = window_data[-1]  # Current volatility
             Z[i] = ou.theta  # Mean reversion speed
 
         except (ValueError, ArithmeticError):
-            # No OU fit possible (AR(1) slope outside (0, 1) or constant window)
+            # No mean reversion (AR(1) slope >= 1) or constant window
             X[i] = np.mean(window_data)
             Y[i] = window_data[-1]
-            Z[i] = 1.0
+            Z[i] = 0.0
 
     # Normalize
     X = (X - np.min(X)) / (np.max(X) - np.min(X) + 1e-10)

@@ -118,15 +118,18 @@ class IsingMarketModel:
         """
         Instantaneous susceptibility proxy of the current configuration.
 
-        χ ≈ N (1 - M²) / T  (= N·Var_i(σ_i)/T, the Curie law of independent
-        spins at magnetization M).  A single snapshot has no ensemble
-        fluctuations; the fluctuation estimator χ = N(<M²> - <|M|>²)/T over
-        Monte Carlo samples is what phase_diagram reports.
+        χ ≈ (1 - M²) / T  (= Var_i(σ_i)/T, the Curie law dM/dh of
+        independent spins at magnetization M), per agent - the same
+        normalisation as the fluctuation estimator χ = N·Var(|M|)/T over
+        Monte Carlo samples that phase_diagram reports (M is the mean spin,
+        so N·Var(M) is the per-agent variance).  A single snapshot has no
+        ensemble fluctuations and ignores the coupling J: it is the
+        susceptibility the market would have without herding.
 
         High χ indicates sensitivity to perturbations (unstable market).
         """
         M = self.magnetization()
-        return (1 - M**2) * self.n_agents / self.T
+        return (1 - M**2) / self.T
 
     def monte_carlo_step(self):
         """

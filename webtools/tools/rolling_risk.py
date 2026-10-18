@@ -75,7 +75,7 @@ def _kupiec(breaches, n, p):
         q = min(max(q, 1e-12), 1 - 1e-12)
         return (n - x) * np.log(1 - q) + x * np.log(q)
 
-    lr = -2 * (ll(p) - ll(phat)) if 0 < x < n else -2 * (ll(p) - (0.0 if x == 0 else n * np.log(1.0)))
+    lr = -2 * (ll(p) - ll(phat))
     return float(stats.chi2.sf(max(lr, 0.0), 1))
 
 
@@ -173,6 +173,12 @@ def run(params, data, out):
             x=C.axis("VaR-Niveau (0–1)"), y=C.axis("ES ÷ VaR (0–1)"), z=C.axis("Kurtosis (0–1)"),
             subtitle="Alle Achsen min-max-normiert über die ganze Reihe. Ziehen zum Drehen.",
         ))
+
+    beyond = w * (1 - conf)
+    if beyond < 2:
+        out.note(f"Im {w}-Tage-Fenster liegen im Mittel nur {_de(beyond, 1)} Tage jenseits des {lvl}-VaR. Der historische "
+                 "VaR ist dann kaum mehr als der schlechteste Tag im Fenster und unterschätzt das Risiko systematisch – "
+                 "nimm ein längeres Fenster oder ein niedrigeres Konfidenzniveau.", "warning")
 
     # --- compact table: calmest vs most stressed windows
     rows = []
