@@ -10,43 +10,43 @@ from ..core import ToolError
 
 SPEC = {
     "id": "stochastic-vol",
-    "title": "Stochastische Volatilität mit Vola-Sprüngen",
+    "title": "Stochastic volatility with volatility jumps",
     "group": "physics",
-    "order": 50,
-    "summary": "Wenn die Volatilität selbst zufällig schwankt und springt: Vola-Cluster, fette Ränder und "
-               "Drawdowns – obwohl jeder einzelne Tag normalverteilt ist.",
+    "order": 60,
+    "summary": "When volatility itself fluctuates randomly and jumps: volatility clusters, fat tails and "
+               "drawdowns – even though each individual day is normally distributed.",
     "description": (
-        "Die Volatilität folgt einem zum Mittel zurückkehrenden Prozess **dσ = κ(θ − σ)dt + η√σ dW + dJ**: Sie kehrt mit "
-        "Geschwindigkeit **κ** zum Niveau **θ** zurück, schwankt mit der Vola-of-Vol **η** und springt im Schnitt "
-        "**λ-mal pro Jahr** nach oben (je Sprung im Mittel +10 Prozentpunkte, exponentialverteilt). Der Kurs ist "
-        "eine geometrische Brownsche Bewegung mit genau dieser Volatilität.\n\n"
-        "So liest du die Diagramme: Jeder einzelne Tag ist normalverteilt – trotzdem hat die Verteilung aller "
-        "Tagesrenditen fette Ränder, weil sich ruhige und stürmische Phasen mischen. Das Cluster-Diagramm zeigt "
-        "die Autokorrelation: Die Renditen selbst sind unkorreliert, ihre **Beträge** aber nicht – auf große "
-        "Tage folgen große Tage. Genau das sieht man auch an echten Märkten.\n\n"
-        "Parameter: Großes κ lässt Vola-Schocks schnell abklingen (kurze Cluster), großes η und λ erzeugen "
-        "heftigere Ausschläge. Durch die Sprünge liegt das langfristige Vola-Niveau über θ, im Mittel etwa bei "
-        "θ + λ·0,1/κ."
+        "Volatility follows a mean-reverting process **dσ = κ(θ − σ)dt + η√σ dW + dJ**: it reverts at speed "
+        "**κ** to the level **θ**, fluctuates with the vol of vol **η** and jumps upwards on average **λ times "
+        "per year** (each jump adds 10 percentage points on average, exponentially distributed). The price is a "
+        "geometric Brownian motion with exactly this volatility.\n\n"
+        "How to read the charts: each individual day is normally distributed – yet the distribution of all daily "
+        "returns has fat tails, because calm and turbulent phases are mixed. The clustering chart shows the "
+        "autocorrelation: the returns themselves are uncorrelated, but their **absolute values** are not – large "
+        "moves are followed by large moves. This is exactly what you see in real markets too.\n\n"
+        "Parameters: a large κ makes volatility shocks decay quickly (short clusters); large η and λ produce more "
+        "violent swings. Because of the jumps, the long-term volatility level lies above θ, on average at about "
+        "θ + λ·0.1/κ."
     ),
     "needs": [],
     "params": [
         {"name": "kappa", "type": "float", "default": 2.0, "min": 0.1, "max": 20.0, "step": 0.1,
-         "label": "Rückstellgeschwindigkeit κ", "unit": "pro Jahr"},
+         "label": "Speed of mean reversion κ", "unit": "per year"},
         {"name": "theta", "type": "float", "default": 0.2, "min": 0.05, "max": 1.0, "step": 0.01,
-         "label": "Langfristige Volatilität θ", "help": "0,2 = 20 % p. a."},
+         "label": "Long-term volatility θ", "help": "0.2 = 20% p.a."},
         {"name": "eta", "type": "float", "default": 0.3, "min": 0.0, "max": 2.0, "step": 0.05,
-         "label": "Vola-of-Vol η"},
+         "label": "Vol of vol η"},
         {"name": "jump_intensity", "type": "float", "default": 2.0, "min": 0.0, "max": 50.0, "step": 0.5,
-         "label": "Vola-Sprünge pro Jahr λ", "help": "Jeder Sprung hebt σ im Mittel um 10 Prozentpunkte."},
+         "label": "Volatility jumps per year λ", "help": "Each jump raises σ by 10 percentage points on average."},
         {"name": "sigma0", "type": "float", "default": 0.2, "min": 0.01, "max": 1.0, "step": 0.01,
-         "label": "Startvolatilität σ₀"},
+         "label": "Initial volatility σ₀"},
         {"name": "drift", "type": "float", "default": 0.0, "min": -0.2, "max": 0.3, "step": 0.01,
-         "label": "Drift r", "unit": "pro Jahr"},
+         "label": "Drift r", "unit": "per year"},
         {"name": "years", "type": "float", "default": 2.0, "min": 0.25, "max": 10.0, "step": 0.25,
-         "label": "Laufzeit", "unit": "Jahre", "help": "Ein Zeitschritt = ein Handelstag."},
+         "label": "Horizon", "unit": "years", "help": "One time step = one trading day."},
         {"name": "n_paths", "type": "int", "default": 100, "min": 1, "max": 500, "step": 10,
-         "label": "Anzahl Pfade"},
-        {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 9999, "step": 1, "label": "Zufalls-Seed"},
+         "label": "Number of paths"},
+        {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 9999, "step": 1, "label": "Random seed"},
     ],
     "covers": [
         "src.physics.ornstein_uhlenbeck.VolatilityOUModel",
@@ -62,8 +62,8 @@ LAGS = np.arange(1, 41)
 QUANTS = [0.05, 0.25, 0.5, 0.75, 0.95]
 
 
-def _de(x, digits=2):
-    return f"{x:.{digits}f}".replace(".", ",")
+def _fmt(x, digits=2):
+    return f"{x:.{digits}f}"
 
 
 def _gapped(times, rows):
@@ -91,15 +91,15 @@ def run(params, data, out):
     n_paths, years = params["n_paths"], params["years"]
     n_steps = int(round(years * 252))
     if n_paths * n_steps > MAX_STEPS:
-        raise ToolError(f"{n_paths} Pfade × {n_steps} Tage sind zu viel für den Browser (Grenze "
-                        f"{MAX_STEPS // 1000}.000 Tagesschritte). Verringere Pfade oder Laufzeit.")
+        raise ToolError(f"{n_paths:,} paths × {n_steps:,} days is too much for the browser (limit "
+                        f"{MAX_STEPS:,} daily steps). Reduce the number of paths or the horizon.")
     model = VolatilityOUModel(kappa=params["kappa"], theta=params["theta"], eta=params["eta"],
                               jump_intensity=params["jump_intensity"])
 
     prices, vols, rets = [], [], []
     for i in range(n_paths):
         if i % 20 == 0:
-            out.progress(f"Pfad {i + 1} von {n_paths} …", i / n_paths)
+            out.progress(f"Path {i + 1} of {n_paths}…", i / n_paths)
         # seed once; later paths continue the same random stream
         res = model.simulate_price(100.0, params["sigma0"], years, n_steps=n_steps, r=params["drift"],
                                    seed=params["seed"] if i == 0 else None)
@@ -115,50 +115,50 @@ def run(params, data, out):
     acf_abs = np.nanmean([_acf(np.abs(row), LAGS) for row in rets], axis=0)
     acf_raw = np.nanmean([_acf(row, LAGS) for row in rets], axis=0)
 
-    out.metric("Median-Endkurs", np.median(prices[:, -1]), "num", hint=f"Start 100 · 5-%-Quantil "
-               f"{_de(np.percentile(prices[:, -1], 5), 1)}")
-    out.metric("Mittlere Volatilität σ_t", vols.mean(), "pct", digits=1,
-               hint=f"θ = {_de(100 * params['theta'], 0)} %, mit Sprüngen ≈ {_de(100 * level_jumps, 0)} %")
-    out.metric("Realisierte Vola p. a.", np.std(pooled) * np.sqrt(252), "pct", digits=1)
-    out.metric("Höchste Volatilität", vols.max(), "pct", digits=0, hint="über alle Pfade und Tage")
-    out.metric("Exzess-Kurtosis Tagesrenditen", stats.kurtosis(pooled), "num", digits=1,
-               hint="0 = normalverteilt", status="serious" if stats.kurtosis(pooled) > 3 else None)
-    out.metric("Autokorrelation |r|, Lag 1", acf_abs[0], "num", digits=3,
-               hint=f"Renditen selbst: {_de(acf_raw[0], 3)}. |r| deutlich > 0 = Vola-Clustering")
-    out.metric("Max. Drawdown (Median)", np.median(dd), "pct", digits=1)
-    out.metric("Max. Drawdown (schlechteste 5 %)", np.percentile(dd, 5), "pct", digits=1,
+    out.metric("Median final price", np.median(prices[:, -1]), "num", hint=f"start 100 · 5% quantile "
+               f"{_fmt(np.percentile(prices[:, -1], 5), 1)}")
+    out.metric("Mean volatility σ_t", vols.mean(), "pct", digits=1,
+               hint=f"θ = {_fmt(100 * params['theta'], 0)}%, with jumps ≈ {_fmt(100 * level_jumps, 0)}%")
+    out.metric("Realised volatility p.a.", np.std(pooled) * np.sqrt(252), "pct", digits=1)
+    out.metric("Highest volatility", vols.max(), "pct", digits=0, hint="across all paths and days")
+    out.metric("Excess kurtosis of daily returns", stats.kurtosis(pooled), "num", digits=1,
+               hint="0 = normal distribution", status="serious" if stats.kurtosis(pooled) > 3 else None)
+    out.metric("Autocorrelation |r|, lag 1", acf_abs[0], "num", digits=3,
+               hint=f"returns themselves: {_fmt(acf_raw[0], 3)}".replace("-", "−") + ". |r| clearly > 0 = volatility clustering")
+    out.metric("Max drawdown (median)", np.median(dd), "pct", digits=1)
+    out.metric("Max drawdown (worst 5%)", np.percentile(dd, 5), "pct", digits=1,
                status="serious" if np.percentile(dd, 5) < -0.3 else None)
-    out.metric("VaR 99 % (1 Tag)", -np.percentile(pooled, 1), "pct", hint="aus allen simulierten Tagen")
+    out.metric("99% VaR (1 day)", -np.percentile(pooled, 1), "pct", hint="from all simulated days")
 
     show = min(N_SHOW, n_paths)
     gx, gy = _gapped(t, prices[:show])
     q05, q50, q95 = np.percentile(prices, [5, 50, 95], axis=0)
-    band = [C.envelope("5–95 % aller Pfade", t, q05, q95, color=2)] if n_paths >= 20 else []
+    band = [C.envelope("5–95% of all paths", t, q05, q95, color=2)] if n_paths >= 20 else []
     out.chart(C.xy(
-        "Kurspfade",
-        band + [C.trace(f"{show} Beispielpfade", gx, gy, color=1, width=1, decimate_to=None),
-                C.trace("Median aller Pfade", t, q50, color=2, width=2.5)],
-        x=C.axis("Zeit (Jahre)"), y=C.axis("Kurs (Start 100)"), hlines=[C.hline(100.0)], height=360,
-        subtitle=f"{n_paths} Pfade, ein Schritt je Handelstag."
-                 + (" Die Fläche umfasst an jedem Tag die mittleren 90 % aller Pfade." if band else ""),
+        "Price paths",
+        band + [C.trace(f"{show} example path{'' if show == 1 else 's'}", gx, gy, color=1, width=1, decimate_to=None),
+                C.trace("Median of all paths", t, q50, color=2, width=2.5)],
+        x=C.axis("Time (years)"), y=C.axis("Price (start = 100)"), hlines=[C.hline(100.0)], height=360,
+        subtitle=f"{n_paths} path{'' if n_paths == 1 else 's'}, one step per trading day."
+                 + (" The shaded area covers the middle 90% of all paths on each day." if band else ""),
     ))
     gx, gy = _gapped(t, vols[:show])
     v05, v95 = np.percentile(vols, [5, 95], axis=0)
-    vband = [C.envelope("5–95 % aller Pfade", t, v05, v95, color=2)] if n_paths >= 20 else []
+    vband = [C.envelope("5–95% of all paths", t, v05, v95, color=2)] if n_paths >= 20 else []
     out.chart(C.xy(
-        "Volatilität σ_t",
-        vband + [C.trace(f"{show} Beispielpfade", gx, gy, color=1, width=1, decimate_to=None),
-                 C.trace("Mittel aller Pfade", t, vols.mean(axis=0), color=2, width=2.5)],
-        x=C.axis("Zeit (Jahre)"), y=C.axis("Volatilität p. a.", fmt="pct", digits=0),
-        hlines=[C.hline(params["theta"], "θ"), C.hline(level_jumps, "θ + λ·0,1/κ")], height=340,
-        subtitle="Senkrechte Sprünge sind Vola-Schocks; danach klingt σ mit Geschwindigkeit κ ab.",
+        "Volatility σ_t",
+        vband + [C.trace(f"{show} example path{'' if show == 1 else 's'}", gx, gy, color=1, width=1, decimate_to=None),
+                 C.trace("Mean of all paths", t, vols.mean(axis=0), color=2, width=2.5)],
+        x=C.axis("Time (years)"), y=C.axis("Volatility p.a.", fmt="pct", digits=0),
+        hlines=[C.hline(params["theta"], "θ"), C.hline(level_jumps, "θ + λ·0.1/κ")], height=340,
+        subtitle="Vertical jumps are volatility shocks; afterwards σ decays at speed κ.",
     ))
     out.chart(C.xy(
-        "Volatilitäts-Cluster: Autokorrelation",
-        [C.trace("|Rendite|", LAGS, acf_abs, color=1, width=2.5),
-         C.trace("Rendite", LAGS, acf_raw, color="muted", dash=True)],
-        x=C.axis("Lag (Handelstage)", fmt="int"), y=C.axis("Autokorrelation"), hlines=[C.hline(0.0)],
-        height=300, subtitle="Die Renditen sind unkorreliert, ihre Beträge nicht: Große Tage kommen in Clustern.",
+        "Volatility clustering: autocorrelation",
+        [C.trace("|Return|", LAGS, acf_abs, color=1, width=2.5),
+         C.trace("Return", LAGS, acf_raw, color="muted", dash=True)],
+        x=C.axis("Lag (trading days)", fmt="int"), y=C.axis("Autocorrelation"), hlines=[C.hline(0.0)],
+        height=300, subtitle="Returns are uncorrelated, but their absolute values are not: large moves come in clusters.",
     ))
     centers, heights = C.histogram(pooled, bins=100)
     sd = float(np.std(pooled))
@@ -166,19 +166,19 @@ def run(params, data, out):
     gauss = stats.norm.pdf(grid, np.mean(pooled), sd)
     floor = float(np.min(heights[heights > 0])) / 3
     out.chart(C.xy(
-        "Verteilung aller Tagesrenditen – logarithmisch",
+        "Distribution of all daily returns – log scale",
         [C.trace("Simulation", centers, np.where(heights > 0, heights, np.nan), type="bar", color=1),
-         C.trace("Normalverteilung, gleiche Vola", grid, np.where(gauss >= floor, gauss, np.nan),
+         C.trace("Normal distribution, same volatility", grid, np.where(gauss >= floor, gauss, np.nan),
                  color="muted", dash=True)],
-        x=C.axis("Tagesrendite", fmt="pct", digits=1),
-        y=C.axis("Dichte (log)", type="log", range=(floor, float(heights.max()) * 3)), height=320,
-        subtitle="Mischung aus ruhigen und stürmischen Phasen: mehr ruhige Tage und mehr Extremtage als bei Gauß.",
+        x=C.axis("Daily return", fmt="pct", digits=1),
+        y=C.axis("Density (log)", type="log", range=(floor, float(heights.max()) * 3)), height=320,
+        subtitle="A mix of calm and turbulent phases: more quiet days and more extreme days than under a Gaussian.",
     ))
 
     tot = prices[:, -1] / 100.0 - 1.0
-    out.table("Verteilung über die Pfade", ["Quantil", "Endkurs", "Rendite gesamt", "Max. Drawdown", "Höchste σ_t"],
-              [[f"{int(q * 100)} %", np.quantile(prices[:, -1], q), np.quantile(tot, q), np.quantile(dd, q),
+    out.table("Distribution across paths", ["Quantile", "Final price", "Total return", "Max drawdown", "Highest σ_t"],
+              [[f"{int(q * 100)}%", np.quantile(prices[:, -1], q), np.quantile(tot, q), np.quantile(dd, q),
                 np.quantile(vols.max(axis=1), q)] for q in QUANTS],
               formats=["text", "num", "pct", "pct", "pct"],
-              note="Jede Spalte ist für sich sortiert (das 5-%-Quantil des Drawdowns gehört nicht zwingend zum "
-                   "selben Pfad wie das 5-%-Quantil des Endkurses).")
+              note="Each column is sorted independently (the 5% quantile of the drawdown does not necessarily "
+                   "belong to the same path as the 5% quantile of the final price).")

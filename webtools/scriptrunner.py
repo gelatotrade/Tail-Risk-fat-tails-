@@ -27,43 +27,43 @@ from .core import Result, ToolError
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 CAPTIONS = {
-    "fat_tails_comparison.png": "Fette Ränder vs. Normalverteilung",
-    "physics_finance_mapping.png": "Physik → Finanzen",
-    "tail_index_interpretation.png": "Tail-Index α richtig lesen",
-    "var_comparison.png": "VaR-Methoden im Vergleich",
-    "early_warning_signals.png": "Kritische Verlangsamung",
-    "tail_risk_surface_3d.png": "3D-Tail-Risk-Fläche",
-    "tail_risk_surface_animation.gif": "Animierte Risikofläche",
-    "tail_risk_3d_dashboard.png": "3D-Phasenraum-Dashboard",
-    "early_warning_3d_phase_space.png": "Frühwarnung im 3D-Phasenraum",
-    "warning_matrix.png": "Warnmatrix",
-    "early_warning_indicators.png": "Die fünf Frühwarnindikatoren",
-    "early_warning_dashboard_demo.png": "Frühwarn-Dashboard",
-    "crash_timeline_indicators.png": "Zeitachse der Signale",
-    "crash_comparison_indicators.png": "Indikatoren im Crash-Vergleich",
-    "ews_analysis_jan2026.png": "Frühwarnanalyse Januar 2026",
-    "crisis_comparison.png": "Krisenvergleich",
-    "crash_comparison_with_dates.png": "Crashs mit Datumsachsen",
-    "volmageddon_2018_deep_dive.png": "Volmageddon 2018 im Detail",
-    "covid_2020_deep_dive.png": "COVID-Crash 2020 im Detail",
-    "bear_2022_deep_dive.png": "Bärenmarkt 2022 im Detail",
-    "tariff_2025_deep_dive.png": "Zoll-Crash 2025 im Detail",
-    "covid_crash_analysis.png": "COVID-Crash: Analyse",
-    "bear_2022_analysis.png": "Bärenmarkt 2022: Analyse",
-    "tariff_crash_analysis.png": "Zoll-Crash 2025: Analyse",
-    "tariff_crash_deep_dive.png": "Zoll-Crash 2025: Vertiefung",
-    "covid_crash_dashboard.png": "Dashboard COVID-19",
-    "bear_2022_dashboard.png": "Dashboard Bärenmarkt 2022",
-    "tariff_crash_dashboard.png": "Dashboard Zoll-Crash 2025",
-    "crisis_dashboard.png": "Krisen-Dashboard",
-    "full_dashboard.png": "Vollständiges Dashboard",
-    "current_market_dashboard.png": "Aktuelles Markt-Dashboard",
-    "current_market_analysis.png": "Aktuelle Marktanalyse",
-    "current_state_jan2026.png": "Marktlage Januar 2026",
-    "crisis_vs_current_comparison.png": "Krisen vs. heute",
-    "analysis_dashboard.png": "Tail-Risk-Dashboard deiner Daten",
-    "tail_risk_report.txt": "Bericht",
-    "analysis_report.txt": "Bericht",
+    "fat_tails_comparison.png": "Fat tails vs the normal distribution",
+    "physics_finance_mapping.png": "Physics → finance",
+    "tail_index_interpretation.png": "Reading the tail index α",
+    "var_comparison.png": "VaR methods compared",
+    "early_warning_signals.png": "Critical slowing down",
+    "tail_risk_surface_3d.png": "3D tail-risk surface",
+    "tail_risk_surface_animation.gif": "Animated risk surface",
+    "tail_risk_3d_dashboard.png": "3D phase-space dashboard",
+    "early_warning_3d_phase_space.png": "Early warning in 3D phase space",
+    "warning_matrix.png": "Warning matrix",
+    "early_warning_indicators.png": "The five early-warning indicators",
+    "early_warning_dashboard_demo.png": "Early-warning dashboard",
+    "crash_timeline_indicators.png": "Signal timeline",
+    "crash_comparison_indicators.png": "Indicators across crashes",
+    "ews_analysis_jan2026.png": "Early-warning analysis, January 2026",
+    "crisis_comparison.png": "Crisis comparison",
+    "crash_comparison_with_dates.png": "Crashes on a calendar axis",
+    "volmageddon_2018_deep_dive.png": "Volmageddon 2018 in detail",
+    "covid_2020_deep_dive.png": "2020 COVID crash in detail",
+    "bear_2022_deep_dive.png": "2022 bear market in detail",
+    "tariff_2025_deep_dive.png": "2025 tariff crash in detail",
+    "covid_crash_analysis.png": "COVID crash: analysis",
+    "bear_2022_analysis.png": "2022 bear market: analysis",
+    "tariff_crash_analysis.png": "2025 tariff crash: analysis",
+    "tariff_crash_deep_dive.png": "2025 tariff crash: deep dive",
+    "covid_crash_dashboard.png": "Dashboard: COVID-19",
+    "bear_2022_dashboard.png": "Dashboard: 2022 bear market",
+    "tariff_crash_dashboard.png": "Dashboard: 2025 tariff crash",
+    "crisis_dashboard.png": "Crisis dashboard",
+    "full_dashboard.png": "Full dashboard",
+    "current_market_dashboard.png": "Current market dashboard",
+    "current_market_analysis.png": "Current market analysis",
+    "current_state_jan2026.png": "Market conditions, January 2026",
+    "crisis_vs_current_comparison.png": "Crises vs today",
+    "analysis_dashboard.png": "Tail-risk dashboard of your data",
+    "tail_risk_report.txt": "Report",
+    "analysis_report.txt": "Report",
 }
 IMAGE_TYPES = {".png": "image/png", ".gif": "image/gif", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml"}
 TEXT_TYPES = {".txt", ".csv", ".json", ".md"}
@@ -97,11 +97,11 @@ QUALITY = {
     "original": None,  # whatever the script asks for (up to 300 dpi)
 }
 QUALITY_PARAM = {
-    "name": "quality", "type": "select", "default": "preview", "label": "Bildqualität",
-    "options": [{"value": "preview", "label": "Vorschau (90 dpi, schnell)"},
+    "name": "quality", "type": "select", "default": "preview", "label": "Image quality",
+    "options": [{"value": "preview", "label": "Preview (90 dpi, fast)"},
                 {"value": "standard", "label": "Standard (150 dpi)"},
-                {"value": "original", "label": "Original (wie im Skript, bis 300 dpi)"}],
-    "help": "Die Skripte speichern mit bis zu 300 dpi. Im Browser kostet das viel Rechenzeit – für die Analyse reicht die Vorschau.",
+                {"value": "original", "label": "Original (as in the script, up to 300 dpi)"}],
+    "help": "The scripts save at up to 300 dpi. In the browser this takes a lot of computing time – the preview is sufficient for analysis.",
 }
 
 
@@ -183,7 +183,7 @@ def run_script(script: str, argv: Optional[List[str]] = None, out: Optional[Resu
 
     path = APP_ROOT / script
     if not path.exists():
-        raise ToolError(f"Skript nicht gefunden: {script}")
+        raise ToolError(f"Script not found: {script}")
     captions = captions or {}
     old_cwd, old_argv, old_path = os.getcwd(), list(sys.argv), list(sys.path)
     old_rc = matplotlib.rcParams.copy()
@@ -205,13 +205,13 @@ def run_script(script: str, argv: Optional[List[str]] = None, out: Optional[Resu
             if str(APP_ROOT) not in sys.path:
                 sys.path.insert(0, str(APP_ROOT))
             if out is not None:
-                out.progress(f"{script} läuft …")
+                out.progress(f"Running {script} …")
             with _DpiCap(QUALITY.get(quality)), redirect_stdout(_Tee(buf, sys.__stdout__ if sys.__stdout__ else io.StringIO())):
                 try:
                     runpy.run_path(str(path), run_name="__main__")
                 except SystemExit as exc:  # argparse / explicit exit
                     if exc.code not in (0, None):
-                        raise ToolError(f"{script} wurde mit Code {exc.code} beendet.") from None
+                        raise ToolError(f"{script} exited with code {exc.code}.") from None
         finally:
             import matplotlib.pyplot as plt
 
@@ -239,11 +239,11 @@ def run_script(script: str, argv: Optional[List[str]] = None, out: Optional[Resu
     seconds = time.perf_counter() - started
     log = buf.getvalue()
     if out is not None:
-        out.metric("Laufzeit", seconds, "num", digits=1, unit="s")
-        out.metric("Erzeugte Dateien", len(files), "int")
-        out.metric("Ausgabezeilen", log.count("\n"), "int")
+        out.metric("Run time", seconds, "num", digits=1, unit="s")
+        out.metric("Files produced", len(files), "int")
+        out.metric("Output lines", log.count("\n"), "int")
         if files:
-            out.table("Erzeugte Dateien", ["Datei", "Größe (KB)"], [[f["path"], f["bytes"] / 1024] for f in files],
+            out.table("Files produced", ["File", "Size (KB)"], [[f["path"], f["bytes"] / 1024] for f in files],
                       formats=["text", "num"])
     return {"seconds": seconds, "files": files, "log": log[-max_log_chars:]}
 
@@ -254,9 +254,9 @@ def script_tool(script: str, params: dict, out: Result, *, argv: Optional[List[s
     res = run_script(script, argv, out, captions=CAPTIONS, quality=params.get("quality", "preview"), files=files)
     images = [f for f in res["files"] if Path(f["path"]).suffix.lower() in IMAGE_TYPES]
     if images:
-        out.note(f"`{script}` lief unverändert im Browser und hat {len(images)} "
-                 f"Abbildung{'en' if len(images) != 1 else ''} erzeugt – unten in voller Größe, per Klick vergrößerbar.",
+        out.note(f"`{script}` ran unmodified in your browser and produced {len(images)} "
+                 f"figure{'s' if len(images) != 1 else ''} – shown below at full size; click to enlarge.",
                  "success")
     else:
-        out.note(f"`{script}` lief durch, hat aber keine Abbildung erzeugt. Details in der Python-Ausgabe.", "warning")
+        out.note(f"`{script}` completed but produced no figure. See the Python output for details.", "warning")
     return res

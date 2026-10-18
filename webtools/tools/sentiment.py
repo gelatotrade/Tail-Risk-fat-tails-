@@ -1,4 +1,4 @@
-"""VIX-Sentiment: regime, percentile, spikes and mean reversion over time, plus the 3D sentiment phase space."""
+"""VIX sentiment: regime, percentile, spikes and mean reversion over time, plus the 3D sentiment phase space."""
 
 import numpy as np
 
@@ -6,40 +6,40 @@ from src.analysis.sentiment import VIXAnalyzer, compute_sentiment_coordinates
 from src.utils.data_loader import generate_vix_from_returns
 
 from .. import charts as C
-from ..data import index_axis
+from ..data import index_axis, fmt_date
+from ._ews_common import ordinal
 
 SPEC = {
     "id": "sentiment",
-    "title": "VIX-Sentiment: Angst, Spikes, Umkehr",
+    "title": "VIX sentiment: fear, spikes and reversals",
     "group": "warning",
     "order": 30,
-    "summary": "Wie viel Angst steckt im VIX? Regime, Perzentil, Spikes und Mean-Reversion-Signal über die Zeit – "
-               "und was danach mit den Kursen geschah.",
+    "summary": "How much fear the VIX is pricing: regime, percentile, spikes and the mean-reversion signal over "
+               "time, and what prices did next.",
     "description": (
-        "Der VIX misst die für 30 Tage erwartete Schwankung des S&P 500 aus Optionspreisen – das bekannteste "
-        "Angstbarometer. Der `VIXAnalyzer` des Frameworks ordnet ihn in Regime ein (unter 15 sorglos, bis 25 "
-        "normal, bis 35 erhöht, bis 50 hohe Angst, darüber Panik), misst sein **Perzentil** im letzten Jahr, "
-        "erkennt **Spikes** (Tagesanstieg größer als die Schwelle × übliche Tagesschwankung der letzten 19 "
-        "Tage) und gibt ein **Mean-Reversion-Signal**: Ein z-Wert über 2 deutet auf eine nahe Umkehr der "
-        "Angst, unter −1,5 auf Sorglosigkeit.\n\n"
-        "Regime, Spikes und Mean-Reversion-Signal nutzen an jedem Tag nur den VIX bis zu diesem Tag. Die "
-        "Tabellen prüfen, was in den 20 Handelstagen nach einem Regime oder Spike mit den Kursen geschah. Der "
-        "3D-Phasenraum (`compute_sentiment_coordinates`) zeigt VIX-Niveau, VIX-Momentum und die Korrelation "
-        "zwischen Renditen und VIX-Änderungen, jeweils mit Minimum und Maximum der ganzen Reihe auf 0–1 "
-        "normiert.\n\n"
-        "Enthält der Datensatz keinen VIX, leitet das Framework einen aus den Renditen ab "
-        "(`generate_vix_from_returns`) – dann sind die Werte illustrativ, und es gibt keine Einschätzung."
+        "The VIX measures the 30-day expected volatility of the S&P 500 implied by option prices – the "
+        "best-known fear gauge. The framework's `VIXAnalyzer` assigns it to a regime (below 15 complacent, up to "
+        "25 normal, up to 35 elevated, up to 50 high fear, above that panic), measures its **percentile** over "
+        "the past year, detects **spikes** (a daily rise larger than the threshold × the typical daily change "
+        "over the previous 19 days) and gives a **mean-reversion signal**: a z-score above 2 points to an "
+        "imminent reversal of fear, one below −1.5 to complacency.\n\n"
+        "On each day, the regime, spikes and mean-reversion signal use only the VIX up to that day. The tables "
+        "check what prices did over the 20 trading days after a regime or spike. The 3D phase space "
+        "(`compute_sentiment_coordinates`) shows VIX level, VIX momentum and the correlation between returns "
+        "and VIX changes, each normalised to 0–1 using the minimum and maximum of the full series.\n\n"
+        "If the dataset contains no VIX, the framework derives one from the returns "
+        "(`generate_vix_from_returns`); the values are then illustrative and no assessment is given."
     ),
     "needs": ["returns"],
     "params": [
         {"name": "threshold", "type": "float", "default": 2.0, "min": 1.0, "max": 5.0, "step": 0.1,
-         "label": "Spike-Schwelle (z)", "help": "Ein Spike ist ein Tagesanstieg um mehr als z übliche Tagesschwankungen."},
+         "label": "Spike threshold (z)", "help": "A spike is a daily rise of more than z typical daily changes."},
         {"name": "pct_window", "type": "int", "default": 252, "min": 20, "max": 1260, "step": 21,
-         "label": "Perzentil-Fenster", "unit": "Tage", "help": "252 Handelstage ≈ ein Jahr."},
+         "label": "Percentile window", "unit": "days", "help": "252 trading days ≈ one year."},
         {"name": "coord_window", "type": "int", "default": 20, "min": 5, "max": 120, "step": 5,
-         "label": "Fenster des Phasenraums", "unit": "Tage", "help": "Für VIX-Momentum und Rendite-VIX-Korrelation."},
+         "label": "Phase-space window", "unit": "days", "help": "For VIX momentum and the return–VIX correlation."},
         {"name": "lookback_3d", "type": "int", "default": 1000, "min": 100, "max": 20000, "step": 100,
-         "label": "3D: letzte Handelstage", "unit": "Tage"},
+         "label": "3D view: latest trading days", "unit": "days"},
     ],
     "covers": [
         "src.analysis.sentiment.VIXAnalyzer",
@@ -54,28 +54,23 @@ SPEC = {
     "cost": "medium",
 }
 
-REGIME = {  # code -> (German label, status colour)
-    "COMPLACENT": ("Sorglos", "good"),
+REGIME = {  # code -> (label, status colour)
+    "COMPLACENT": ("Complacent", "good"),
     "NORMAL": ("Normal", "good"),
-    "ELEVATED": ("Erhöht", "warning"),
-    "HIGH_FEAR": ("Hohe Angst", "serious"),
-    "PANIC": ("Panik", "critical"),
+    "ELEVATED": ("Elevated", "warning"),
+    "HIGH_FEAR": ("High fear", "serious"),
+    "PANIC": ("Panic", "critical"),
 }
-SIGNAL = {"HIGH_FEAR_REVERSAL_LIKELY": "Angst-Umkehr wahrscheinlich", "COMPLACENCY_WARNING": "Warnung: Sorglosigkeit",
-          "NEUTRAL": "neutral"}
+SIGNAL = {"HIGH_FEAR_REVERSAL_LIKELY": "Fear reversal likely", "COMPLACENCY_WARNING": "Complacency warning",
+          "NEUTRAL": "Neutral"}
 H = 20  # forward window of the outcome tables (trading days)
-
-
-def _date_de(d):
-    d = str(d)
-    return f"{d[8:10]}.{d[5:7]}.{d[:4]}" if len(d) >= 10 and d[4] == "-" and d[7] == "-" else d
 
 
 def run(params, data, out):
     r = np.asarray(data.returns, dtype=float)
     n = data.n
     x, xa = index_axis(data)
-    label = (lambda i: _date_de(x[i])) if data.dates else (lambda i: f"Tag {i}")
+    label = (lambda i: fmt_date(x[i])) if data.dates else (lambda i: f"Day {i}")
     # synthetic and crisis datasets carry a VIX that data.py derived from the returns (generate_vix_from_returns)
     derived = data.meta.get("source") in ("synthetic", "crisis")
     real = data.vix is not None and not derived
@@ -91,7 +86,7 @@ def run(params, data, out):
     mr = an.mean_reversion_signal()
 
     # the same methods day by day, each on the VIX known at that day
-    out.progress("Werte jeden Tag aus …", 0.2)
+    out.progress("Evaluating each day…", 0.2)
     regimes, z_spike, z_mr = [], np.full(n, np.nan), np.full(n, np.nan)
     for t in range(n):
         a = VIXAnalyzer(vix[:t + 1])
@@ -105,60 +100,61 @@ def run(params, data, out):
     regimes = np.array(regimes)
     spikes = np.flatnonzero(np.nan_to_num(z_spike) > params["threshold"])
 
-    reg_de, reg_status = REGIME[regime]
-    out.metric("VIX zuletzt", vix[-1], "num", digits=1, hint=f"Regime {reg_de}" + ("" if real else " · abgeleitet"),
+    reg_txt, reg_status = REGIME[regime]
+    out.metric("Latest VIX", vix[-1], "num", digits=1, hint=f"{reg_txt} regime" + ("" if real else " · derived"),
                status=reg_status if real else None)
-    out.metric("VIX-Perzentil", pct / 100, "pct", digits=0, hint=f"im Fenster von {int(params['pct_window'])} Tagen")
-    out.metric("Spike-z heute", spike.get("z_score"), "num", digits=1,
-               hint="Spike!" if spike.get("spike_detected") else f"Spike ab z > {params['threshold']:.1f}".replace(".", ","),
+    out.metric("VIX percentile", pct / 100, "pct", digits=0, hint=f"over a {int(params['pct_window']):,}-day window")
+    out.metric("Spike z today", spike.get("z_score"), "num", digits=1,
+               hint="Spike detected" if spike.get("spike_detected") else f"Spike threshold: z > {params['threshold']:.1f}",
                status="serious" if spike.get("spike_detected") else None)
-    out.metric("Mean-Reversion-z", mr.get("z_score"), "num", digits=2, hint=SIGNAL.get(mr["signal"], mr["signal"]),
+    out.metric("Mean-reversion z", mr.get("z_score"), "num", digits=2, hint=SIGNAL.get(mr["signal"], mr["signal"]),
                status="warning" if mr["signal"] != "NEUTRAL" else None)
     last_year = spikes[spikes >= n - 252]
-    out.metric("Spikes im letzten Jahr", len(last_year), "int", hint=f"insgesamt {len(spikes)} in {n} Tagen")
+    out.metric("Spikes in the past year", len(last_year), "int", hint=f"{len(spikes):,} in total over {n:,} days")
 
     if real:
         if regime == "PANIC":
-            level, title = "critical", "Panik im VIX"
+            level, title = "critical", "Panic in the VIX"
         elif regime == "HIGH_FEAR":
-            level, title = "serious", "Hohe Angst im VIX"
+            level, title = "serious", "High fear in the VIX"
         elif regime == "ELEVATED" or spike.get("spike_detected"):
-            level, title = "warning", "Erhöhte Angst" if regime == "ELEVATED" else "VIX-Spike heute"
+            level, title = "warning", "Elevated fear" if regime == "ELEVATED" else "VIX spike today"
         elif mr["signal"] == "COMPLACENCY_WARNING":
-            level, title = "warning", "Auffällig niedrige Angst – Sorglosigkeit"
+            level, title = "warning", "Unusually low fear – complacency"
         else:
-            level, title = "good", "Ruhiges VIX-Regime" if regime == "NORMAL" else "Niedrige Angst (sorglos)"
+            level, title = "good", "Calm VIX regime" if regime == "NORMAL" else "Low fear (complacent)"
         out.set_verdict(level, title,
-                        f"VIX {vix[-1]:.1f} im Regime „{reg_de}“, {pct:.0f}. Perzentil des letzten Fensters; "
-                        f"Mean-Reversion: {SIGNAL.get(mr['signal'], mr['signal'])}.".replace(".", ",", 1))
+                        f"VIX {vix[-1]:.1f} in the ‘{reg_txt}’ regime, {ordinal(pct)} percentile of the latest "
+                        f"window; mean reversion: {SIGNAL.get(mr['signal'], mr['signal']).lower()}.")
     else:
-        out.note(("Der VIX dieses synthetischen Datensatzes ist" if derived else
-                  "Der Datensatz enthält keinen VIX, deshalb wird er hier")
-                 + " aus der realisierten Volatilität abgeleitet (`generate_vix_from_returns`, Niveau 15 + 100 × "
-                 "Jahresvola). Die Werte sind illustrativ und meist höher als ein echter VIX – deshalb gibt es keine "
-                 "Einschätzung.", "warning")
+        out.note(("The VIX of this synthetic dataset is" if derived else
+                  "The dataset contains no VIX, so one is")
+                 + " derived here from realised volatility (`generate_vix_from_returns`, level 15 + 100 × "
+                 "annualised volatility). The values are illustrative and usually higher than a real VIX, so no "
+                 "assessment is given.", "warning")
 
     # ---- charts ---------------------------------------------------------------------------------------
     out.chart(C.xy(
-        "VIX mit Regimegrenzen und Spikes",
-        [C.trace("VIX" if real else "VIX (aus Renditen abgeleitet)", x, vix, color=1, width=1.2),
+        "VIX with regime boundaries and spikes",
+        [C.trace("VIX" if real else "VIX (derived from returns)", x, vix, color=1, width=1.2),
          C.trace("Spike", [x[i] for i in spikes], vix[spikes], type="scatter", color="critical", size=5,
                  decimate_to=None)],
-        x=xa, y=C.axis("VIX-Punkte"),
-        hlines=[C.hline(th["complacent"], "sorglos < 15"), C.hline(th["normal"], "erhöht ab 25", "warning"),
-                C.hline(th["elevated"], "hohe Angst ab 35", "serious"), C.hline(th["panic"], "Panik ab 50", "critical")],
-        subtitle="Rote Punkte: Tage, an denen der VIX stärker stieg als die Spike-Schwelle erlaubt.",
+        x=xa, y=C.axis("VIX points"),
+        hlines=[C.hline(th["complacent"], "Complacent < 15"), C.hline(th["normal"], "Elevated from 25", "warning"),
+                C.hline(th["elevated"], "High fear from 35", "serious"), C.hline(th["panic"], "Panic from 50", "critical")],
+        subtitle="Red dots: days on which the VIX rose by more than the spike threshold allows.",
     ))
     out.chart(C.xy(
-        "Mean-Reversion-Signal (z-Wert des VIX)",
-        [C.trace("z-Wert", x, z_mr, color=2, width=1.2)],
-        x=xa, y=C.axis("z (gegen 252-Tage-Mittel)"),
-        hlines=[C.hline(2.0, "Umkehr wahrscheinlich (z > 2)", "serious"),
-                C.hline(-1.5, "Sorglosigkeit (z < −1,5)", "warning")],
-        subtitle="Über 2: Angst extrem hoch, historisch oft nahe am Tief. Unter −1,5: ungewöhnlich ruhig.",
+        "Mean-reversion signal (VIX z-score)",
+        [C.trace("z-score", x, z_mr, color=2, width=1.2)],
+        x=xa, y=C.axis("z (vs 252-day mean)"),
+        hlines=[C.hline(2.0, "Reversal likely (z > 2)", "serious"),
+                C.hline(-1.5, "Complacency (z < −1.5)", "warning")],
+        subtitle="Above 2: fear is extremely high, historically often close to the market low. Below −1.5: "
+                 "unusually calm.",
     ))
 
-    out.progress("Phasenraum …", 0.7)
+    out.progress("Phase space…", 0.7)
     X, Y, Z = compute_sentiment_coordinates(vix, r, window=int(params["coord_window"]))
     w = int(params["coord_window"])
     start = max(w, n - int(params["lookback_3d"]))
@@ -170,12 +166,12 @@ def run(params, data, out):
             traces.append(C.path3d(REGIME[code][0], X[m], Y[m], Z[m], color=REGIME[code][1] if code != "COMPLACENT"
                                    else 1, mode="markers", size=2.5,
                                    text=[str(label(i)) for i in m]))
-    traces.append(C.path3d("Letzter Tag", [X[-1]], [Y[-1]], [Z[-1]], color="ink", mode="markers", size=8))
+    traces.append(C.path3d("Latest day", [X[-1]], [Y[-1]], [Z[-1]], color="ink", mode="markers", size=8))
     out.chart(C.scatter3d(
-        "Sentiment-Phasenraum", traces,
-        x=C.axis("VIX-Niveau (0–1)"), y=C.axis("VIX-Momentum (0–1)"), z=C.axis("Rendite-VIX-Korrelation (0–1)"),
-        subtitle=f"Letzte {len(idx)} Tage, Farbe = VIX-Regime. Panik: hohes Niveau und steigender VIX. Kleine "
-                 "Korrelation = Renditen und VIX laufen gegeneinander (der Normalfall).",
+        "Sentiment phase space", traces,
+        x=C.axis("VIX level (0–1)"), y=C.axis("VIX momentum (0–1)"), z=C.axis("Return–VIX correlation (0–1)"),
+        subtitle=f"Last {len(idx):,} days, colour = VIX regime. Panic: high level and rising VIX. Low "
+                 "correlation = returns and the VIX move in opposite directions (the normal case).",
     ))
 
     # ---- what happened next? ----------------------------------------------------------------------------
@@ -195,19 +191,19 @@ def run(params, data, out):
         rows.append([REGIME[code][0], bounds[code], float(m.mean()), float(np.std(r[m]) * np.sqrt(252)),
                      float(np.mean(f)) if f.size else None, float(np.mean(f < 0)) if f.size else None])
     fa = fwd[np.isfinite(fwd)]
-    rows.append(["Alle Tage", "", 1.0, float(np.std(r) * np.sqrt(252)), float(np.mean(fa)) if fa.size else None,
+    rows.append(["All days", "", 1.0, float(np.std(r) * np.sqrt(252)), float(np.mean(fa)) if fa.size else None,
                  float(np.mean(fa < 0)) if fa.size else None])
-    out.table("VIX-Regime und was danach geschah",
-              ["Regime", "VIX", "Anteil der Tage", "Vola p. a. im Regime", f"Ø Rendite nächste {H} T",
-               f"Anteil Verlust nach {H} T"], rows, formats=["text", "text", "pct", "pct", "pct", "pct"],
-              note="Die Folgerendite beginnt am Tag nach der Einordnung. Hohe Angst ging historisch oft "
-                   "überdurchschnittlichen Renditen voraus – das ist die Idee hinter dem Mean-Reversion-Signal.")
+    out.table("VIX regimes and what followed",
+              ["Regime", "VIX", "Share of days", "Volatility p.a. in regime", f"Mean return, next {H}d",
+               f"Share with a loss after {H}d"], rows, formats=["text", "text", "pct", "pct", "pct", "pct"],
+              note="The forward return starts on the day after the classification. Historically, high fear has "
+                   "often preceded above-average returns – the idea behind the mean-reversion signal.")
 
     if spikes.size:
         top = spikes[np.argsort(z_spike[spikes])[::-1][:10]]
         srows = [[label(i), float(vix[i]), float(vix[i] - vix[i - 1]), float(z_spike[i]), float(r[i]),
                   float(fwd[i]) if np.isfinite(fwd[i]) else None] for i in sorted(top)]
-        out.table(f"Die {len(top)} stärksten VIX-Spikes (chronologisch)",
-                  ["Datum", "VIX", "Anstieg (Punkte)", "z", "Rendite am Tag", f"Rendite nächste {H} T"], srows,
+        out.table(f"The {len(top)} largest VIX spikes (chronological)",
+                  ["Date", "VIX", "Rise (points)", "z", "Return on the day", f"Return, next {H}d"], srows,
                   formats=["text", "num", "num", "num", "pct", "pct"],
-                  note="z = Anstieg ÷ Standardabweichung der VIX-Tagesänderungen der 19 Tage davor.")
+                  note="z = rise ÷ standard deviation of daily VIX changes over the previous 19 days.")

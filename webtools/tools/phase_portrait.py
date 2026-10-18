@@ -5,46 +5,48 @@ import numpy as np
 from src.visualization.phase_space import PhaseSpaceAnalyzer
 
 from .. import charts as C
+from ..data import fmt_date
 from ..core import ToolError
 
 SPEC = {
     "id": "phase-portrait",
-    "title": "Markt-Phasenporträt: Momentum, Vola, Schiefe",
+    "title": "Market phase portrait: momentum, volatility, skewness",
     "group": "regime",
-    "order": 60,
-    "summary": "Verfolgt den Markt als Punkt im Raum aus Momentum, Volatilität und Schiefe – mit Attraktoren, "
-               "Tempo, Beschleunigung und Abstand vom Gleichgewicht.",
+    "order": 40,
+    "summary": "Tracks the market as a point in a space of momentum, volatility and skewness – with attractors, "
+               "speed, acceleration and distance from equilibrium.",
     "description": (
-        "In der Physik beschreibt ein **Phasenraum** den vollständigen Zustand eines Systems; seine Bahn zeigt, wohin "
-        "es sich bewegt. `PhaseSpaceAnalyzer` überträgt das auf den Markt: Jeder Handelstag wird zum Punkt aus "
-        "**Momentum** X (Ø Tagesrendite im Fenster), **Volatilität** Y (Standardabweichung im Fenster) und "
-        "**Schiefe** Z (der Renditen davor). Ruhige Phasen bilden eine dichte Wolke bei niedriger Vola, Krisen "
-        "ziehen lange Ausläufer nach oben und zu negativem Momentum.\n\n"
-        "**Attraktoren** sind Regionen, in denen sich der Markt immer wieder aufhält. `detect_attractor_regions` "
-        "findet sie per Ward-Clustering und ordnet sie nach Volatilität (ruhig → Stress). Standardisiere die Achsen "
-        "dafür: Schiefe liegt bei ±1, Rendite und Vola bei 0,01 – unskaliert trennt das Clustering fast nur nach der "
-        "Schiefe. Die Verweildauer zeigt, wie „klebrig“ ein Attraktor ist.\n\n"
-        "**Geschwindigkeit** und **Beschleunigung** (`compute_velocity`, `compute_acceleration`) messen, wie schnell "
-        "sich der Zustand ändert – schnelle Bewegung heißt Regimewechsel. Der **Abstand vom Gleichgewicht** "
-        "(`phase_space_distance`) misst die Entfernung zum Ruhepunkt (Momentum 0, Ø-Vola, Schiefe 0), hier in "
-        "Standardabweichungen je Achse. Die Original-Grafik zeichnet die Bahn mit Geschwindigkeitspfeilen (`Arrow3D`)."
+        "In physics, a **phase space** describes the complete state of a system; its trajectory shows where the "
+        "system is heading. `PhaseSpaceAnalyzer` applies this to the market: each trading day becomes a point "
+        "defined by **momentum** X (average daily return in the window), **volatility** Y (standard deviation in "
+        "the window) and **skewness** Z (of the preceding returns). Calm periods form a dense cloud at low "
+        "volatility; crises stretch out in long streaks upwards and towards negative momentum.\n\n"
+        "**Attractors** are regions to which the market keeps returning. `detect_attractor_regions` finds them by "
+        "Ward clustering and orders them by volatility (calm → stress). Standardise the axes for this: skewness "
+        "is of the order of ±1, return and volatility of the order of 0.01 – unscaled, the clustering separates "
+        "almost solely by skewness. The average stay shows how ‘sticky’ an attractor is.\n\n"
+        "**Velocity** and **acceleration** (`compute_velocity`, `compute_acceleration`) measure how fast the "
+        "state is changing – rapid movement signals a regime switch. The **distance from equilibrium** "
+        "(`phase_space_distance`) measures how far the market is from its resting point (momentum 0, average "
+        "volatility, skewness 0), here in standard deviations per axis. The original chart draws the trajectory "
+        "with velocity arrows (`Arrow3D`)."
     ),
     "needs": ["returns"],
     "params": [
         {"name": "window", "type": "int", "default": 20, "min": 5, "max": 120, "step": 1,
-         "label": "Fenster", "unit": "Tage",
-         "help": "Für Momentum, Volatilität und Schiefe. Kurz = nervös, lang = träge."},
+         "label": "Window", "unit": "days",
+         "help": "For momentum, volatility and skewness. Short = jittery, long = sluggish."},
         {"name": "n_clusters", "type": "int", "default": 3, "min": 2, "max": 6, "step": 1,
-         "label": "Anzahl Attraktoren"},
-        {"name": "standardize", "type": "bool", "default": True, "label": "Achsen fürs Clustering standardisieren",
-         "help": "Aus: das unskalierte Original-Verhalten, das fast nur nach der Schiefe trennt."},
+         "label": "Number of attractors"},
+        {"name": "standardize", "type": "bool", "default": True, "label": "Standardise axes for clustering",
+         "help": "Off: the unscaled original behaviour, which separates almost solely by skewness."},
         {"name": "recent", "type": "int", "default": 60, "min": 10, "max": 250, "step": 10,
-         "label": "Hervorgehobene letzte Tage", "unit": "Tage"},
+         "label": "Highlighted recent days", "unit": "days"},
         {"name": "last_n", "type": "int", "default": 2520, "min": 250, "max": 5000, "step": 250,
-         "label": "Zeitraum (letzte Handelstage)", "unit": "Tage",
-         "help": "Das Clustering braucht Speicher ∝ N²; 2520 Tage ≈ 10 Jahre."},
+         "label": "Period (most recent trading days)", "unit": "days",
+         "help": "Most recent trading days analysed. Clustering needs memory ∝ N²; 2,520 days ≈ 10 years."},
         {"name": "show_velocity", "type": "bool", "default": True,
-         "label": "Geschwindigkeitspfeile in der Original-Grafik"},
+         "label": "Velocity arrows in the original chart"},
     ],
     "covers": [
         "src.visualization.phase_space.Arrow3D",
@@ -59,31 +61,29 @@ SPEC = {
     "cost": "medium",
 }
 
-REGIME_DE = {"LOW_VOL": "Ruhig (niedrige Vola)", "NORMAL": "Normal", "HIGH_VOL": "Stress (hohe Vola)"}
+REGIME_LABELS = {"LOW_VOL": "Calm (low vol)", "NORMAL": "Normal", "HIGH_VOL": "Stress (high vol)"}
+RANK_COLORS = (1, 4, 2, 7, 5, 8)  # attractors ordered calm -> stress: blue, amber, orange, ... (never green for stress)
 MAX_CLOUD = 500   # points per attractor in the 3D cloud: denser clouds hide the recent path (the original figure
                   # and the 2D charts always get every day)
 
-
-def _de(x, digits=2):
-    return f"{x:.{digits}f}".replace(".", ",").replace("-", "−")
+def _num(x, digits=2):
+    """Number inside text: decimal point, thousands comma, typographic minus."""
+    return f"{x:,.{digits}f}".replace("-", "−")
 
 
 def _signed(x, digits=2, unit=""):
-    """Signed German number with at least two significant digits (tiny daily changes must not round to 0)."""
+    """Signed number with at least two significant digits (tiny daily changes must not round to 0)."""
     if x != 0 and np.isfinite(x):
         digits = int(min(7, max(digits, 1 - np.floor(np.log10(abs(x))))))
-    s = _de(abs(x), digits)
+    s = _num(abs(x), digits)
     return ("+" if x > 0 else "−" if x < 0 else "±") + s + unit
 
 
-def _date_de(d):
-    s = str(d)
-    return f"{s[8:10]}.{s[5:7]}.{s[:4]}" if len(s) == 10 and s[4] == "-" else s
 
 
-def _regime_de(label):
-    if label in REGIME_DE:
-        return REGIME_DE[label]
+def _regime_label(label):
+    if label in REGIME_LABELS:
+        return REGIME_LABELS[label]
     if label.startswith("NORMAL_"):
         return f"Normal {label.split('_')[1]}"
     return label
@@ -109,17 +109,17 @@ def run(params, data, out):
     n = int(min(params["last_n"], data.n))
     need = max(3 * w, 60)              # at least two full windows of clustered points after the warm-up
     if n < need:
-        fix = ("Verkleinere das Fenster" + (" oder verlängere den Zeitraum." if n < data.n else ".")
-               if 3 * w > 60 else "Wähle einen längeren Datensatz.")
-        raise ToolError(f"Für ein Fenster von {w} Tagen brauchst du mindestens {need} Tagesrenditen im "
-                        f"Zeitraum (vorhanden: {n}). {fix}")
+        fix = ("Reduce the window" + (" or extend the period." if n < data.n else ".")
+               if 3 * w > 60 else "Choose a longer dataset.")
+        raise ToolError(f"With a window of {w} days you need at least {need:,} daily returns in the period "
+                        f"(available: {n:,}). {fix}")
     r = np.asarray(data.returns[-n:], dtype=float)
     dates = list(data.dates[-n:]) if data.dates else None
     x_time = dates if dates else list(range(data.n - n + 1, data.n + 1))
-    x_axis = C.axis("", type="date") if dates else C.axis("Handelstag", fmt="int")
-    day_txt = [_date_de(d) for d in dates] if dates else [f"Tag {i}" for i in x_time]
+    x_axis = C.axis("", type="date") if dates else C.axis("Trading day", fmt="int")
+    day_txt = [fmt_date(d) for d in dates] if dates else [f"Day {i}" for i in x_time]
 
-    out.progress("Phasenraum-Koordinaten …", 0.05)
+    out.progress("Phase-space coordinates …", 0.05)
     psa = PhaseSpaceAnalyzer(r, window=w)
     X, Y, Z = (np.asarray(a, dtype=float) for a in (psa.X, psa.Y, psa.Z))
     vel = np.column_stack(psa.compute_velocity())
@@ -127,10 +127,10 @@ def run(params, data, out):
     dist = np.asarray(psa.phase_space_distance(standardize=True), dtype=float)
     dist_raw = np.asarray(psa.phase_space_distance(), dtype=float)
 
-    out.progress("Attraktoren (Ward-Clustering) …", 0.25)
+    out.progress("Attractors (Ward clustering) …", 0.25)
     att = psa.detect_attractor_regions(n_clusters=k_clusters, standardize=bool(params["standardize"]))
     if "error" in att:
-        raise ToolError("Zu wenige gültige Punkte für das Clustering – verlängere den Zeitraum.")
+        raise ToolError("Too few valid points for clustering – extend the period.")
 
     # the first `window` days are warm-up (skewness is still 0, the windows are not full yet)
     valid = np.arange(n) >= w
@@ -140,7 +140,7 @@ def run(params, data, out):
     labels[finite] = np.asarray(att["cluster_labels"], dtype=int)
     order = [int(c) for c in att["regime_order"]]          # 0-based cluster index, low -> high volatility
     rank = {c + 1: i for i, c in enumerate(order)}         # cluster id -> volatility rank 0..k-1
-    names = {cid: _regime_de(lbl) for cid, lbl in att["cluster_regimes"].items()}
+    names = {cid: _regime_label(lbl) for cid, lbl in att["cluster_regimes"].items()}
     centers = np.asarray(att["centers"], dtype=float)
 
     # speed and acceleration in standard deviations per axis (raw units would be pure skewness)
@@ -159,21 +159,23 @@ def run(params, data, out):
 
     # --- metrics ------------------------------------------------------------------------
     stay = _run_today(labels)
-    out.metric("Attraktor heute", names.get(cur, "–"), "text", status=status,
-               badge=f"Vola-Rang {cur_rank + 1}/{k_clusters}",
-               hint="erst seit heute in diesem Attraktor" if stay == 1 else f"seit {stay} Tagen in diesem Attraktor")
-    out.metric(f"Volatilität ({w} Tage)", Y[-1], "pct", digits=2,
-               hint=f"täglich · ≈ {_de(100 * Y[-1] * np.sqrt(252), 0)} % p. a. · Perzentil {_de(100 * vol_pct, 0)} %")
-    out.metric(f"Momentum ({w} Tage)", X[-1], "pct", digits=3, hint="Ø Tagesrendite im Fenster")
-    out.metric("Schiefe", Z[-1], "num", digits=2,
-               hint=f"der {w} Renditen davor · < 0: große Verluste häufiger als große Gewinne")
-    out.metric("Abstand vom Gleichgewicht", dist[-1], "num", digits=2,
-               hint=f"in σ je Achse · Perzentil {_de(100 * dist_pct, 0)} %",
+    out.metric("Attractor today", names.get(cur, "–"), "text", status=status,
+               badge=f"Vol rank {cur_rank + 1}/{k_clusters}",
+               hint="entered this attractor today" if stay == 1 else f"in this attractor for {stay:,} days")
+    out.metric(f"Volatility ({w} days)", Y[-1], "pct", digits=2,
+               hint=f"daily · ≈ {_num(100 * Y[-1] * np.sqrt(252), 0)}% p.a. · percentile rank "
+                    f"{_num(100 * vol_pct, 0)}%")
+    out.metric(f"Momentum ({w} days)", X[-1], "pct", digits=3, hint="avg. daily return in the window")
+    out.metric("Skewness", Z[-1], "num", digits=2,
+               hint=f"of the preceding {w} returns · < 0: large losses more frequent than large gains")
+    out.metric("Distance from equilibrium", dist[-1], "num", digits=2,
+               hint=f"in σ per axis · percentile rank {_num(100 * dist_pct, 0)}%",
                status="serious" if dist_pct >= 0.97 else "warning" if dist_pct >= 0.9 else None)
-    out.metric("Tempo im Phasenraum", speed[-1], "num", digits=3,
-               hint=f"σ pro Tag · Perzentil {_de(100 * speed_pct, 0)} %",
+    out.metric("Speed in phase space", speed[-1], "num", digits=3,
+               hint=f"σ per day · percentile rank {_num(100 * speed_pct, 0)}%",
                status="warning" if speed_pct >= 0.9 else None)
-    out.metric("Beschleunigung", accel[-1], "num", digits=3, hint=f"σ pro Tag² · Perzentil {_de(100 * acc_pct, 0)} %")
+    out.metric("Acceleration", accel[-1], "num", digits=3,
+               hint=f"σ per day² · percentile rank {_num(100 * acc_pct, 0)}%")
 
     # --- chart 1: the phase portrait in 3D ---------------------------------------------
     idx = np.flatnonzero(valid)
@@ -185,23 +187,23 @@ def run(params, data, out):
         if ii.size > MAX_CLOUD:
             ii, thinned = ii[::int(np.ceil(ii.size / MAX_CLOUD))], True
         if ii.size:
-            traces.append(C.path3d(f"{names[cid]} · {int(np.sum(labels[idx] == cid))} Tage",
-                                   X[ii], Y[ii], Z[ii], color=rank[cid] + 1, mode="markers", size=2,
+            traces.append(C.path3d(f"{names[cid]} · {int(np.sum(labels[idx] == cid)):,} days",
+                                   X[ii], Y[ii], Z[ii], color=RANK_COLORS[rank[cid]], mode="markers", size=2,
                                    text=[day_txt[i] for i in ii]))
-    traces.append(C.path3d("Attraktor-Zentren", centers[:, 0], centers[:, 1], centers[:, 2], color="muted",
+    traces.append(C.path3d("Attractor centres", centers[:, 0], centers[:, 1], centers[:, 2], color="muted",
                            mode="markers", size=9, text=[names[c + 1] for c in range(len(centers))]))
-    traces.append(C.path3d(f"Letzte {k_recent} Tage", X[recent], Y[recent], Z[recent], color="ink",
+    traces.append(C.path3d(f"Last {k_recent} days", X[recent], Y[recent], Z[recent], color="ink",
                            mode="lines+markers", size=3, text=[day_txt[i] for i in recent]))
-    traces.append(C.path3d(f"Heute ({day_txt[-1]})", [X[-1]], [Y[-1]], [Z[-1]], color="ink", mode="markers",
+    traces.append(C.path3d(f"Today ({day_txt[-1]})", [X[-1]], [Y[-1]], [Z[-1]], color="ink", mode="markers",
                            size=8, text=[names.get(cur, "")]))
     out.chart(C.scatter3d(
-        "Phasenporträt: Momentum × Volatilität × Schiefe", traces,
-        x=C.axis("Momentum (Ø Tagesrendite)", fmt="pct", digits=2), y=C.axis("Volatilität (täglich)", fmt="pct",
-                                                                            digits=1),
-        z=C.axis("Schiefe"), height=580,
-        subtitle=f"Jeder Punkt ist ein Handelstag ({w}-Tage-Fenster), gefärbt nach Attraktor (ruhig → Stress)"
-                 + (f"; große Attraktoren zeigen jeden n-ten Tag (höchstens {MAX_CLOUD} Punkte)" if thinned else "")
-                 + ". Die dunkle Linie ist der Weg der letzten Tage. Ziehen dreht, Mausrad zoomt.",
+        "Phase portrait: momentum × volatility × skewness", traces,
+        x=C.axis("Momentum (avg. daily return)", fmt="pct", digits=2), y=C.axis("Volatility (daily)", fmt="pct",
+                                                                               digits=1),
+        z=C.axis("Skewness"), height=580,
+        subtitle=f"Each point is a trading day ({w}-day window), coloured by attractor (calm → stress)"
+                 + (f"; large attractors show every n-th day (at most {MAX_CLOUD} points)" if thinned else "")
+                 + ". The dark line is the path of the most recent days. Drag to rotate, scroll to zoom.",
     ))
 
     # --- chart 2: volatility over time coloured by attractor ----------------------------
@@ -209,24 +211,25 @@ def run(params, data, out):
     for cid in sorted(rank, key=rank.get):
         ii = idx[labels[idx] == cid]
         if ii.size:
-            tr.append(C.trace(names[cid], [x_time[i] for i in ii], Y[ii], type="scatter", color=rank[cid] + 1,
+            tr.append(C.trace(names[cid], [x_time[i] for i in ii], Y[ii], type="scatter", color=RANK_COLORS[rank[cid]],
                               size=3, decimate_to=None, text=[day_txt[i] for i in ii]))
     out.chart(C.xy(
-        "Volatilität im Zeitverlauf – gefärbt nach Attraktor", tr,
-        x=x_axis, y=C.axis(f"Volatilität ({w} Tage, täglich)", fmt="pct", digits=1), height=320,
-        subtitle="Lange gleichfarbige Strecken: Der Markt bleibt in seinem Attraktor. Farbwechsel sind Regimewechsel.",
+        "Volatility over time – coloured by attractor", tr,
+        x=x_axis, y=C.axis(f"Volatility ({w} days, daily)", fmt="pct", digits=1), height=320,
+        subtitle="Long stretches of one colour: the market stays in its attractor. Colour changes are regime "
+                 "switches.",
     ))
 
     # --- chart 3: distance from equilibrium ----------------------------------------------
     xs = [x_time[i] for i in idx]
     d95 = float(np.nanpercentile(dist[valid], 95))
     out.chart(C.xy(
-        "Abstand vom Gleichgewicht (standardisiert)",
-        [C.trace("Abstand", xs, dist[valid], color=1, width=1.2)],
-        x=x_axis, y=C.axis("Abstand (σ je Achse)"), height=300,
-        hlines=[C.hline(d95, "95. Perzentil")],
-        subtitle="Euklidischer Abstand zum Ruhepunkt (Momentum 0, Ø-Volatilität, Schiefe 0), jede Achse in ihren "
-                 "Standardabweichungen. Spitzen sind Ausnahmezustände.",
+        "Distance from equilibrium (standardised)",
+        [C.trace("Distance", xs, dist[valid], color=1, width=1.2)],
+        x=x_axis, y=C.axis("Distance (σ per axis)"), height=300,
+        hlines=[C.hline(d95, "95th percentile")],
+        subtitle="Euclidean distance to the resting point (momentum 0, average volatility, skewness 0), each axis "
+                 "measured in its own standard deviations. Peaks are exceptional states.",
     ))
 
     # --- chart 4: speed in phase space ------------------------------------------------
@@ -234,13 +237,13 @@ def run(params, data, out):
     sp_avg = np.convolve(sp, np.ones(w) / w, mode="full")[:len(sp)]
     sp_avg[:w - 1] = np.nan
     out.chart(C.xy(
-        "Tempo im Phasenraum",
-        [C.trace("Tageswert", xs, sp, color=2, width=0.8),
-         C.trace(f"Mittel über {w} Tage", xs, sp_avg, color=1, width=2.2)],
-        x=x_axis, y=C.axis("σ pro Tag"), height=320,
-        subtitle=f"Betrag der Geschwindigkeit (np.gradient je Achse, standardisiert). Ein Schocktag erzeugt zwei "
-                 f"Spitzen im Abstand von {w} Tagen – beim Eintritt ins Fenster und beim Austritt. Das Mittel zeigt "
-                 "unruhige Phasen, in denen sich der Zustand dauernd verschiebt.",
+        "Speed in phase space",
+        [C.trace("Daily value", xs, sp, color=2, width=0.8),
+         C.trace(f"{w}-day average", xs, sp_avg, color=1, width=2.2)],
+        x=x_axis, y=C.axis("σ per day"), height=320,
+        subtitle=f"Magnitude of the velocity (np.gradient per axis, standardised). A shock day produces two "
+                 f"peaks {w} days apart – when it enters the window and when it leaves it. The average shows "
+                 "turbulent phases in which the state shifts constantly.",
     ))
 
     # --- table 1: attractors ---------------------------------------------------------
@@ -249,65 +252,67 @@ def run(params, data, out):
     for cid in sorted(rank, key=rank.get):
         c = centers[cid - 1]
         mask = lab_v == cid
-        last = _date_de(x_time[idx[np.flatnonzero(mask)[-1]]]) if mask.any() and dates else (
-            f"Tag {x_time[idx[np.flatnonzero(mask)[-1]]]}" if mask.any() else "–")
-        rows.append([names[cid] + (" ← heute" if cid == cur else ""), float(c[0]), float(c[1]),
+        last = fmt_date(x_time[idx[np.flatnonzero(mask)[-1]]]) if mask.any() and dates else (
+            f"Day {x_time[idx[np.flatnonzero(mask)[-1]]]}" if mask.any() else "–")
+        rows.append([names[cid] + (" ← today" if cid == cur else ""), float(c[0]), float(c[1]),
                      float(c[1] * np.sqrt(252)), float(c[2]), float(mask.mean()), _mean_run(lab_v, cid), last])
     eta = _eta_squared(coords[idx], lab_v)
-    eta_txt = (f"Die Attraktoren erklären {_de(100 * eta[1], 0)} % der Streuung der Volatilität, "
-               f"{_de(100 * eta[2], 0)} % der Schiefe und {_de(100 * eta[0], 0)} % des Momentums (η²). ")
-    out.table("Attraktor-Regionen (Ward-Clustering)", [
-        "Attraktor", "Ø Momentum", "Ø Vola täglich", "Ø Vola p. a.", "Ø Schiefe", "Anteil Tage",
-        "Ø Verweildauer (Tage)",
-        "zuletzt"], rows, formats=["text", "pct", "pct", "pct", "num", "pct", "num", "text"],
-        note=eta_txt + ("Zentren in Originaleinheiten, Clustering auf standardisierten Achsen. "
-                        if params["standardize"] else "Clustering auf unskalierten Achsen (Original-Verhalten). ")
-        + "Verweildauer = mittlere Länge der ununterbrochenen Aufenthalte. Ohne die ersten "
-        + f"{w} Tage (Aufwärmphase).")
+    eta_txt = (f"The attractors explain {_num(100 * eta[1], 0)}% of the variation in volatility, "
+               f"{_num(100 * eta[2], 0)}% in skewness and {_num(100 * eta[0], 0)}% in momentum (η²). ")
+    out.table("Attractor regions (Ward clustering)", [
+        "Attractor", "Avg. momentum", "Avg. vol (daily)", "Avg. vol p.a.", "Avg. skewness", "Share of days",
+        "Avg. stay (days)",
+        "Last seen"], rows, formats=["text", "pct", "pct", "pct", "num", "pct", "num", "text"],
+        note=eta_txt + ("Centres in original units, clustering on standardised axes. "
+                        if params["standardize"] else "Clustering on unscaled axes (original behaviour). ")
+        + "Stay = mean length of uninterrupted spells. Excludes the first "
+        + f"{w} days (warm-up).")
 
     # --- table 2: motion today per axis ----------------------------------------------
-    axes = [("Momentum X", X, "pct", 3), ("Volatilität Y", Y, "pct", 2), ("Schiefe Z", Z, "num", 2)]
+    axes = [("Momentum X", X, "pct", 3), ("Volatility Y", Y, "pct", 2), ("Skewness Z", Z, "num", 2)]
     rows = []
     for j, (name, s, kind, dg) in enumerate(axes):
-        unit = " %" if kind == "pct" else ""
+        unit = "%" if kind == "pct" else ""
         f = 100.0 if kind == "pct" else 1.0
         v, a = float(vel[-1, j]), float(acc[-1, j])
-        trend = ("steigt" if v > 0 else "fällt" if v < 0 else "konstant")
-        trend += (", beschleunigt" if v * a > 0 else ", bremst ab" if v * a < 0 else "")
-        rows.append([name, _de(f * s[-1], dg) + unit, _rank_pct(s[valid], s[-1]), _signed(f * v, dg + 1, unit),
+        trend = ("rising" if v > 0 else "falling" if v < 0 else "flat")
+        trend += (", accelerating" if v * a > 0 else ", decelerating" if v * a < 0 else "")
+        rows.append([name, _num(f * s[-1], dg) + unit, _rank_pct(s[valid], s[-1]), _signed(f * v, dg + 1, unit),
                      _signed(f * a, dg + 1, unit), float(abs(v) / scale[j]), trend])
-    out.table("Bewegung heute je Achse", [
-        "Achse", "heute", "Perzentil", "Geschwindigkeit pro Tag", "Beschleunigung pro Tag²", "Tempo (σ/Tag)",
-        "Richtung"], rows, formats=["text", "text", "pct", "text", "text", "num", "text"],
-        note="Zentrale Differenzen (np.gradient) der Koordinaten; am letzten Tag einseitig. Tempo = |Geschwindigkeit| "
-             "geteilt durch die Standardabweichung der Achse.")
+    out.table("Motion today by axis", [
+        "Axis", "Today", "Percentile", "Velocity per day", "Acceleration per day²", "Speed (σ/day)",
+        "Direction"], rows, formats=["text", "text", "pct", "text", "text", "num", "text"],
+        note="Central differences (np.gradient) of the coordinates; one-sided on the last day. Speed = "
+             "|velocity| divided by the standard deviation of the axis.")
 
     # --- notes ---------------------------------------------------------------------
     # the original clusters every row, including the warm-up (partial windows, skewness 0): on short series one of
     # those artefacts can become an "attractor" of its own
     warm_only = [names[cid] for cid in sorted(rank, key=rank.get) if not np.any(lab_v == cid)]
     if warm_only:
-        out.note(f"Der Attraktor „{warm_only[0]}“ besteht nur aus Tagen der Aufwärmphase (die ersten {w} Tage, "
-                 "Fenster noch nicht voll) – ein Artefakt der kurzen Reihe, kein Marktzustand. Verkleinere das "
-                 "Fenster oder nimm eine längere Reihe.", "warning")
+        out.note(f"The attractor ‘{warm_only[0]}’ consists only of warm-up days (the first {w} days, window not "
+                 "yet full) – an artefact of the short series, not a market state. Reduce the window or use a "
+                 "longer series.", "warning")
     raw_corr =float(np.corrcoef(dist_raw[valid], np.abs(Z[valid]))[0, 1]) if np.std(dist_raw[valid]) > 0 else np.nan
     if np.isfinite(raw_corr) and params["standardize"]:
-        out.note(f"Warum standardisiert? Unskaliert ist der Abstand vom Gleichgewicht praktisch nur |Schiefe| "
-                 f"(Korrelation {_de(raw_corr)}): Rendite und Vola liegen bei 0,01, die Schiefe bei 1. Dasselbe gilt "
-                 "fürs Clustering – schalte „Achsen standardisieren“ aus, um den Effekt zu sehen.")
+        out.note(f"Why standardise? Unscaled, the distance from equilibrium is practically just |skewness| "
+                 f"(correlation {_num(raw_corr)}): return and volatility are of the order of 0.01, skewness of the "
+                 "order of 1. The same applies to clustering – switch off ‘Standardise axes for clustering’ to see "
+                 "the effect.")
     if not params["standardize"] and eta[2] > 1.5 * eta[1]:
-        out.note(f"Unskaliertes Clustering: Die Attraktoren erklären {_de(100 * eta[2], 0)} % der Schiefe-Streuung, "
-                 f"aber nur {_de(100 * eta[1], 0)} % der Vola-Streuung – die „Vola-Regime“ sind hier eigentlich "
-                 "Schiefe-Gruppen. Schalte die Standardisierung wieder ein.", "warning")
+        out.note(f"Unscaled clustering: the attractors explain {_num(100 * eta[2], 0)}% of the variation in "
+                 f"skewness but only {_num(100 * eta[1], 0)}% of the variation in volatility – the ‘volatility "
+                 "regimes’ here are really skewness groups. Switch standardisation back on.", "warning")
     elif not params["standardize"]:
-        out.note("Unskaliertes Clustering (Original-Verhalten): Die Schiefe (Größenordnung 1) wiegt im Abstandsmaß "
-                 "rund hundertmal mehr als Rendite und Volatilität (Größenordnung 0,01).", "info")
+        out.note("Unscaled clustering (original behaviour): in the distance measure, skewness (order of magnitude "
+                 "1) weighs roughly a hundred times more than return and volatility (order of magnitude 0.01).",
+                 "info")
 
-    out.progress("Original-Grafik wird gezeichnet …", 0.6)
+    out.progress("Drawing the original chart …", 0.6)
     fig = psa.plot_phase_portrait(figsize=(11, 8), show_velocity=bool(params["show_velocity"]),
                                   show_attractors=True)
-    out.figure(fig, "Original: PhaseSpaceAnalyzer.plot_phase_portrait – Farbe = Zeit, rote Pfeile = Geschwindigkeit "
-                    "(Arrow3D, ×10, unskaliert), Sterne = 3 Attraktoren, grüne Raute = heute.", dpi=72)
+    out.figure(fig, "Original: PhaseSpaceAnalyzer.plot_phase_portrait – colour = time, red arrows = velocity "
+                    "(Arrow3D, ×10, unscaled), stars = 3 attractors, green diamond = today.", dpi=72)
 
 
 def _eta_squared(values, labels):

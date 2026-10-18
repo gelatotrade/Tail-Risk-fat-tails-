@@ -1,5 +1,5 @@
 // Navigation while computing: leaving and re-entering a running tool must reattach (not restart),
-// and "Abbrechen" must stop a long run and leave a working engine behind.
+// and "Cancel" must stop a long run and leave a working engine behind.
 //   node tests/e2e/nav_flow.mjs _site
 import { openSite, ORIGIN } from './serve.mjs';
 import { resolve } from 'node:path';
@@ -20,7 +20,7 @@ await page.waitForSelector('.result-bar', { timeout: 240000 });
 // leave a running tool and come back
 await page.goto(`${ORIGIN}/index.html#/tool/script-readme-figures`);
 await page.waitForSelector('.results .boot-card .progress', { timeout: 30000 });
-await page.goto(`${ORIGIN}/index.html#/galerie`);
+await page.goto(`${ORIGIN}/index.html#/galerie`); // the German alias of #/gallery must keep working
 await page.waitForTimeout(1500);
 await page.goto(`${ORIGIN}/index.html#/tool/script-readme-figures`);
 await page.waitForSelector('.result-bar, .error-card', { timeout: 180000 });
@@ -33,7 +33,7 @@ await page.waitForSelector('.results .boot-card .progress', { timeout: 30000 });
 await page.waitForTimeout(2000);
 await page.click('.panel .btn.primary');
 await page.waitForSelector('.toast', { timeout: 10000 });
-expect(/abgebrochen/i.test(await page.$eval('.toast', (e) => e.textContent)), 'cancel acknowledged');
+expect(/cancelled/i.test(await page.$eval('.toast', (e) => e.textContent)), 'cancel acknowledged');
 await page.waitForFunction(() => document.querySelector('#engine-pill')?.dataset.state === 'ready', null, { timeout: 120000 });
 expect(true, 'engine rebooted after cancel');
 await page.goto(`${ORIGIN}/index.html#/tool/fat-tails?bins=60`);

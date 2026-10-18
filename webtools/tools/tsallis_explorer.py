@@ -1,4 +1,4 @@
-"""q-Gauß-Verteilung erkunden: wie der Tsallis-Index q Dichte, Quantile, Ränder und Entropie verändert."""
+"""Explore the q-Gaussian: how the Tsallis index q changes density, quantiles, tails and entropy."""
 
 import numpy as np
 from scipy import stats
@@ -9,34 +9,35 @@ from .. import charts as C
 
 SPEC = {
     "id": "tsallis-explorer",
-    "title": "Tsallis-Verteilung (q-Gauß) erkunden",
+    "title": "Tsallis distribution (q-Gaussian)",
     "group": "physics",
-    "order": 60,
-    "summary": "Wie der entropische Index q aus der Gauß-Glocke eine Verteilung mit Potenzgesetz-Rändern macht – "
-               "Dichte, Quantile, Stichproben und Tsallis-Entropie.",
+    "order": 70,
+    "summary": "How the entropic index q turns the Gaussian bell into a distribution with power-law tails – "
+               "density, quantiles, samples and Tsallis entropy.",
     "description": (
-        "Die **q-Gauß-Verteilung** P(x) ∝ exp_q(−βx²) maximiert die Tsallis-Entropie S_q = (1 − Σpᵢ^q)/(q − 1), "
-        "so wie die Normalverteilung die Shannon-Entropie maximiert. Die q-Exponentialfunktion "
-        "exp_q(u) = [1 + (1 − q)u]^(1/(1−q)) fällt für q > 1 nicht exponentiell, sondern wie eine Potenz – daher die "
-        "fetten Ränder mit Dichte ~ |x|^(−2/(q−1)). q = 1 ist exakt die Normalverteilung, q ≈ 1,4–1,5 passt "
-        "typischerweise zu Tagesrenditen. Mathematisch ist sie eine skalierte Student-t-Verteilung mit "
-        "ν = (3 − q)/(q − 1) Freiheitsgraden.\n\n"
-        "So liest du die Diagramme: Die Gauß-Referenz hat dieselbe Varianz (für q ≥ 5/3 ist die Varianz unendlich, "
-        "dann dasselbe β). Auf der Log-Skala liegt die q-Gauß-Kurve in der Mitte höher, an den Schultern tiefer und "
-        "an den Rändern weit darüber – das typische Bild leptokurtischer Renditen. Im Log-Log-Plot ist der "
-        "Rand eine Gerade; die gestrichelte Asymptote aus `tail_probability` trifft sie weit draußen.\n\n"
-        "x ist in Einheiten von 1/√β angegeben (β = 1, μ = 0). Quantile kommen exakt aus `ppf`, die Stichproben "
-        "aus der Student-t-Darstellung."
+        "The **q-Gaussian** P(x) ∝ exp_q(−βx²) maximises the Tsallis entropy S_q = (1 − Σpᵢ^q)/(q − 1), just as "
+        "the normal distribution maximises the Shannon entropy. For q > 1 the q-exponential "
+        "exp_q(u) = [1 + (1 − q)u]^(1/(1−q)) decays not exponentially but like a power – hence the fat tails "
+        "with density ~ |x|^(−2/(q−1)). q = 1 is exactly the normal distribution; q ≈ 1.4–1.5 typically fits "
+        "daily returns. Mathematically it is a scaled Student-t distribution with ν = (3 − q)/(q − 1) degrees of "
+        "freedom.\n\n"
+        "How to read the charts: the Gaussian reference has the same variance (for q ≥ 5/3 the variance is "
+        "infinite, so the same β is used instead). On the log scale the q-Gaussian curve lies higher in the "
+        "centre, lower at the shoulders and far above in the tails – the typical picture of leptokurtic returns. "
+        "On the log-log plot the tail is a straight line; the dashed asymptote from `tail_probability` meets it "
+        "far out.\n\n"
+        "x is given in units of 1/√β (β = 1, μ = 0). Quantiles come exactly from `ppf`, the samples from the "
+        "Student-t representation."
     ),
     "needs": [],
     "params": [
         {"name": "q", "type": "float", "default": 1.4, "min": 1.0, "max": 2.9, "step": 0.05,
-         "label": "Entropischer Index q", "help": "1 = Gauß · 5/3: Varianz wird unendlich · 2: Cauchy-artig."},
+         "label": "Entropic index q", "help": "1 = Gaussian · 5/3: variance becomes infinite · 2: Cauchy-like."},
         {"name": "x_range", "type": "int", "default": 8, "min": 3, "max": 30, "step": 1,
-         "label": "Dichte-Bereich ± (in 1/√β)"},
+         "label": "Density range ± (in 1/√β)"},
         {"name": "n_samples", "type": "int", "default": 20000, "min": 1000, "max": 200000, "step": 1000,
-         "label": "Stichproben"},
-        {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 9999, "step": 1, "label": "Zufalls-Seed"},
+         "label": "Sample size"},
+        {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 9999, "step": 1, "label": "Random seed"},
     ],
     "covers": [
         "src.physics.tsallis_statistics.TsallisDistribution",
@@ -57,22 +58,22 @@ SPEC = {
 QUANTILES = (0.001, 0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.99, 0.999)
 
 
-def _de(x, digits=2):
-    return f"{x:.{digits}f}".replace(".", ",")
+def _fmt(x, digits=2):
+    return f"{x:.{digits}f}"
 
 
 _SUP = str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹")
 
 
 def _tiny(p):
-    """Probability cell: below 10⁻⁶ as German scientific text in % (2,0·10⁻⁷ % instead of 0,0000002 %)."""
+    """Probability cell: below 10⁻⁶ as scientific text in % (2.0·10⁻⁷% instead of 0.0000002%)."""
     if p is None or not np.isfinite(p):
         return None
     if p < 1e-12:  # includes exact 0 from underflow (Gaussian tail far out)
-        return "< 10⁻¹⁰ %"
+        return "< 10⁻¹⁰%"
     if 0 < p < 1e-6:
         mant, exp = f"{100 * p:.1e}".split("e")
-        return mant.replace(".", ",") + "·10" + str(int(exp)).translate(_SUP) + " %"
+        return mant + "·10" + str(int(exp)).translate(_SUP) + "%"
     return float(p)
 
 
@@ -82,7 +83,7 @@ def run(params, data, out):
     var = float(dist.variance())
     same_var = np.isfinite(var)
     g_sd = np.sqrt(var) if same_var else np.sqrt(1 / (2 * dist.beta))
-    ref_label = "Gauß gleicher Varianz" if same_var else "Gauß mit gleichem β"
+    ref_label = "Gaussian, equal variance" if same_var else "Gaussian, same β"
     nu = (3 - q) / (q - 1) if q > 1 else np.inf
 
     s = np.asarray(dist.sample(n, seed=seed), dtype=float)
@@ -90,18 +91,18 @@ def run(params, data, out):
 
     # --- metrics
     tail_exp = float(dist.tail_exponent())
-    out.metric("Tail-Exponent der Dichte", tail_exp if np.isfinite(tail_exp) else "∞ (Gauß)",
+    out.metric("Tail exponent of the density", tail_exp if np.isfinite(tail_exp) else "∞ (Gaussian)",
                "num" if np.isfinite(tail_exp) else "text", hint="P(x) ~ |x|^−2/(q−1)",
                status="critical" if tail_exp < 3 else "serious" if tail_exp < 5 else None)
-    out.metric("Student-t-Freiheitsgrade ν", nu if np.isfinite(nu) else "∞", "num" if np.isfinite(nu) else "text",
-               hint="(3 − q)/(q − 1); Momente existieren bis Ordnung < ν")
-    out.metric("Varianz", var if same_var else "∞", "num" if same_var else "text",
-               hint="1/(β(5 − 3q)), endlich nur für q < 5/3")
+    out.metric("Student-t degrees of freedom ν", nu if np.isfinite(nu) else "∞", "num" if np.isfinite(nu) else "text",
+               hint="(3 − q)/(q − 1); moments exist up to order < ν")
+    out.metric("Variance", var if same_var else "∞", "num" if same_var else "text",
+               hint="1/(β(5 − 3q)), finite only for q < 5/3")
     p99, g99 = float(dist.ppf(0.99)), float(stats.norm.ppf(0.99, 0, g_sd))
-    out.metric("99 %-Quantil", p99, "num", hint=f"{ref_label}: {_de(g99)}")
+    out.metric("99% quantile", p99, "num", hint=f"{ref_label}: {_fmt(g99)}")
     p4 = float(dist.tail_probability(4 * g_sd, "both", exact=True))
     g4 = float(2 * stats.norm.sf(4))
-    out.metric("P(|X| > 4σ)", p4, "pct", hint=f"σ der Gauß-Referenz; Gauß: {_de(100 * g4, 4)} %",
+    out.metric("P(|X| > 4σ)", p4, "pct", hint=f"σ of the Gaussian reference; Gaussian: {_fmt(100 * g4, 4)}%",
                status="critical" if p4 > 50 * g4 else "serious" if p4 > 5 * g4 else None)
 
     # --- chart 1: density on log scale with histogram and Gaussian reference
@@ -116,12 +117,12 @@ def run(params, data, out):
     lo = max(1e-9, min(floor, float(pdf.min()) / 2))
     keep = lambda y: np.where(y >= lo, y, np.nan)  # noqa: E731
     out.chart(C.xy(
-        "Dichte auf logarithmischer Skala",
-        [C.trace("Stichprobe", centers, np.where(dens > 0, dens, np.nan), type="bar", color=1),
-         C.trace(f"q-Gauß (q = {_de(q)})", x, keep(pdf), color=2, width=2.5),
+        "Density on a logarithmic scale",
+        [C.trace("Sample", centers, np.where(dens > 0, dens, np.nan), type="bar", color=1),
+         C.trace(f"q-Gaussian (q = {_fmt(q)})", x, keep(pdf), color=2, width=2.5),
          C.trace(ref_label, x, keep(gpdf), color="muted", dash=True)],
-        x=C.axis("x (in 1/√β)"), y=C.axis("Dichte", type="log", range=(lo, 2.5 * max(pdf.max(), gpdf.max()))),
-        subtitle="Höhere Spitze, schmalere Schultern, viel dickere Ränder als die Gauß-Parabel.",
+        x=C.axis("x (in 1/√β)"), y=C.axis("Density", type="log", range=(lo, 2.5 * max(pdf.max(), gpdf.max()))),
+        subtitle="Higher peak, narrower shoulders and much heavier tails than the Gaussian parabola.",
     ))
 
     # --- chart 2: tails on log-log axes
@@ -133,25 +134,25 @@ def run(params, data, out):
     y_lo = 0.3 / len(s)
     pos = lambda y: np.where((np.asarray(y) >= y_lo) & (np.asarray(y) < 1), y, np.nan)  # noqa: E731
     out.chart(C.xy(
-        "Linker Rand im Log-Log-Plot: P(X < −x)",
-        [C.trace("Stichprobe", d, pos(np.where(emp > 0, emp, np.nan)), color=1, width=2.5),
-         C.trace("Exakt (cdf)", d, pos(exact), color=2),
-         C.trace("Potenzgesetz-Asymptote", d, pos(asym), color=2, dash=True, width=1.5),
+        "Left tail on a log-log plot: P(X < −x)",
+        [C.trace("Sample", d, pos(np.where(emp > 0, emp, np.nan)), color=1, width=2.5),
+         C.trace("Exact (cdf)", d, pos(exact), color=2),
+         C.trace("Power-law asymptote", d, pos(asym), color=2, dash=True, width=1.5),
          C.trace(ref_label, d, pos(stats.norm.cdf(-d, 0, g_sd)), color="muted", dash=True)],
-        x=C.axis("x (in 1/√β)", type="log"), y=C.axis("Wahrscheinlichkeit", type="log", fmt="pct", range=(y_lo, 1)),
-        subtitle=(f"Steigung der Geraden: 1 − 2/(q − 1) = {_de(1 - tail_exp)}." if q > 1 else
-                  "q = 1: Es gibt kein Potenzgesetz, der Rand fällt wie bei der Normalverteilung."),
+        x=C.axis("x (in 1/√β)", type="log"), y=C.axis("Probability", type="log", fmt="pct", range=(y_lo, 1)),
+        subtitle=(f"Slope of the straight line: 1 − 2/(q − 1) = {_fmt(1 - tail_exp)}.".replace("-", "−") if q > 1 else
+                  "q = 1: there is no power law; the tail decays as for the normal distribution."),
     ))
 
     # --- chart 3: the q-exponential behind it all
     u = np.linspace(0, 20, 401)
     eq = dist.q_exponential(-u)
     out.chart(C.xy(
-        "q-Exponentialfunktion exp_q(−u)",
-        [C.trace(f"exp_q(−u), q = {_de(q)}", u, np.where(eq > 1e-9, eq, np.nan), color=2, width=2.5),
+        "q-exponential exp_q(−u)",
+        [C.trace(f"exp_q(−u), q = {_fmt(q)}", u, np.where(eq > 1e-9, eq, np.nan), color=2, width=2.5),
          C.trace("exp(−u)", u, np.where(np.exp(-u) > 1e-9, np.exp(-u), np.nan), color="muted", dash=True)],
-        x=C.axis("u = βx²"), y=C.axis("Wert", type="log", range=(1e-9, 1.5)),
-        subtitle="Die Dichte ist A·exp_q(−βx²). Für q > 1 fällt exp_q wie u^(−1/(q−1)) statt exponentiell.",
+        x=C.axis("u = βx²"), y=C.axis("Value", type="log", range=(1e-9, 1.5)),
+        subtitle="The density is A·exp_q(−βx²). For q > 1, exp_q decays like u^(−1/(q−1)) instead of exponentially.",
         height=320,
     ))
 
@@ -162,9 +163,9 @@ def run(params, data, out):
         gq = float(stats.norm.ppf(p, 0, g_sd))
         rows.append([p, qq, gq, float(np.quantile(s, p)), (qq / gq) if p != 0.5 else None,
                      float(dist.cdf(qq))])
-    out.table("Quantile", ["Wahrscheinlichkeit p", "q-Gauß (ppf)", ref_label, "Stichprobe", "Verhältnis", "cdf(ppf(p))"],
+    out.table("Quantiles", ["Probability p", "q-Gaussian (ppf)", ref_label, "Sample", "Ratio", "cdf(ppf(p))"],
               rows, formats=["pct", "num", "num", "num", "x", "pct"],
-              note="Die letzte Spalte ist die Probe aufs Exempel: cdf und ppf sind exakt invers.")
+              note="The last column is the cross-check: cdf and ppf are exact inverses.")
 
     # --- table: tail probabilities, exact vs asymptote
     trows = []
@@ -174,19 +175,19 @@ def run(params, data, out):
         asy = float(dist.tail_probability(dd, "both")) if q > 1 else None
         gg = float(2 * stats.norm.sf(k))
         ratio = ex / gg if gg > 1e-300 else None
-        trows.append([f"{k} σ", ex, asy, float(np.mean(np.abs(s) > dd)), _tiny(gg),
+        trows.append([f"{k}σ", ex, asy, float(np.mean(np.abs(s) > dd)), _tiny(gg),
                       "> 10⁵" if ratio is not None and ratio > 1e5 else ratio])
-    out.table("Tail-Wahrscheinlichkeit P(|X| > kσ)", ["Schwelle", "exakt", "asymptotisch", "Stichprobe", "Gauß", "Faktor"],
+    out.table("Tail probability P(|X| > kσ)", ["Threshold", "Exact", "Asymptotic", "Sample", "Gaussian", "Ratio"],
               trows, formats=["text", "pct", "pct", "pct", "pct", "x"],
-              note=f"σ = Standardabweichung der Referenz ({_de(g_sd, 3)}). Die Asymptote C·d^(1−α)/(α−1) mit dem "
-                   "Dichte-Exponenten α = 2/(q − 1) gilt nur weit draußen und ist bei 100 % gekappt.")
+              note=f"σ = standard deviation of the reference ({_fmt(g_sd, 3)}). The asymptote C·d^(1−α)/(α−1) with "
+                   "the density exponent α = 2/(q − 1) applies only far out and is capped at 100%.")
 
     # --- table: entropy of the discretised densities (50 classes)
     analyzer = TsallisEntropyAnalyzer()
     ebins = np.linspace(-xr, xr, 51)
     mid = 0.5 * (ebins[:-1] + ebins[1:])
     erows, s_vals = [], []
-    for name, p in ((f"q-Gauß (q = {_de(q)})", dist.pdf(mid)), (ref_label, stats.norm.pdf(mid, 0, g_sd))):
+    for name, p in ((f"q-Gaussian (q = {_fmt(q)})", dist.pdf(mid)), (ref_label, stats.norm.pdf(mid, 0, g_sd))):
         p = np.asarray(p, dtype=float)
         p = p[p > 0] / p[p > 0].sum()
         s_q = float(analyzer.compute_tsallis_entropy(p, q))
@@ -195,15 +196,15 @@ def run(params, data, out):
         s_vals.append(s_q)
     why = ""
     if q > 1 and s_vals[1] >= s_vals[0]:
-        why = (" Dass die Gauß-Glocke hier das größere S_q hat, ist kein Widerspruch: Der q-Gauß maximiert S_q bei "
-               "fester q-Varianz (Escort-Mittel Σpᵢ^q·xᵢ² / Σpᵢ^q), nicht bei fester gewöhnlicher Varianz.")
-    out.table(f"Tsallis-Entropie S_q (q = {_de(q)}), 50 Klassen auf ±{xr:.0f}", ["Verteilung", "S_q",
+        why = (" That the Gaussian bell has the larger S_q here is not a contradiction: the q-Gaussian maximises S_q "
+               "at fixed q-variance (escort mean Σpᵢ^q·xᵢ² / Σpᵢ^q), not at fixed ordinary variance.")
+    out.table(f"Tsallis entropy S_q (q = {_fmt(q)}), 50 bins on ±{xr:.0f}", ["Distribution", "S_q",
               "Σ p·ln_q(1/p)", "Shannon S₁"], erows, formats=["text", "num", "num", "num"],
-              note="S_q = (1 − Σpᵢ^q)/(q − 1) = Σ pᵢ·ln_q(1/pᵢ) mit dem q-Logarithmus ln_q(x) = (x^(1−q) − 1)/(1 − q). "
-                   "Für q → 1 wird daraus die Shannon-Entropie." + why)
+              note="S_q = (1 − Σpᵢ^q)/(q − 1) = Σ pᵢ·ln_q(1/pᵢ) with the q-logarithm ln_q(x) = (x^(1−q) − 1)/(1 − q). "
+                   "As q → 1 this becomes the Shannon entropy." + why)
 
     if q >= 2:
-        out.note("Für q ≥ 2 ist ν ≤ 1: Auch der Mittelwert existiert nicht mehr (Cauchy-artig).", "warning")
+        out.note("For q ≥ 2, ν ≤ 1: not even the mean exists any more (Cauchy-like).", "warning")
     elif not same_var:
-        out.note("Für q ≥ 5/3 ist die Varianz unendlich – die Gauß-Referenz hat deshalb dasselbe β statt derselben Varianz.",
-                 "info")
+        out.note("For q ≥ 5/3 the variance is infinite – the Gaussian reference therefore has the same β instead of "
+                 "the same variance.", "info")

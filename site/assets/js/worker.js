@@ -15,7 +15,7 @@ const status = (stage, text, pct) => post({ type: 'status', stage, text, pct });
 
 async function boot({ base, build }) {
   const t0 = performance.now();
-  status('runtime', 'Python-Laufzeit (WebAssembly) wird geladen …', 4);
+  status('runtime', 'Loading the Python runtime (WebAssembly) …', 4);
   const bundleP = fetch(new URL(`py/bundle.zip?v=${build}`, base)).then((r) => {
     if (!r.ok) throw new Error(`bundle.zip: HTTP ${r.status}`);
     return r.arrayBuffer();
@@ -25,18 +25,18 @@ async function boot({ base, build }) {
   py.setStdout({ batched: (text) => post({ type: 'stdout', id: currentId, text }) });
   py.setStderr({ batched: (text) => post({ type: 'stdout', id: currentId, text, stream: 'stderr' }) });
 
-  status('packages', 'Wissenschaftliche Pakete: NumPy, SciPy, Matplotlib …', 22);
+  status('packages', 'Scientific packages: NumPy, SciPy, Matplotlib …', 22);
   let loaded = 0;
   await py.loadPackage(CORE_PACKAGES, {
     messageCallback: (m) => {
       if (m.startsWith('Loaded')) return;
       loaded += 1;
-      status('packages', m.replace('Loading', 'Lade'), Math.min(60, 22 + loaded * 3));
+      status('packages', m, Math.min(60, 22 + loaded * 3));
     },
     errorCallback: (m) => post({ type: 'stdout', id: null, text: m, stream: 'stderr' }),
   });
 
-  status('framework', 'Tail-Risk-Framework wird entpackt …', 64);
+  status('framework', 'Unpacking the tail-risk framework …', 64);
   py.unpackArchive(await bundleP, 'zip', { extractDir: '/home/pyodide/app' });
   py.runPython(`
 import os, sys
@@ -46,10 +46,10 @@ sys.path.insert(0, '/home/pyodide/app')
 import matplotlib
 matplotlib.use('Agg')
 `);
-  status('framework', 'Module werden importiert (Lévy, Fokker-Planck, Tsallis, EVT …) …', 72);
+  status('framework', 'Importing modules (Lévy, Fokker-Planck, Tsallis, EVT …) …', 72);
   api = py.pyimport('webtools.worker_api');
   const catalogue = JSON.parse(api.warmup());
-  status('ready', 'Bereit', 100);
+  status('ready', 'Ready', 100);
   return { catalogue, seconds: (performance.now() - t0) / 1000, pyodide: PYODIDE_VERSION };
 }
 
@@ -60,7 +60,7 @@ function progressFor(id) {
 async function ensurePackagesFor(code) {
   // Scripts may import pandas etc.; Pyodide resolves those from its package index.
   await py.loadPackagesFromImports(code, {
-    messageCallback: (m) => post({ type: 'progress', id: currentId, text: m.replace('Loading', 'Lade'), pct: null }),
+    messageCallback: (m) => post({ type: 'progress', id: currentId, text: m, pct: null }),
   });
 }
 

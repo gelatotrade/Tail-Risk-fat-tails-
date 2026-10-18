@@ -1,13 +1,21 @@
 // Excel export of a tool result (SheetJS).  Percent values keep full precision with a % number format.
-import { loadSheetJS } from './data.js';
+import { loadSheetJS, parseDate } from './data.js';
 import { chartRows } from './charts.js';
+import { fmtDate } from './format.js';
 
 const XL_FMT = { pct: '0.00%', int: '#,##0', num: '#,##0.0000', x: '0.0"×"', bp: '0', money: '#,##0.00' };
+// Excel allows 31 characters per sheet name: longer titles are cut at a word boundary ('…'),
+// the full title stays in the overview's list of contents.
+const fit = (s, max) => {
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max - 1), space = cut.lastIndexOf(' ');
+  return `${(space > max / 2 ? cut.slice(0, space) : cut).replace(/[\s,;·–-]+$/, '')}…`;
+};
 const sheetName = (s, used) => {
-  let base = String(s || 'Blatt').replace(/[\\/?*[\]:]/g, '').replace(/\s+/g, ' ').slice(0, 28).trim() || 'Blatt';
-  let name = base, i = 2;
-  while (used.has(name)) name = `${base.slice(0, 25)} ${i++}`;
-  used.add(name);
+  const base = String(s || 'Sheet').replace(/[\\/?*[\]:]/g, '').replace(/\s+/g, ' ').trim() || 'Sheet';
+  let name = fit(base, 31), i = 2;
+  while (used.has(name.toLowerCase())) { const n = ` (${i++})`; name = fit(base, 31 - n.length) + n; }
+  used.add(name.toLowerCase());
   return name;
 };
 
@@ -28,31 +36,35 @@ function sheetFrom(XLSX, header, rows, formats) {
 export async function exportXlsx({ spec, result, dataset, params }) {
   const XLSX = await loadSheetJS();
   const wb = XLSX.utils.book_new();
-  const used = new Set();
-  const overview = [
-    ['Werkzeug', spec.title],
-    ['Beschreibung', spec.summary],
-    ['Datensatz', dataset?.label || result.dataset?.name || '–'],
-    ['Zeitraum / Umfang', dataset?.detail || ''],
-    ['Berechnet am', new Date().toLocaleString('de-DE')],
-    ['Rechenzeit (s)', Number(result.seconds?.toFixed(3))],
-    ['Quelle', `Tail Risk Lab – ${location.href}`],
-    [],
-    ['Parameter', 'Wert'],
-    ...spec.params.map((p) => [p.label, params[p.name] ?? p.default]),
-  ];
-  if (result.verdict) overview.push([], ['Einschätzung', `${result.verdict.title}${result.verdict.text ? ' – ' + result.verdict.text : ''}`]);
-  XLSX.utils.book_append_sheet(wb, sheetFrom(XLSX, ['Feld', 'Wert'], overview), sheetName('Übersicht', used));
+  const used = new Set(['overview']);
+  const sheets = [], contents = [];
+  const add = (title, kind, ws) => { const name = sheetName(title, used); sheets.push([name, ws]); contents.push([name, `${kind}: ${title}`]); return ws; };
   if (result.metrics?.length) {
-    const ws = sheetFrom(XLSX, ['Kennzahl', 'Wert', 'Hinweis'], result.metrics.map((m) => [m.label, m.value, m.hint || '']));
-    XLSX.utils.book_append_sheet(wb, ws, sheetName('Kennzahlen', used));
+    const ws = add('Key metrics', 'Table', sheetFrom(XLSX, ['Metric', 'Value', 'Note'], result.metrics.map((m) => [m.label, m.value, m.hint || ''])));
     result.metrics.forEach((m, i) => { const ref = XLSX.utils.encode_cell({ r: i + 1, c: 1 }); if (ws[ref] && XL_FMT[m.fmt] && typeof m.value === 'number') ws[ref].z = XL_FMT[m.fmt]; });
   }
-  for (const t of result.tables || []) XLSX.utils.book_append_sheet(wb, sheetFrom(XLSX, t.columns, t.rows, t.formats), sheetName(t.title, used));
+  for (const t of result.tables || []) add(t.title, 'Table', sheetFrom(XLSX, t.columns, t.rows, t.formats));
   for (const c of result.charts || []) {
     const { cols, rows, fmts } = chartRows(c);
-    if (rows.length) XLSX.utils.book_append_sheet(wb, sheetFrom(XLSX, cols, rows, fmts), sheetName(`Daten ${c.title}`, used));
+    if (rows.length) add(c.title, 'Chart data', sheetFrom(XLSX, cols, rows, fmts));
   }
+  const now = new Date();
+  const overview = [
+    ['Tool', spec.title],
+    ['Description', spec.summary],
+    ['Dataset', dataset?.label || result.dataset?.name || '–'],
+    ['Period / size', dataset?.detail || ''],
+    ['Calculated on', `${fmtDate(parseDate(now))}, ${now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`],
+    ['Computation time (s)', Number(result.seconds?.toFixed(3))],
+    ['Source', `Tail Risk Lab – ${location.href}`],
+    [],
+    ['Parameter', 'Value'],
+    ...spec.params.map((p) => [p.label, params[p.name] ?? p.default]),
+  ];
+  if (result.verdict) overview.push([], ['Assessment', `${result.verdict.title}${result.verdict.text ? '. ' + result.verdict.text : ''}`]);
+  if (contents.length) overview.push([], ['Sheet', 'Contents'], ...contents);
+  XLSX.utils.book_append_sheet(wb, sheetFrom(XLSX, ['Field', 'Value'], overview), 'Overview');
+  for (const [name, ws] of sheets) XLSX.utils.book_append_sheet(wb, ws, name);
   const date = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(wb, `tail-risk-${spec.id}-${date}.xlsx`, { compression: true });
 }

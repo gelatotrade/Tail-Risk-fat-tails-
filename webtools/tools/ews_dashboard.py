@@ -1,4 +1,4 @@
-"""Frühwarn-Dashboard: the five indicators panel by panel, the status table and the framework's dashboard figure."""
+"""Early-warning dashboard: the five indicators panel by panel, the status table and the framework's dashboard figure."""
 
 import numpy as np
 
@@ -11,49 +11,49 @@ from src.visualization.early_warning_dashboard import (
 )
 
 from .. import charts as C
-from ..data import index_axis
-from ._ews_common import ACTION, KEYS, LEVEL, assessment_de, de
+from ..data import index_axis, fmt_date
+from ._ews_common import ACTION, KEYS, LEVEL, assessment_text, num
 
 SPEC = {
     "id": "ews-dashboard",
-    "title": "Frühwarn-Dashboard: die fünf Indikatoren",
+    "title": "Early-warning dashboard: the five indicators",
     "group": "warning",
     "order": 15,
-    "summary": "GEX, TailDex, VIX-Kurve, Dark Index und Smart Money Flow einzeln mit ihren Warnschwellen – "
-               "und wie viel jeder Indikator zum Komposit-Score beiträgt.",
+    "summary": "GEX, TailDex, VIX curve, Dark Index and Smart Money Flow individually with their warning "
+               "thresholds, and how much each indicator contributes to the composite score.",
     "description": (
-        "Das Dashboard zerlegt den Komposit-Score des Frühwarnsystems in seine fünf Bausteine. **Net Gamma "
-        "Exposure (GEX):** Sind Options-Dealer netto short Gamma (GEX < 0), verkaufen sie in fallende Kurse und "
-        "verstärken Bewegungen. **TailDex (TDEX):** der Preis für Crash-Absicherung, über 15 erhöht, über 20 "
-        "extrem. **VIX-Kurve:** Liegt der kurze über dem langen VIX (Verhältnis > 1), ist die Kurve invertiert – "
-        "akute Angst. **Dark Index (DIX):** Anteil verdeckter Käufe, unter 43 % schwach, unter 40 % Distribution. "
-        "**Smart Money Flow (SMFI):** Fällt er, steigen Profis aus.\n\n"
-        "**Wichtig:** GEX, TDEX, DIX und SMFI beruhen auf Options- und Dark-Pool-Daten, die hier nicht "
-        "vorliegen. Das Framework *modelliert* sie aus deinen Renditen und dem VIX – die Verläufe sind "
-        "illustrativ, keine echten Messwerte. Fehlt der VIX, wird er aus den Renditen geschätzt. Enthält der "
-        "Datensatz VIX3M (S&P 500), ist die VIX-Kurve echt. Gerechnet wird kausal: Jeder Tag nutzt nur Daten "
-        "bis zu diesem Tag.\n\n"
-        "So liest du es: Tacho und Beitragsbalken zeigen den letzten Tag. Jeder Indikator hat einen Teil-Score von "
-        "0 (unauffällig) bis 100 (Maximum), der Komposit ist deren gewichtete Summe. GEX erreicht 50 beim "
-        "Vorzeichenwechsel, TDEX bei 15; DIX und SMFI steigen ab ihrer Warnschwelle (43 % bzw. −5 in 20 Tagen) "
-        "von 0 an. Die Panels darunter zeigen die Verläufe mit den Schwellen des Frameworks, beim SMFI die "
-        "Änderung über 20 Tage, nach der er bewertet wird. Der 3D-Phasenraum zeigt die Bahn aus GEX-Risiko, "
-        "TDEX-Risiko und Komposit. Darunter folgen die Statustabelle und die Original-Grafiken. Der **Seed** "
-        "steuert das Modellrauschen."
+        "The dashboard breaks the early-warning system's composite score down into its five building blocks. "
+        "**Net Gamma Exposure (GEX):** when options dealers are net short gamma (GEX < 0), they sell into "
+        "falling prices and amplify moves. **TailDex (TDEX):** the price of crash protection; elevated above "
+        "15, extreme above 20. **VIX curve:** when short-dated VIX trades above long-dated VIX (ratio > 1), the "
+        "curve is inverted – a sign of acute fear. **Dark Index (DIX):** the share of hidden buying; weak below "
+        "43%, distribution below 40%. **Smart Money Flow (SMFI):** when it falls, professionals are exiting.\n\n"
+        "**Important:** GEX, TDEX, DIX and SMFI rely on options and dark-pool data that are not available "
+        "here. The framework *models* them from your returns and the VIX; the paths are illustrative, not "
+        "actual measurements. If the VIX is missing, it is estimated from the returns. If the dataset contains "
+        "VIX3M (S&P 500), the VIX curve is based on actual data. The calculation is causal: each day uses only data up to that "
+        "day.\n\n"
+        "How to read it: the gauge and contribution bars show the latest day. Each indicator has a sub-score "
+        "from 0 (unremarkable) to 100 (maximum); the composite is their weighted sum. GEX reaches 50 when it "
+        "changes sign and TDEX at 15; DIX and SMFI rise from 0 once they cross their warning threshold (43% and "
+        "−5 over 20 days respectively). The panels below show the paths with the framework's thresholds; for "
+        "the SMFI they show the 20-day change on which it is scored. The 3D phase space shows the trajectory of "
+        "GEX risk, TDEX risk and the composite, followed by the status table and the original figures. The "
+        "**seed** controls the model noise."
     ),
     "needs": ["returns"],
     "params": [
         {"name": "days", "type": "int", "default": 252, "min": 60, "max": 2520, "step": 21,
-         "label": "Angezeigter Zeitraum", "unit": "Tage",
-         "help": "Die letzten Handelstage in Panels und Grafiken. Modelliert wird immer die ganze Historie."},
-        {"name": "term_source", "type": "select", "default": "auto", "label": "VIX-Kurve",
-         "options": [{"value": "auto", "label": "Echt (VIX/VIX3M), falls im Datensatz"},
-                     {"value": "model", "label": "Immer Modellkurve (aus dem VIX simuliert)"}]},
+         "label": "Display period", "unit": "days",
+         "help": "Most recent trading days shown in the panels and figures. The full history is always modelled."},
+        {"name": "term_source", "type": "select", "default": "auto", "label": "VIX curve",
+         "options": [{"value": "auto", "label": "Actual (VIX/VIX3M) if in the dataset"},
+                     {"value": "model", "label": "Always modelled (simulated from the VIX)"}]},
         {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 99999, "step": 1,
-         "label": "Zufalls-Seed des Modells",
-         "help": "GEX, TDEX, DIX und SMFI enthalten Modellrauschen. Gleicher Seed = gleiche Reihen."},
-        {"name": "show_figures", "type": "bool", "default": True, "label": "Original-Grafiken (Matplotlib) zeigen",
-         "help": "Das 11-Panel-Dashboard und den 3D-Phasenraum des Frameworks als Bild rendern."},
+         "label": "Model random seed",
+         "help": "GEX, TDEX, DIX and SMFI contain model noise. Same seed = same series."},
+        {"name": "show_figures", "type": "bool", "default": True, "label": "Show original figures (Matplotlib)",
+         "help": "Render the framework's 11-panel dashboard and 3D phase space as images."},
     ],
     "covers": [
         "src.visualization.early_warning_dashboard.EarlyWarningDashboard",
@@ -69,22 +69,17 @@ SPEC = {
     "cost": "medium",
 }
 
-SHORT = {"gex": "GEX", "tdex": "TDEX", "vix_term": "VIX-Kurve", "dix": "DIX", "smfi": "SMFI"}
-# rows of create_indicator_summary_table -> (indicator key, German name)
-TABLE_ROWS = {"1. GEX (B$)": ("gex", "Net Gamma (GEX), Mrd. $"), "2. TDEX": ("tdex", "TailDex (TDEX)"),
-              "3. VIX M1/M2": ("vix_term", "VIX-Kurve (M1/M2)"), "4. DIX (%)": ("dix", "Dark Index (DIX), %"),
-              "5. SMFI": ("smfi", "Smart Money Flow (SMFI)"), "COMPOSITE SCORE": (None, "Komposit-Score")}
-SIGNAL = {"NEGATIVE": "Negativ – Dealer verstärken Bewegungen", "POSITIVE": "Positiv – Dealer dämpfen Bewegungen",
-          "EXTREME": "Extrem", "ELEVATED": "Erhöht", "NORMAL": "Normal",
-          "INVERTED": "Invertiert (Backwardation)", "CONTANGO": "Contango (normal)",
-          "DISTRIBUTION": "Distribution", "WEAK": "Schwach",
-          "SELLING": "Smart Money verkauft", "BUYING": "Smart Money kauft",
-          "EXTREME RISK": "Extrem", "HIGH RISK": "Hoch"}
-
-
-def _date_de(d):
-    d = str(d)
-    return f"{d[8:10]}.{d[5:7]}.{d[:4]}" if len(d) >= 10 and d[4] == "-" and d[7] == "-" else d
+SHORT = {"gex": "GEX", "tdex": "TDEX", "vix_term": "VIX curve", "dix": "DIX", "smfi": "SMFI"}
+# rows of create_indicator_summary_table -> (indicator key, display name)
+TABLE_ROWS = {"1. GEX (B$)": ("gex", "Net Gamma (GEX), $bn"), "2. TDEX": ("tdex", "TailDex (TDEX)"),
+              "3. VIX M1/M2": ("vix_term", "VIX curve (M1/M2)"), "4. DIX (%)": ("dix", "Dark Index (DIX), %"),
+              "5. SMFI": ("smfi", "Smart Money Flow (SMFI)"), "COMPOSITE SCORE": (None, "Composite score")}
+SIGNAL = {"NEGATIVE": "Negative – dealers amplify moves", "POSITIVE": "Positive – dealers dampen moves",
+          "EXTREME": "Extreme", "ELEVATED": "Elevated", "NORMAL": "Normal",
+          "INVERTED": "Inverted (backwardation)", "CONTANGO": "Contango (normal)",
+          "DISTRIBUTION": "Distribution", "WEAK": "Weak",
+          "SELLING": "Smart money selling", "BUYING": "Smart money buying",
+          "EXTREME RISK": "Extreme", "HIGH RISK": "High"}
 
 
 def _parse_summary(text):
@@ -119,7 +114,7 @@ def _runs(mask, gap=2):
 
 
 def _sub_status(score):
-    """Status of one indicator's 0-100 sub-score (quarters: unauffällig / erhöht / hoch / kritisch)."""
+    """Status of one indicator's 0-100 sub-score (quarters: normal / elevated / high / critical)."""
     return "critical" if score >= 75 else "serious" if score >= 50 else "warning" if score >= 25 else "good"
 
 
@@ -134,7 +129,7 @@ def run(params, data, out):
     m = int(min(params["days"], n))
     x_all, xa = index_axis(data)
     x = x_all[n - m:]
-    label = (lambda i: _date_de(x[i])) if data.dates else (lambda i: f"Tag {n - m + i}")
+    label = (lambda i: fmt_date(x[i])) if data.dates else (lambda i: f"Day {n - m + i}")
 
     vix_real = data.vix is not None
     vix = np.asarray(data.vix, dtype=float) if vix_real else np.asarray(generate_vix_from_returns(r), dtype=float)
@@ -143,7 +138,7 @@ def run(params, data, out):
     real_prices = data.prices is not None
     prices = np.asarray(data.prices, dtype=float) if real_prices else 100.0 * np.exp(np.cumsum(r))
 
-    out.progress("Modelliere die fünf Indikatoren …", 0.1)
+    out.progress("Modelling the five indicators…", 0.1)
     ews = CompositeEarlyWarningSystem()
     np.random.seed(int(params["seed"]))
     full = ews.simulate_all_indicators(r, prices, vix, causal=True, vix3m=vix3m)
@@ -153,10 +148,10 @@ def run(params, data, out):
     th = ews.thresholds
     last = ews.compute_composite(*(float(ind[k + "_score"][-1]) for k in KEYS))
     level = last["level"]
-    status, level_de = LEVEL[level]
-    action_de = ACTION.get(last["action"], last["action"])
+    status, level_txt = LEVEL[level]
+    action_txt = ACTION.get(last["action"], last["action"])
     ratio = ind["vix_m1"] / ind["vix_m2"]
-    ratio_name = "VIX/VIX3M" if use_real_curve else "M1/M2 (Modell)"
+    ratio_name = "VIX/VIX3M" if use_real_curve else "M1/M2 (model)"
     score = {k: ind[k + "_score"] for k in KEYS}
     g, td, dx = (float(ind[k][-1]) for k in ("gex", "tdex", "dix"))
     # the SMFI level is a running sum since the first day of the data set; its sub-score rates the 20-day change
@@ -167,67 +162,68 @@ def run(params, data, out):
 
     # ---- headline: the last day, indicator by indicator ------------------------------------------------
     def sub(k):
-        return f"Teil-Score {score[k][-1]:.0f} / 100"
+        return f"sub-score {score[k][-1]:.0f} / 100"
 
-    out.metric("Komposit (letzter Tag)", comp[-1], "num", digits=0, unit="/ 100", status=status,
-               hint=f"{level_de} · {action_de}")
-    out.metric("Net Gamma (GEX)", g, "num", digits=1, unit="Mrd. $", status=_sub_status(score["gex"][-1]),
-               hint=("negativ: Dealer verstärken Bewegungen" if g < 0 else "positiv: Dealer dämpfen Bewegungen")
+    out.metric("Composite (latest day)", comp[-1], "num", digits=0, unit="/ 100", status=status,
+               hint=f"{level_txt} · {action_txt}")
+    out.metric("Net Gamma (GEX)", g, "num", digits=1, unit="$bn", status=_sub_status(score["gex"][-1]),
+               hint=("negative: dealers amplify moves" if g < 0 else "positive: dealers dampen moves")
                + " · " + sub("gex"))
     out.metric("TailDex (TDEX)", td, "num", digits=1, status=_sub_status(score["tdex"][-1]),
-               hint="über 15 erhöht, über 20 extrem · " + sub("tdex"))
-    out.metric(f"VIX-Kurve {ratio_name}", ratio[-1], "num", digits=3, status=_sub_status(score["vix_term"][-1]),
-               hint=("> 1: invertiert, akute Angst" if ratio[-1] > 1 else "≤ 1: Contango, normal") + " · "
+               hint="elevated above 15, extreme above 20 · " + sub("tdex"))
+    out.metric(f"VIX curve {ratio_name}", ratio[-1], "num", digits=3, status=_sub_status(score["vix_term"][-1]),
+               hint=("> 1: inverted, acute fear" if ratio[-1] > 1 else "≤ 1: contango, normal") + " · "
                + sub("vix_term"))
     out.metric("Dark Index (DIX)", dx / 100, "pct", digits=1, status=_sub_status(score["dix"][-1]),
-               hint="unter 43 % schwach, unter 40 % Distribution · " + sub("dix"))
-    out.metric("Smart Money Flow (SMFI), 20 Tage", smfi_chg[-1], "num", digits=1, status=_sub_status(score["smfi"][-1]),
-               hint="Warnung ab −5, Teil-Score 100 ab −15 · " + sub("smfi"))
+               hint="weak below 43%, distribution below 40% · " + sub("dix"))
+    out.metric("Smart Money Flow (SMFI), 20-day change", smfi_chg[-1], "num", digits=1,
+               status=_sub_status(score["smfi"][-1]),
+               hint="warning below −5, sub-score 100 at −15 or below · " + sub("smfi"))
 
     i_max = int(np.argmax(comp))
     driver = max(KEYS, key=lambda k: last["components"][k]["contribution"])
     d_pts = last["components"][driver]["contribution"]
-    out.metric("Höchster Komposit im Zeitraum", comp[i_max], "num", digits=0, unit="/ 100",
+    out.metric("Highest composite in period", comp[i_max], "num", digits=0, unit="/ 100",
                status=LEVEL[ews.compute_composite(*(float(score[k][i_max]) for k in KEYS))["level"]][0],
-               hint=f"am {label(i_max)}")
-    out.metric("Tage ≥ 50 (erhöht)", float(np.mean(comp >= th["elevated"])), "pct", digits=1,
-               hint=f"in den letzten {de(m, 0)} Handelstagen")
-    out.metric("Tage ≥ 75 (hoch)", float(np.mean(comp >= th["high"])), "pct", digits=1,
-               hint=f"in den letzten {de(m, 0)} Handelstagen")
-    out.metric("Stärkster Treiber heute", SHORT[driver] if d_pts > 0 else "–", "text",
-               hint=(f"{de(d_pts, 1)} von {de(float(comp[-1]), 1)} Punkten" if d_pts > 0
-                     else "kein Indikator schlägt an"))
-    out.note("**Modellierte Indikatoren:** GEX, TailDex, DIX und SMFI brauchen proprietäre Options- bzw. "
-             "Dark-Pool-Daten. Das Framework modelliert sie hier aus Renditen und VIX – illustrative Verläufe, "
-             "keine echten Marktmessungen.", "warning")
+               hint=f"on {label(i_max)}")
+    out.metric("Share of days ≥ 50 (Elevated)", float(np.mean(comp >= th["elevated"])), "pct", digits=1,
+               hint=f"over the last {num(m, 0)} trading days")
+    out.metric("Share of days ≥ 75 (High)", float(np.mean(comp >= th["high"])), "pct", digits=1,
+               hint=f"over the last {num(m, 0)} trading days")
+    out.metric("Main driver today", SHORT[driver] if d_pts > 0 else "–", "text",
+               hint=(f"{num(d_pts, 1)} of {num(float(comp[-1]), 1)} points" if d_pts > 0
+                     else "no indicator is firing"))
+    out.note("**Modelled indicators:** GEX, TailDex, DIX and SMFI require proprietary options and dark-pool "
+             "data. The framework models them here from returns and the VIX, so the paths are illustrative, "
+             "not actual market measurements.", "warning")
     src_notes = []
     if use_real_curve:
-        src_notes.append("**VIX-Kurve echt:** VIX/VIX3M aus dem Datensatz.")
+        src_notes.append("**Actual VIX curve:** VIX/VIX3M from the dataset.")
     elif vix_real and data.vix3m is not None:
-        src_notes.append("**VIX-Kurve modelliert** (so gewählt): M1/M2 aus dem VIX simuliert.")
+        src_notes.append("**Modelled VIX curve** (as selected): M1/M2 simulated from the VIX.")
     else:
-        src_notes.append("**VIX-Kurve modelliert:** kein VIX3M im Datensatz, M1/M2 aus dem VIX simuliert.")
+        src_notes.append("**Modelled VIX curve:** no VIX3M in the dataset, so M1/M2 are simulated from the VIX.")
     if not vix_real:
-        src_notes.append("Der VIX selbst fehlt und wird aus den Renditen geschätzt (`generate_vix_from_returns`).")
+        src_notes.append("The VIX itself is missing and is estimated from the returns (`generate_vix_from_returns`).")
     if not real_prices:
-        src_notes.append("Keine Kurse im Datensatz: Der Kurs ist ein Index aus den Renditen (Start 100).")
-    src_notes.append(f"Modelliert über alle {de(n, 0)} Tage, kausal (`causal=True`); angezeigt die letzten {de(m, 0)}.")
+        src_notes.append("No prices in the dataset: the price is an index built from the returns (base 100).")
+    src_notes.append(f"Modelled causally over all {num(n, 0)} days (`causal=True`); the last {num(m, 0)} are shown.")
     out.note(" ".join(src_notes), "info")
 
     # ---- today: gauge + contributions -----------------------------------------------------------------------
-    out.chart(C.gauge("Komposit am letzten Tag", float(comp[-1]),
+    out.chart(C.gauge("Composite on the latest day", float(comp[-1]),
                       thresholds=(th["elevated"], th["high"], th["extreme"]),
-                      labels=("Normal", "Erhöht", "Hoch", "Extrem"),
-                      subtitle=f"{label(m - 1)} · Stufe {level_de}: {action_de}"))
-    cats = [f"{SHORT[k]} · {ews.weights[k]:.0%}".replace("%", " %") for k in KEYS]
+                      labels=("Normal", "Elevated", "High", "Extreme"),
+                      subtitle=f"{label(m - 1)} · {level_txt} · {action_txt}"))
+    cats = [f"{SHORT[k]} · {ews.weights[k]:.0%}" for k in KEYS]
     out.chart(C.xy(
-        "Beitrag der Indikatoren am letzten Tag",
-        [C.trace("Beitrag zum Komposit", cats, [last["components"][k]["contribution"] for k in KEYS],
+        "Indicator contributions on the latest day",
+        [C.trace("Contribution to composite", cats, [last["components"][k]["contribution"] for k in KEYS],
                  type="bar", color=1),
-         C.trace("Höchstmöglich (Gewicht × 100)", cats, [100 * ews.weights[k] for k in KEYS],
+         C.trace("Maximum possible (weight × 100)", cats, [100 * ews.weights[k] for k in KEYS],
                  type="scatter", color="muted", size=9, decimate_to=None)],
-        x=C.axis("", type="category"), y=C.axis("Punkte", range=(0, 40)),
-        subtitle="Beitrag = Teil-Score × Gewicht. Die Summe aller Beiträge ist der Komposit-Score.",
+        x=C.axis("", type="category"), y=C.axis("Points", range=(0, 40)),
+        subtitle="Contribution = sub-score × weight. The sum of all contributions is the composite score.",
     ))
 
     # ---- price with warning phases + composite history --------------------------------------------------
@@ -236,129 +232,129 @@ def run(params, data, out):
         for a, b in _runs(comp >= th[key])[:60]:
             bands.append(C.band(x[a], x[min(b + 1, m - 1)], "", col))
     out.chart(C.xy(
-        "Kurs mit Warnphasen",
-        [C.trace("Kurs" if real_prices else "Index aus Renditen (Start 100)", x, p, color=1, width=1.5)],
-        x=xa, y=C.axis("Kurs", type="log" if p.max() > 8 * p.min() else "linear"), bands=bands,
-        subtitle=f"Hinterlegt: Tage mit Komposit ≥ {th['elevated']:g} (erhöht), ≥ {th['high']:g} (hoch) und "
-                 f"≥ {th['extreme']:g} (extrem) – je höher, desto kräftiger.",
+        "Price with warning phases",
+        [C.trace("Price" if real_prices else "Index from returns (base 100)", x, p, color=1, width=1.5)],
+        x=xa, y=C.axis("Price", type="log" if p.max() > 8 * p.min() else "linear"), bands=bands,
+        subtitle=f"Shaded: days with composite ≥ {th['elevated']:g} (elevated), ≥ {th['high']:g} (high) and "
+                 f"≥ {th['extreme']:g} (extreme) – the higher the level, the stronger the shading.",
     ))
     out.chart(C.xy(
-        "Komposit-Score",
-        [C.trace("Komposit", x, comp, color=1, width=1.5)],
+        "Composite score",
+        [C.trace("Composite", x, comp, color=1, width=1.5)],
         x=xa, y=C.axis("Score", range=(0, 100)),
-        hlines=[C.hline(th["elevated"], "Erhöht", "warning"), C.hline(th["high"], "Hoch", "serious"),
-                C.hline(th["extreme"], "Extrem", "critical")],
-        subtitle="Stufengrenzen des Frameworks: 50 / 75 / 90.",
+        hlines=[C.hline(th["elevated"], "Elevated", "warning"), C.hline(th["high"], "High", "serious"),
+                C.hline(th["extreme"], "Extreme", "critical")],
+        subtitle="The framework's level boundaries: 50 / 75 / 90.",
     ))
 
     # ---- the five panels ----------------------------------------------------------------------------------
     pos, neg = _split_sign(ind["gex"])
     out.chart(C.xy(
-        f"1 · Net Gamma Exposure (GEX) – {ews.weights['gex']:.0%} Gewicht".replace("%", " %"),
-        [C.trace("GEX ≥ 0: dämpfend", x, pos, type="bar", color=1),
-         C.trace("GEX < 0: verstärkend", x, neg, type="bar", color="serious")],
-        x=xa, y=C.axis("Mrd. $"),
-        hlines=[C.hline(-5, "Teil-Score 100", "critical")],
-        subtitle="Unter 0 verkaufen Dealer in fallende Kurse. Ab −5 Mrd. $ steht der Teil-Score auf 100.",
+        f"1 · Net Gamma Exposure (GEX) – {ews.weights['gex']:.0%} weight",
+        [C.trace("GEX ≥ 0: dampening", x, pos, type="bar", color=1),
+         C.trace("GEX < 0: amplifying", x, neg, type="bar", color="serious")],
+        x=xa, y=C.axis("$bn"),
+        hlines=[C.hline(-5, "Sub-score 100", "critical")],
+        subtitle="Below 0, dealers sell into falling prices. At −$5bn or below, the sub-score is 100.",
         height=300,
     ))
     out.chart(C.xy(
-        f"2 · TailDex (TDEX) – {ews.weights['tdex']:.0%} Gewicht".replace("%", " %"),
+        f"2 · TailDex (TDEX) – {ews.weights['tdex']:.0%} weight",
         [C.trace("TDEX", x, ind["tdex"], color=2, width=1.5)],
         x=xa, y=C.axis("TDEX"),
-        hlines=[C.hline(15, "Erhöht", "warning"), C.hline(20, "Extrem", "critical")],
-        subtitle="Preis der Crash-Absicherung. Über 20 steht der Teil-Score auf 100.", height=300,
+        hlines=[C.hline(15, "Elevated", "warning"), C.hline(20, "Extreme", "critical")],
+        subtitle="Price of crash protection. Above 20 the sub-score is 100.", height=300,
     ))
     out.chart(C.xy(
-        f"3 · VIX-Kurve – {ews.weights['vix_term']:.0%} Gewicht".replace("%", " %"),
+        f"3 · VIX curve – {ews.weights['vix_term']:.0%} weight",
         [C.trace(ratio_name, x, ratio, color=3, width=1.5)],
-        x=xa, y=C.axis("Verhältnis kurz / lang", digits=3),
+        x=xa, y=C.axis("Ratio short / long", digits=3),
         hlines=[C.hline(1.0, "Inversion", "serious")],
-        subtitle=("Echtes Verhältnis VIX zu VIX3M." if use_real_curve else "Aus dem VIX simulierte Futures-Kurve.")
-        + " Über 1 ist die Kurve invertiert.", height=300,
+        subtitle=("Actual ratio of VIX to VIX3M." if use_real_curve else "Futures curve simulated from the VIX.")
+        + " Above 1 the curve is inverted.", height=300,
     ))
     out.chart(C.xy(
-        f"4 · Dark Index (DIX) – {ews.weights['dix']:.0%} Gewicht".replace("%", " %"),
+        f"4 · Dark Index (DIX) – {ews.weights['dix']:.0%} weight",
         [C.trace("DIX", x, ind["dix"] / 100, color=4, width=1.5)],
-        x=xa, y=C.axis("Anteil", fmt="pct", digits=0),
-        hlines=[C.hline(0.43, "Schwach", "warning"), C.hline(0.40, "Distribution", "serious")],
-        subtitle="Anteil verdeckter Käufe. Darunter verteilen Institutionelle eher, als dass sie kaufen.",
+        x=xa, y=C.axis("Share", fmt="pct", digits=0),
+        hlines=[C.hline(0.43, "Weak", "warning"), C.hline(0.40, "Distribution", "serious")],
+        subtitle="Share of hidden buying. Below these lines, institutions are distributing rather than buying.",
         height=300,
     ))
     out.chart(C.xy(
-        f"5 · Smart Money Flow (SMFI) – {ews.weights['smfi']:.0%} Gewicht".replace("%", " %"),
-        [C.trace("SMFI-Änderung über 20 Tage", x, smfi_chg, color=5, width=1.5)],
-        x=xa, y=C.axis("Punkte in 20 Tagen"),
-        hlines=[C.hline(-5, "Warnung", "warning"), C.hline(-15, "Teil-Score 100", "critical")],
-        subtitle="Bewertet wird die Änderung, nicht der Stand: Fällt der SMFI in 20 Tagen um mehr als 5 Punkte, "
-                 "steigt der Teil-Score, ab −15 steht er auf 100.", height=300,
+        f"5 · Smart Money Flow (SMFI) – {ews.weights['smfi']:.0%} weight",
+        [C.trace("SMFI change over 20 days", x, smfi_chg, color=5, width=1.5)],
+        x=xa, y=C.axis("Points over 20 days"),
+        hlines=[C.hline(-5, "Warning", "warning"), C.hline(-15, "Sub-score 100", "critical")],
+        subtitle="The change is scored, not the level: if the SMFI falls by more than 5 points within 20 days, "
+                 "the sub-score rises; at −15 or below it is 100.", height=300,
     ))
     step = max(1, int(np.ceil(m / 260)))
     starts = np.arange(0, m, step)
     out.chart(C.xy(
-        "Woraus sich der Komposit zusammensetzt",
-        [C.trace(f"{SHORT[k]} · {ews.weights[k]:.0%}".replace("%", " %"), [x[a] for a in starts],
+        "Composite score breakdown",
+        [C.trace(f"{SHORT[k]} · {ews.weights[k]:.0%}", [x[a] for a in starts],
                  [float(np.mean(score[k][a:a + step])) * ews.weights[k] for a in starts], type="bar", color=i + 1)
          for i, k in enumerate(KEYS)],
-        x=xa, y=C.axis("Punkte", range=(0, 100)), stacked=True,
-        subtitle="Beitrag je Indikator gestapelt; die Oberkante ist der Komposit-Score"
-        + (f" (Mittel je {step} Tage)." if step > 1 else "."), height=300,
+        x=xa, y=C.axis("Points", range=(0, 100)), stacked=True,
+        subtitle="Contribution per indicator, stacked; the top edge is the composite score"
+        + (f" (mean per {step} days)." if step > 1 else "."), height=300,
     ))
 
     # ---- 3D phase space (EarlyWarning3DVisualization as interactive trajectory) -------------------------
     gx, ty = score["gex"], score["tdex"]
     lv = np.array([("EXTREME" if v >= th["extreme"] else "HIGH" if v >= th["high"]
                     else "ELEVATED" if v >= th["elevated"] else "NORMAL") for v in comp])
-    traces = [C.path3d("Bahn", gx, ty, comp, color="muted", mode="lines")]
+    traces = [C.path3d("Trajectory", gx, ty, comp, color="muted", mode="lines")]
     for key in ("NORMAL", "ELEVATED", "HIGH", "EXTREME"):
         sel = lv == key
         if sel.any():
             traces.append(C.path3d(LEVEL[key][1], gx[sel], ty[sel], comp[sel], color=LEVEL[key][0], mode="markers",
                                    size=3, text=[label(i) for i in np.flatnonzero(sel)]))
-    traces.append(C.path3d("Gefahrenebene (Komposit 75)", [0, 100, 100, 0, 0], [0, 0, 100, 100, 0], [75] * 5,
+    traces.append(C.path3d("Danger plane (composite 75)", [0, 100, 100, 0, 0], [0, 0, 100, 100, 0], [75] * 5,
                            color="critical", mode="lines"))
-    traces.append(C.path3d("Letzter Tag", [gx[-1]], [ty[-1]], [comp[-1]], color="ink", mode="markers", size=8,
+    traces.append(C.path3d("Latest day", [gx[-1]], [ty[-1]], [comp[-1]], color="ink", mode="markers", size=8,
                            text=[label(m - 1)]))
     out.chart(C.scatter3d(
-        "Frühwarn-Phasenraum", traces,
-        x=C.axis("GEX-Risiko (Teil-Score)"), y=C.axis("TDEX-Risiko (Teil-Score)"), z=C.axis("Komposit"),
-        subtitle="Jeder Punkt ist ein Tag. Über der roten Ebene (75) liegt die hohe Warnstufe.",
+        "Early-warning phase space", traces,
+        x=C.axis("GEX risk (sub-score)"), y=C.axis("TDEX risk (sub-score)"), z=C.axis("Composite"),
+        subtitle="Each point is one day. Points above the red plane (75) are at the High or Extreme level.",
     ))
 
     # ---- the framework's status table ----------------------------------------------------------------
     text = create_indicator_summary_table(ind)
     rows = []
     for name, value, weight, signal in _parse_summary(text):
-        key, name_de = TABLE_ROWS.get(name, (None, name))
+        key, name_txt = TABLE_ROWS.get(name, (None, name))
         if key == "vix_term" and use_real_curve:
-            name_de = "VIX-Kurve (VIX/VIX3M)"
-        w_txt = f"{weight:.0%}".replace("%", " %")
+            name_txt = "VIX curve (VIX/VIX3M)"
+        w_txt = f"{weight:.0%}"
         if key is None:
-            rows.append([name_de, de(value, 1), w_txt, SIGNAL.get(signal, signal), float(comp[-1]), float(comp[-1])])
+            rows.append([name_txt, num(value, 1), w_txt, SIGNAL.get(signal, signal), float(comp[-1]), float(comp[-1])])
         else:
             digits = 3 if key == "vix_term" else 2 if key == "gex" else 1
-            rows.append([name_de, de(value, digits), w_txt, SIGNAL.get(signal, signal),
+            rows.append([name_txt, num(value, digits), w_txt, SIGNAL.get(signal, signal),
                          last["components"][key]["score"], last["components"][key]["contribution"]])
-    out.table(f"Status am {label(m - 1)} (Tabelle des Frameworks)",
-              ["Indikator", "Wert", "Gewicht", "Signal", "Teil-Score", "Beitrag"], rows,
+    out.table(f"Status on {label(m - 1)} (framework table)",
+              ["Indicator", "Value", "Weight", "Signal", "Sub-score", "Contribution"], rows,
               formats=["text", "text", "text", "text", "num", "num"],
-              note="Signale nach `create_indicator_summary_table`, ergänzt um Teil-Score und Beitrag (Punkte). "
-                   "Die Originaltabelle gibt es unten als Textdatei.")
-    out.download("fruehwarn_status.txt", text.strip("\n") + "\n")
+              note="Signals from `create_indicator_summary_table`, supplemented by sub-score and contribution "
+                   "(points). The original table is available below as a text file.")
+    out.download("early_warning_status.txt", text.strip("\n") + "\n")
 
-    assessment = assessment_de(ews.get_risk_assessment(float(comp[-1])))
-    out.set_verdict(status, f"Letzter Stand: {level_de} – {comp[-1]:.0f} von 100",
-                    f"{assessment} Modellwert aus Renditen und VIX, kein Live-Signal aus Options- oder "
-                    "Dark-Pool-Daten.")
+    assessment = assessment_text(ews.get_risk_assessment(float(comp[-1])))
+    out.set_verdict(status, f"Latest reading: {level_txt} – {comp[-1]:.0f} out of 100",
+                    f"{assessment} Modelled from returns and the VIX, not a live signal from options or "
+                    "dark-pool data.")
 
     # ---- the framework's figures --------------------------------------------------------------------------
     if params["show_figures"]:
-        out.progress("Zeichne das Original-Dashboard …", 0.6)
+        out.progress("Drawing the original dashboard…", 0.6)
         dates64 = np.array(x, dtype="datetime64[D]") if data.dates else None
-        title = f"Early Warning System Dashboard · {data.name or 'Datensatz'} · {label(0)} – {label(m - 1)}"
+        title = f"Early Warning System Dashboard · {data.name or 'Dataset'} · {label(0)} – {label(m - 1)}"
         fig = EarlyWarningDashboard(figsize=(16, 13)).create_dashboard(ind, p, dates=dates64, title=title)
-        out.figure(fig, "Frühwarn-Dashboard des Frameworks (EarlyWarningDashboard)", dpi=80)
-        out.progress("3D-Phasenraum …", 0.85)
+        out.figure(fig, "The framework's early-warning dashboard (EarlyWarningDashboard)", dpi=80)
+        out.progress("3D phase space…", 0.85)
         fig = EarlyWarning3DVisualization().create_3d_phase_space(ind["gex_score"], ind["tdex_score"], comp,
                                                                    figsize=(10, 8))
-        out.figure(fig, "3D-Phasenraum des Frameworks (EarlyWarning3DVisualization)", dpi=90)
+        out.figure(fig, "The framework's 3D phase space (EarlyWarning3DVisualization)", dpi=90)

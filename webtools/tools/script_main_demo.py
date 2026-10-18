@@ -4,16 +4,16 @@ from ..scriptrunner import QUALITY_PARAM, script_tool
 
 SPEC = {
     "id": "script-main-demo",
-    "title": "main.py – komplette Demonstration",
+    "title": "main.py – full demonstration",
     "group": "scripts",
     "order": 10,
-    "summary": "Führt den Einstiegspunkt des Frameworks aus: Verteilungen fitten, Risikokennzahlen, EVT, Phasenraum und Dashboards.",
+    "summary": "Runs the framework's entry point: distribution fitting, risk metrics, EVT, phase space and dashboards.",
     "description": (
-        "Das ist exakt `python main.py --mode demo` – der Rundgang durch das ganze Framework mit synthetischen "
-        "Daten: Lévy-, Tsallis- und Hill-Schätzung, VaR nach vier Methoden, Extremwerttheorie, Frühwarnsignale, "
-        "3D-Phasenräume und zwei vollständige Dashboards (normaler Markt und Krisenszenario).\n\n"
-        "Die Konsolenausgabe des Skripts erscheint unten, die erzeugten Grafiken und der Textbericht ebenfalls. "
-        "Rechenintensiv: Im Browser dauert ein Durchlauf rund eine bis drei Minuten."
+        "This is exactly `python main.py --mode demo` – a tour of the entire framework on synthetic data: Lévy, "
+        "Tsallis and Hill estimation, VaR by four methods, extreme value theory, early-warning signals, 3D phase "
+        "spaces and two complete dashboards (normal market and crisis scenario).\n\n"
+        "The script's console output appears below, together with the figures and the text report it produces. "
+        "Compute-intensive: a run takes about one to three minutes in the browser."
     ),
     "needs": [],
     "params": [QUALITY_PARAM],

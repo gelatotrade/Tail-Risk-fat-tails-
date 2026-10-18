@@ -7,39 +7,39 @@ from src.models.risk_metrics import RollingRiskMetrics, compute_risk_3d_coordina
 
 from .. import charts as C
 from ..core import ToolError
-from ..data import index_axis
+from ..data import index_axis, fmt_date
 
-LEVELS = [{"value": v, "label": l} for v, l in ((0.95, "95 %"), (0.975, "97,5 %"), (0.99, "99 %"))]
+LEVELS = [{"value": v, "label": l} for v, l in ((0.95, "95%"), (0.975, "97.5%"), (0.99, "99%"))]
 
 SPEC = {
     "id": "rolling-risk",
-    "title": "Rollierendes Risiko & VaR-Backtest",
+    "title": "Rolling risk and VaR backtest",
     "group": "risk",
-    "order": 40,
-    "summary": "VaR, Expected Shortfall, Schiefe, Kurtosis und Tail-Index im gleitenden Fenster – mit ehrlichem "
-               "Backtest und dem Weg des Marktes durch den 3D-Risikoraum.",
+    "order": 50,
+    "summary": "VaR, Expected Shortfall, skewness, kurtosis and tail index in a rolling window – with an out-of-sample "
+               "backtest and the market's path through the 3D risk space.",
     "description": (
-        "`RollingRiskMetrics` schätzt jede Kennzahl nur aus den letzten N Handelstagen **vor** dem jeweiligen Tag. "
-        "Der rollierende VaR ist damit eine echte Prognose: Fällt die Rendite eines Tages unter −VaR, ist das eine "
-        "**VaR-Verletzung**. Bei 99 % sollten das etwa 1 % der Tage sein; der **Kupiec-Test** prüft, ob die Quote "
-        "dazu passt. Das Diagramm der **kumulierten Verletzungen** zeigt, wann sie auftreten: Steile Stufen nach "
-        "ruhigen Phasen heißen, das Fenster reagiert zu langsam auf Volatilitäts-Cluster.\n\n"
-        "Die **Exzess-Kurtosis** (0 = Gauß) und die **Schiefe** zeigen, wie sich die Form der Verteilung ändert; der "
-        "**Tail-Index α** (Hill oder Pickands, aus den 10 % größten absoluten Tagesrenditen beider Ränder) misst "
-        "den Rand direkt: α < 2 hieße unendliche Varianz, α < 4 unendliche Kurtosis. In kurzen Fenstern sind alle drei verrauscht – längere Fenster glätten, reagieren aber "
-        "später.\n\n"
-        "Der **3D-Risikoraum** (`compute_risk_3d_coordinates`) normiert drei Achsen auf 0–1: VaR-Niveau, ES/VaR-"
-        "Verhältnis (wie tief es jenseits des VaR geht) und Kurtosis. Die Normierung nutzt die ganze Reihe; oben "
-        "rechts hinten liegen die gefährlichsten Phasen. Verluste sind Tagesverluste als positive Dezimalzahl."
+        "`RollingRiskMetrics` estimates each metric only from the last N trading days **before** the day in "
+        "question. The rolling VaR is therefore a genuine forecast: if a day's return falls below −VaR, that is a "
+        "**VaR breach**. At 99%, this should happen on about 1% of days; the **Kupiec test** checks whether the "
+        "observed rate is consistent with that. The **cumulative breaches** chart shows when they occur: steep steps "
+        "after calm phases mean that the window reacts too slowly to volatility clusters.\n\n"
+        "**Excess kurtosis** (0 = Gaussian) and **skewness** show how the shape of the distribution changes; the "
+        "**tail index α** (Hill or Pickands, from the largest 10% of absolute daily returns in both tails) measures "
+        "the tail directly: α < 2 would mean infinite variance, α < 4 infinite kurtosis. In short windows all three "
+        "are noisy – longer windows smooth them but react later.\n\n"
+        "The **3D risk space** (`compute_risk_3d_coordinates`) scales three axes to 0–1: VaR level, ES/VaR ratio "
+        "(how deep losses go beyond the VaR) and kurtosis. The scaling uses the whole series; the most dangerous "
+        "phases lie at the top right rear. Losses are one-day losses expressed as positive decimals."
     ),
     "needs": ["returns"],
     "params": [
         {"name": "window", "type": "int", "default": 250, "min": 20, "max": 500, "step": 5,
-         "label": "Fenster (Handelstage)",
-         "help": "250 ≈ ein Jahr (Basel-Standard für den 99-%-VaR), 60 ≈ drei Monate: reagiert schneller, "
-                 "schätzt seltene Verluste aber kaum."},
-        {"name": "confidence", "type": "select", "default": 0.99, "label": "VaR-Konfidenz", "options": LEVELS},
-        {"name": "tail_method", "type": "select", "default": "hill", "label": "Tail-Index-Schätzer",
+         "label": "Window (trading days)",
+         "help": "250 ≈ one year (Basel standard for the 99% VaR); 60 ≈ three months: reacts faster but "
+                 "barely captures rare losses."},
+        {"name": "confidence", "type": "select", "default": 0.99, "label": "VaR confidence level", "options": LEVELS},
+        {"name": "tail_method", "type": "select", "default": "hill", "label": "Tail index estimator",
          "options": [{"value": "hill", "label": "Hill"}, {"value": "pickands", "label": "Pickands"}]},
     ],
     "covers": [
@@ -56,14 +56,13 @@ SPEC = {
 }
 
 
-def _de(x, digits=2):
-    return f"{x:.{digits}f}".replace(".", ",")
+
+def _num(x, digits=2):
+    return f"{x:.{digits}f}"
 
 
 def _fmt_date(s):
-    if isinstance(s, str) and len(s) == 10 and s[4] == "-":
-        return f"{s[8:10]}.{s[5:7]}.{s[:4]}"
-    return f"Tag {s}"
+    return fmt_date(s, "day {}")
 
 
 def _kupiec(breaches, n, p):
@@ -86,9 +85,9 @@ def run(params, data, out):
     n = len(r)
     w, conf, method = int(params["window"]), float(params["confidence"]), params["tail_method"]
     if n < w + 30:
-        raise ToolError(f"Die Reihe ({n} Tage) ist für ein Fenster von {w} Tagen zu kurz: Für den Backtest "
-                        f"braucht es mindestens 30 Tage nach dem ersten Fenster. Verkleinere das Fenster auf "
-                        f"höchstens {max(n - 30, 0)} Tage.")
+        raise ToolError(f"The series ({n:,} days) is too short for a window of {w} days: the backtest needs at "
+                        f"least 30 days after the first window. Reduce the window to at most "
+                        f"{max(n - 30, 0):,} days.")
     lvl = next(o["label"] for o in LEVELS if o["value"] == params["confidence"])
 
     rr = RollingRiskMetrics(r, window=w)
@@ -108,53 +107,53 @@ def run(params, data, out):
     i_max = int(np.nanargmax(var))
     last_alpha = alpha[np.isfinite(alpha)][-1] if np.any(np.isfinite(alpha)) else np.nan
 
-    out.metric(f"VaR {lvl} heute", var[-1], "pct", hint=f"Prognose für den letzten Tag aus den {w} Tagen davor",
+    out.metric(f"{lvl} VaR today", var[-1], "pct", hint=f"Forecast for the last day from the {w} days before it",
                status="serious" if var[-1] > 1.5 * np.nanmedian(var) else None)
-    out.metric(f"Expected Shortfall {lvl} heute", es[-1], "pct")
-    out.metric(f"VaR {lvl} · Median", np.nanmedian(var), "pct", hint=f"Höchststand {_de(100 * var[i_max])} % am "
+    out.metric(f"{lvl} Expected Shortfall today", es[-1], "pct")
+    out.metric(f"{lvl} VaR · median", np.nanmedian(var), "pct", hint=f"Peak {_num(100 * var[i_max])}% on "
                f"{_fmt_date(x[i_max]) if data.dates else _fmt_date(i_max)}")
-    out.metric("VaR-Verletzungen", rate, "pct", hint=f"{n_breach} von {n_valid} Tagen · erwartet {_de(100 * (1 - conf), 1)} %",
+    out.metric("VaR breaches", rate, "pct", hint=f"{n_breach:,} of {n_valid:,} days · expected {_num(100 * (1 - conf), 1)}%",
                status="critical" if rate > 2.5 * (1 - conf) else "serious" if rate > 1.5 * (1 - conf) else "good")
-    p_txt = "p < 0,001" if p_kup < 0.001 else f"p = {_de(p_kup, 3)}"
-    out.metric("Kupiec-Test", "abgelehnt" if p_kup < 0.05 else "bestanden", "text",
-               hint=f"{p_txt} · abgelehnt: Verletzungsquote passt nicht zum Niveau",
+    p_txt = "p < 0.001" if p_kup < 0.001 else f"p = {_num(p_kup, 3)}"
+    out.metric("Kupiec test", "rejected" if p_kup < 0.05 else "passed", "text",
+               hint=f"{p_txt} · rejected: breach rate inconsistent with the confidence level",
                status="warning" if p_kup < 0.05 else "good")
-    out.metric("Exzess-Kurtosis heute", kurt[-1], "num", digits=1)
-    out.metric("Schiefe heute", skew[-1], "num")
-    out.metric(f"Tail-Index α heute ({'Hill' if method == 'hill' else 'Pickands'})", last_alpha, "num",
-               hint="< 2: unendliche Varianz · < 4: unendliche Kurtosis",
+    out.metric("Excess kurtosis today", kurt[-1], "num", digits=1)
+    out.metric("Skewness today", skew[-1], "num")
+    out.metric(f"Tail index α today ({'Hill' if method == 'hill' else 'Pickands'})", last_alpha, "num",
+               hint="Infinite variance below 2, infinite kurtosis below 4",
                status="critical" if last_alpha < 2 else "serious" if last_alpha < 3 else None)
 
     # --- chart 1: VaR / ES band against realised returns
     bx = [xi for xi, b in zip(x, breach) if b]
     out.chart(C.xy(
-        f"Rollierender VaR und Expected Shortfall {lvl} gegen die tatsächlichen Renditen",
-        [C.trace("Tagesrendite", x, r, type="scatter", color="muted", size=2.5, decimate_to=None),
-         C.trace(f"−VaR {lvl}", x, -var, color=1, width=2),
-         C.trace(f"−ES {lvl}", x, -es, color=2, width=1.5),
-         C.trace("VaR-Verletzung", bx, r[breach], type="scatter", color="critical", size=6, decimate_to=None)],
-        x=xa, y=C.axis("Tagesrendite", fmt="pct", digits=0),
-        subtitle=f"Rote Punkte: Tage unter −VaR ({n_breach}, erwartet ≈ {round(n_valid * (1 - conf))}).",
+        f"Rolling {lvl} VaR and Expected Shortfall vs actual returns",
+        [C.trace("Daily return", x, r, type="scatter", color="muted", size=2.5, decimate_to=None),
+         C.trace(f"−VaR ({lvl})", x, -var, color=1, width=2),
+         C.trace(f"−ES ({lvl})", x, -es, color=2, width=1.5),
+         C.trace("VaR breach", bx, r[breach], type="scatter", color="critical", size=6, decimate_to=None)],
+        x=xa, y=C.axis("Daily return", fmt="pct", digits=0),
+        subtitle=f"Red dots: days below −VaR ({n_breach:,}; expected ≈ {round(n_valid * (1 - conf)):,}).",
     ))
 
     # --- chart 2: shape of the distribution
     out.chart(C.xy(
-        f"Form der Verteilung im {w}-Tage-Fenster",
-        [C.trace("Exzess-Kurtosis", x, kurt, color=1), C.trace("Schiefe", x, skew, color=2)],
-        x=xa, y=C.axis("dimensionslos"),
-        hlines=[C.hline(0, "Gauß")],
-        subtitle="Kurtosis-Spitzen markieren Crash-Fenster; dann wird die Schiefe meist deutlich negativ.",
+        f"Shape of the distribution in the {w}-day window",
+        [C.trace("Excess kurtosis", x, kurt, color=1), C.trace("Skewness", x, skew, color=2)],
+        x=xa, y=C.axis("Dimensionless"),
+        hlines=[C.hline(0, "Gaussian")],
+        subtitle="Kurtosis spikes mark crash windows; skewness then usually turns clearly negative.",
     ))
 
     # --- chart 3: tail index
     out.chart(C.xy(
-        f"Rollierender Tail-Index α ({'Hill' if method == 'hill' else 'Pickands'})",
+        f"Rolling tail index α ({'Hill' if method == 'hill' else 'Pickands'})",
         [C.trace("α", x, alpha, color=1)],
-        x=xa, y=C.axis("Tail-Index α"),
-        hlines=[C.hline(2, "α = 2: Grenze zur unendlichen Varianz", color="critical"),
-                C.hline(4, "α = 4: Kurtosis endlich")],
-        subtitle="Aus den 10 % größten absoluten Tagesrenditen im Fenster (Gewinne und Verluste). Kleiner = "
-                 "fetterer Rand; in kurzen Fenstern stark verrauscht.",
+        x=xa, y=C.axis("Tail index α"),
+        hlines=[C.hline(2, "α = 2: infinite variance below", color="critical"),
+                C.hline(4, "α = 4: finite kurtosis above")],
+        subtitle="From the largest 10% of absolute daily returns in the window (gains and losses). Smaller = "
+                 "fatter tail; very noisy in short windows.",
     ))
 
     # --- chart 4: cumulative breaches against the binomial expectation (classic backtest view)
@@ -166,14 +165,14 @@ def run(params, data, out):
         half = 1.96 * np.sqrt(expected * (1 - p_b))
         xv = [x[i] for i in vi]
         out.chart(C.xy(
-            "Kumulierte VaR-Verletzungen gegen die Erwartung",
-            [C.envelope("95-%-Bereich bei korrektem VaR", xv, np.maximum(expected - half, 0), expected + half,
+            "Cumulative VaR breaches vs expectation",
+            [C.envelope("95% range if the VaR is correct", xv, np.maximum(expected - half, 0), expected + half,
                         color="muted"),
-             C.trace("erwartet", xv, expected, color="muted", dash=True),
-             C.trace("tatsächlich", xv, cum, type="step", color=1)],
-            x=xa, y=C.axis("Verletzungen (Anzahl)", fmt="int"),
-            subtitle="Läuft die Linie über das Band, unterschätzt der VaR das Risiko; steile Stufen sind "
-                     "Verletzungs-Cluster.",
+             C.trace("Expected", xv, expected, color="muted", dash=True),
+             C.trace("Actual", xv, cum, type="step", color=1)],
+            x=xa, y=C.axis("Breaches (count)", fmt="int"),
+            subtitle="If the line runs above the band, the VaR understates risk; steep steps are breach "
+                     "clusters.",
         ))
 
     # --- chart 5: 3D risk phase space
@@ -182,39 +181,39 @@ def run(params, data, out):
     if idx.size > 10:
         step = max(1, idx.size // 3000)
         hist = idx[::step]
-        labels = [_fmt_date(x[i]) if data.dates else f"Tag {i}" for i in range(n)]
+        labels = [_fmt_date(x[i]) if data.dates else f"Day {i}" for i in range(n)]
         score = X + Y + Z
         hot = idx[score[idx] >= np.quantile(score[idx], 0.97)]
         recent = idx[-min(w, idx.size):]
         out.chart(C.scatter3d(
-            "Weg durch den 3D-Risikoraum",
-            [C.path3d("Alle Tage", X[hist], Y[hist], Z[hist], color="muted", mode="markers", size=1.5,
+            "Path through the 3D risk space",
+            [C.path3d("All days", X[hist], Y[hist], Z[hist], color="muted", mode="markers", size=1.5,
                       text=[labels[i] for i in hist]),
-             C.path3d("Riskanteste 3 % der Tage", X[hot], Y[hot], Z[hot], color="critical", mode="markers", size=3,
+             C.path3d("Riskiest 3% of days", X[hot], Y[hot], Z[hot], color="critical", mode="markers", size=3,
                       text=[labels[i] for i in hot]),
-             C.path3d(f"Letzte {len(recent)} Tage", X[recent], Y[recent], Z[recent], color=1, mode="lines+markers",
+             C.path3d(f"Last {len(recent)} days", X[recent], Y[recent], Z[recent], color=1, mode="lines+markers",
                       size=2.5, text=[labels[i] for i in recent]),
-             C.path3d("Heute", [X[idx[-1]]], [Y[idx[-1]]], [Z[idx[-1]]], color=2, mode="markers", size=7,
+             C.path3d("Today", [X[idx[-1]]], [Y[idx[-1]]], [Z[idx[-1]]], color=2, mode="markers", size=7,
                       text=[labels[idx[-1]]])],
-            x=C.axis("VaR-Niveau (0–1)"), y=C.axis("ES ÷ VaR (0–1)"), z=C.axis("Kurtosis (0–1)"),
-            subtitle="Alle Achsen min-max-normiert über die ganze Reihe. Ziehen zum Drehen.",
+            x=C.axis("VaR level (0–1)"), y=C.axis("ES ÷ VaR (0–1)"), z=C.axis("Kurtosis (0–1)"),
+            subtitle="All axes min-max scaled over the whole series. Drag to rotate.",
         ))
 
     beyond = w * (1 - conf)
     if beyond < 2:
-        out.note(f"Im {w}-Tage-Fenster liegen im Mittel nur {_de(beyond, 1)} Tage jenseits des {lvl}-VaR. Der historische "
-                 "VaR ist dann kaum mehr als der schlechteste Tag im Fenster und unterschätzt das Risiko systematisch – "
-                 "nimm ein längeres Fenster oder ein niedrigeres Konfidenzniveau.", "warning")
+        out.note(f"In the {w}-day window, on average only {_num(beyond, 1)} days lie beyond the {lvl} VaR. Historical "
+                 "VaR is then little more than the worst day in the window and systematically understates risk – "
+                 "use a longer window or a lower confidence level.", "warning")
 
     # --- compact table: calmest vs most stressed windows
     rows = []
-    for name, sel in (("ruhigstes Viertel", var <= np.nanquantile(var, 0.25)),
-                      ("stressigstes Viertel", var >= np.nanquantile(var, 0.75))):
+    for name, sel in (("Calmest 25% of days", var <= np.nanquantile(var, 0.25)),
+                      ("Most stressed 25% of days", var >= np.nanquantile(var, 0.75))):
         sel = sel & valid
         nxt = np.flatnonzero(sel)
         rows.append([name, np.nanmean(var[sel]), np.nanmean(es[sel]), np.nanmean(kurt[sel]), np.nanmean(skew[sel]),
                      np.nanmean(alpha[sel]), float(np.mean(breach[nxt])) if nxt.size else None])
-    out.table("Ruhige gegen gestresste Phasen", ["Phase (nach VaR)", f"Ø VaR {lvl}", f"Ø ES {lvl}", "Ø Exzess-Kurtosis",
-                                                 "Ø Schiefe", "Ø Tail-Index", "Verletzungsquote"],
+    out.table("Calm vs stressed phases", ["Phase (by VaR)", f"Mean {lvl} VaR", f"Mean {lvl} ES",
+                                          "Mean excess kurtosis", "Mean skewness", "Mean tail index", "Breach rate"],
               rows, formats=["text", "pct", "pct", "num", "num", "num", "pct"],
-              note="Verletzungsquote: Anteil der Tage in dieser Phase, an denen die Rendite unter −VaR fiel.")
+              note="Breach rate: share of days in this phase on which the return fell below −VaR.")

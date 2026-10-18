@@ -29,16 +29,16 @@ SERIES = {
     "SP500": "S&P 500",
     "NASDAQCOM": "NASDAQ Composite",
     "VIXCLS": "CBOE VIX",
-    "VXVCLS": "CBOE VIX 3 Monate",
+    "VXVCLS": "CBOE 3-month VIX",
 }
 # Datasets offered on the site: an index plus the volatility series aligned to it.
 DATASETS = [
     {"id": "sp500", "name": "S&P 500", "index": "SP500", "vol": True,
-     "blurb": "US-Leitindex, tägliche Schlusskurse (FRED zeigt die letzten 10 Jahre) mit VIX und VIX3M."},
+     "blurb": "Leading US equity index, daily closing prices (FRED provides the last 10 years), with VIX and VIX3M."},
     {"id": "nasdaq", "name": "NASDAQ Composite", "index": "NASDAQCOM", "vol": True, "start": "1990-01-02",
-     "blurb": "Technologielastiger US-Index seit 1990 mit VIX – enthält Dotcom-Blase, Finanzkrise und COVID."},
-    {"id": "nasdaq-long", "name": "NASDAQ Composite (seit 1971)", "index": "NASDAQCOM", "vol": False,
-     "blurb": "Längste verfügbare Reihe: über 50 Jahre inklusive Crash 1987, ohne VIX."},
+     "blurb": "Technology-heavy US index since 1990, with VIX – covers the dot-com bubble, the financial crisis and COVID."},
+    {"id": "nasdaq-long", "name": "NASDAQ Composite (since 1971)", "index": "NASDAQCOM", "vol": False,
+     "blurb": "The longest available series: more than 50 years including the 1987 crash, without VIX."},
 ]
 MIN_ROWS = 2000
 

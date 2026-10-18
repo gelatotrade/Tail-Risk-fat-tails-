@@ -1,6 +1,6 @@
 // Turn a tool result (webtools Result.to_dict) into DOM.
-import { fmt, escapeHtml, richText } from './format.js';
-import { icon, STATUS_ICON, STATUS_LABEL, BADGE_LABEL } from './icons.js';
+import { fmt, escapeHtml, richText, inlineText } from './format.js';
+import { icon, STATUS_ICON, STATUS_LABEL } from './icons.js';
 import { renderChart, chartRows } from './charts.js';
 
 const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
@@ -19,16 +19,16 @@ function tableHtml(columns, rows, formats, { limit = 2000 } = {}) {
     const text = code === 'text' || typeof v === 'string' ? escapeHtml(v ?? '–') : fmt(v, code, digits);
     return `<td class="${code === 'text' ? 't' : ''}">${text}</td>`;
   }).join('')}</tr>`).join('');
-  const more = rows.length > limit ? `<p class="table-note">${rows.length - limit} weitere Zeilen im Excel-Export.</p>` : '';
+  const more = rows.length > limit ? `<p class="table-note">${(rows.length - limit).toLocaleString('en-GB')} more rows in the Excel export.</p>` : '';
   return `<div class="table-wrap"><table class="data"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>${more}`;
 }
 
 function chartCard(spec) {
   const card = h(`<section class="card chart-card">
-    <div class="head"><div><h3>${escapeHtml(spec.title)}</h3>${spec.subtitle ? `<p class="sub">${escapeHtml(spec.subtitle)}</p>` : ''}</div>
+    <div class="head"><div><h3>${escapeHtml(spec.title)}</h3>${spec.subtitle ? `<p class="sub">${inlineText(spec.subtitle)}</p>` : ''}</div>
       <div class="tools">
-        <button class="btn ghost sm" data-act="table" title="Als Tabelle anzeigen" aria-pressed="false">${icon('table')}<span class="sr-only">Tabelle</span></button>
-        <button class="btn ghost sm" data-act="png" title="Als PNG speichern">${icon('download')}<span class="sr-only">PNG</span></button>
+        <button class="btn ghost sm" data-act="table" title="Show as table" aria-pressed="false">${icon('table')}<span class="sr-only">Table</span></button>
+        <button class="btn ghost sm" data-act="png" title="Save as PNG">${icon('download')}<span class="sr-only">PNG</span></button>
       </div></div>
     <div class="plot" role="img" aria-label="${escapeHtml(spec.title)}" style="height:${spec.kind === 'gauge' ? 250 : spec.height || 340}px"></div>
     <div class="table-wrap" hidden></div></section>`);
@@ -52,7 +52,7 @@ function chartCard(spec) {
 const slug = (s) => String(s || 'export').toLowerCase().normalize('NFKD').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
 
 export function openLightbox(src, caption) {
-  const lb = h(`<div class="lightbox" role="dialog" aria-label="Grafik vergrößert"><div><img src="${src}" alt="${escapeHtml(caption)}"><div class="cap">${escapeHtml(caption)}</div></div></div>`);
+  const lb = h(`<div class="lightbox" role="dialog" aria-label="Enlarged figure"><div><img src="${src}" alt="${escapeHtml(caption)}"><div class="cap">${escapeHtml(caption)}</div></div></div>`);
   const close = () => { lb.remove(); document.removeEventListener('keydown', onKey); };
   const onKey = (e) => { if (e.key === 'Escape') close(); };
   lb.addEventListener('click', close);
@@ -64,11 +64,11 @@ function figureCard(fig, i) {
   const mime = fig.mime || 'image/png';
   const src = `data:${mime};base64,${fig.png}`;
   const ext = { 'image/gif': 'gif', 'image/jpeg': 'jpg', 'image/svg+xml': 'svg' }[mime] || 'png';
-  const caption = fig.caption || `Abbildung ${i + 1}`;
+  const caption = fig.caption || `Figure ${i + 1}`;
   const card = h(`<figure class="card figure-card" style="margin:0">
     <div class="head" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-      <div><h3>${escapeHtml(caption)}</h3><span class="badge">${icon('image', 'width="13" height="13"')} ${mime === 'image/gif' ? 'Animation' : 'Original-Grafik'} des Frameworks (Matplotlib, im Browser gerendert)</span></div>
-      <a class="btn ghost sm" download="${slug(caption)}.${ext}" href="${src}" title="${ext.toUpperCase()} speichern">${icon('download')}<span class="sr-only">${ext.toUpperCase()}</span></a></div>
+      <div><h3>${escapeHtml(caption)}</h3><span class="badge">${icon('image', 'width="13" height="13"')} ${mime === 'image/gif' ? 'Animation' : 'Original figure'} from the framework (Matplotlib, rendered in your browser)</span></div>
+      <a class="btn ghost sm" download="${slug(caption)}.${ext}" href="${src}" title="Save as ${ext.toUpperCase()}">${icon('download')}<span class="sr-only">${ext.toUpperCase()}</span></a></div>
     <img src="${src}" alt="${escapeHtml(caption)}" loading="lazy"></figure>`);
   card.querySelector('img').addEventListener('click', () => openLightbox(src, caption));
   return card;
@@ -79,14 +79,14 @@ export function renderResult(root, result) {
   if (result.verdict) {
     const v = result.verdict;
     root.appendChild(h(`<section class="verdict ${v.level}" role="status">${icon(STATUS_ICON[v.level])}
-      <div><div class="lvl">${escapeHtml(STATUS_LABEL[v.level])}</div><h3>${escapeHtml(v.title)}</h3>${v.text ? `<p>${escapeHtml(v.text)}</p>` : ''}</div></section>`));
+      <div><div class="lvl">${escapeHtml(STATUS_LABEL[v.level])}</div><h3>${escapeHtml(v.title)}</h3>${v.text ? `<p>${inlineText(v.text)}</p>` : ''}</div></section>`));
   }
   if (result.metrics?.length) {
-    const grid = h('<section class="metrics" aria-label="Kennzahlen"></section>');
+    const grid = h('<section class="metrics" aria-label="Key metrics"></section>');
     for (const m of result.metrics) {
       grid.appendChild(h(`<div class="metric"><div class="l">${escapeHtml(m.label)}</div>
         <div class="v">${escapeHtml(fmt(m.value, m.fmt, m.digits, m.unit))}</div>
-        ${m.status ? statusBadge(m.status, m.badge || BADGE_LABEL[m.status]) : ''}${m.hint ? `<div class="h">${escapeHtml(m.hint)}</div>` : ''}</div>`));
+        ${m.status ? statusBadge(m.status, m.badge) : ''}${m.hint ? `<div class="h">${inlineText(m.hint)}</div>` : ''}</div>`));
     }
     root.appendChild(grid);
   }
@@ -107,7 +107,7 @@ export function renderResult(root, result) {
   }
   if (pair && pair.children.length === 1) pair.classList.remove('grid-2');
   for (const t of result.tables || []) {
-    root.appendChild(h(`<section class="card table-card"><h3>${escapeHtml(t.title)}</h3>${tableHtml(t.columns, t.rows, t.formats)}${t.note ? `<p class="table-note">${escapeHtml(t.note)}</p>` : ''}</section>`));
+    root.appendChild(h(`<section class="card table-card"><h3>${escapeHtml(t.title)}</h3>${tableHtml(t.columns, t.rows, t.formats)}${t.note ? `<p class="table-note">${inlineText(t.note)}</p>` : ''}</section>`));
   }
   (result.figures || []).forEach((f, i) => root.appendChild(figureCard(f, i)));
   for (const d of result.downloads || []) {
@@ -121,10 +121,10 @@ export function renderResult(root, result) {
 export function renderError(root, err, { onRetry } = {}) {
   const user = err.kind === 'user';
   root.innerHTML = '';
-  const card = h(`<section class="card error-card" role="alert"><h3>${user ? 'Das hat so nicht geklappt' : 'Interner Fehler im Python-Code'}</h3>
+  const card = h(`<section class="card error-card" role="alert"><h3>${user ? 'The calculation could not be run' : 'Internal error in the Python code'}</h3>
     <p style="margin-top:6px">${escapeHtml(err.error || err.message || String(err))}</p>
-    ${err.traceback ? `<details class="more"><summary>Technische Details</summary><pre>${escapeHtml(err.traceback)}</pre></details>` : ''}
-    ${onRetry ? '<button class="btn sm" data-act="retry">Erneut versuchen</button>' : ''}</section>`);
+    ${err.traceback ? `<details class="more"><summary>Technical details</summary><pre>${escapeHtml(err.traceback)}</pre></details>` : ''}
+    ${onRetry ? '<button class="btn sm" data-act="retry">Try again</button>' : ''}</section>`);
   card.querySelector('[data-act="retry"]')?.addEventListener('click', onRetry);
   root.appendChild(card);
 }

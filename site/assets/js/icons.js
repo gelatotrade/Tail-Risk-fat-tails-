@@ -46,5 +46,4 @@ export function icon(name, extra = '') {
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${P[name] || P.circle}</svg>`;
 }
 export const STATUS_ICON = { good: 'good', warning: 'warn', serious: 'serious', critical: 'critical' };
-export const STATUS_LABEL = { good: 'Normal', warning: 'Erhöht', serious: 'Hoch', critical: 'Kritisch' }; // verdict banners (risk level)
-export const BADGE_LABEL = { good: 'Unauffällig', warning: 'Erhöht', serious: 'Hoch', critical: 'Kritisch' }; // metric tiles
+export const STATUS_LABEL = { good: 'Normal', warning: 'Elevated', serious: 'High', critical: 'Critical' }; // risk levels: verdicts and metric badges

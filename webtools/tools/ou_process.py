@@ -9,51 +9,51 @@ from .. import charts as C
 
 SPEC = {
     "id": "ou-process",
-    "title": "Ornstein-Uhlenbeck: Rückkehr zum Mittel",
+    "title": "Ornstein-Uhlenbeck: mean reversion",
     "group": "physics",
-    "order": 40,
-    "summary": "Wie schnell kehrt eine Größe wie der VIX zu ihrem Mittel zurück? Pfad-Fächer mit exaktem "
-               "Erwartungsband, Halbwertszeit und Parameter-Schätzung aus Daten.",
+    "order": 50,
+    "summary": "How quickly a quantity such as the VIX reverts to its mean – path fan with an exact expectation "
+               "band, half-life and parameter estimation from data.",
     "description": (
-        "Der Ornstein-Uhlenbeck-Prozess **dx = θ(μ − x)dt + σ dW** stammt aus der Physik (Geschwindigkeit eines "
-        "Teilchens mit Reibung) und beschreibt in der Finanzwelt alles, was zu einem Mittel zurückkehrt: "
-        "Volatilität, Zinsen, Spreads. **θ** ist die Rückstellgeschwindigkeit pro Jahr, **μ** das langfristige "
-        "Mittel, **σ** die Stärke der Zufallsstöße. Die **Halbwertszeit** ln 2/θ sagt, nach welcher Zeit die "
-        "Hälfte einer Abweichung abgebaut ist.\n\n"
-        "So liest du die Diagramme: Der Fächer zeigt simulierte Pfade (exakte Diskretisierung) ab dem Startwert "
-        "x₀. Die durchgezogene Kurve ist der exakte Erwartungswert μ + (x₀ − μ)e^(−θt), die Fläche "
-        "das exakte ±2σ(t)-Band. Die Streuung wächst nicht unbegrenzt wie bei einer Irrfahrt, sondern sättigt bei der "
-        "stationären Standardabweichung σ/√(2θ). Die Voreinstellungen ähneln dem echten VIX (Mittel um 19, "
-        "Halbwertszeit rund vier Wochen), Start im Stress bei 35.\n\n"
-        "Der **Fit** schätzt θ, μ und σ per AR(1)-Regression x_{t+1} = a + b·x_t: aus dem echten VIX deines "
-        "Datensatzes (Voreinstellung) oder aus einem simulierten Pfad mit deinen Parametern – so siehst du, wie "
-        "genau die Schätzung bei gegebener Datenlänge ist (θ ist notorisch schwer zu treffen). Hat der Datensatz "
-        "keinen VIX, nimmt der Fit automatisch den simulierten Pfad."
+        "The Ornstein-Uhlenbeck process **dx = θ(μ − x)dt + σ dW** comes from physics (the velocity of a "
+        "particle subject to friction) and in finance describes anything that reverts to a mean: volatility, "
+        "interest rates, spreads. **θ** is the speed of mean reversion per year, **μ** the long-term mean and "
+        "**σ** the strength of the random shocks. The **half-life** ln 2/θ tells you how long it takes for half "
+        "of a deviation to decay.\n\n"
+        "How to read the charts: the fan shows simulated paths (exact discretisation) starting from x₀. The "
+        "solid curve is the exact expected value μ + (x₀ − μ)e^(−θt), the shaded area the exact ±2σ(t) band. "
+        "The dispersion does not grow without limit as in a random walk but saturates at the stationary "
+        "standard deviation σ/√(2θ). The defaults resemble the actual VIX (mean around 19, half-life of about "
+        "four weeks), starting from a stressed level of 35.\n\n"
+        "The **fit** estimates θ, μ and σ from the AR(1) regression x_{t+1} = a + b·x_t: either on the actual "
+        "VIX in your dataset (default) or on a simulated path with your parameters – which shows how precise the "
+        "estimate is for a given data length (θ is notoriously hard to pin down). If the dataset has no VIX, the "
+        "fit automatically uses the simulated path."
     ),
     "needs": ["returns"],
     "params": [
         {"name": "theta", "type": "float", "default": 9.0, "min": 0.1, "max": 100.0, "step": 0.1,
-         "label": "Rückstellgeschwindigkeit θ", "unit": "pro Jahr"},
+         "label": "Speed of mean reversion θ", "unit": "per year"},
         {"name": "mu", "type": "float", "default": 20.0, "min": -50.0, "max": 100.0, "step": 0.5,
-         "label": "Langfristiges Mittel μ"},
+         "label": "Long-term mean μ"},
         {"name": "sigma", "type": "float", "default": 30.0, "min": 0.1, "max": 200.0, "step": 0.5,
-         "label": "Volatilität σ", "unit": "pro √Jahr"},
+         "label": "Volatility σ", "unit": "per √year"},
         {"name": "x0", "type": "float", "default": 35.0, "min": -50.0, "max": 150.0, "step": 0.5,
-         "label": "Startwert x₀"},
+         "label": "Starting value x₀"},
         {"name": "horizon", "type": "float", "default": 0.5, "min": 0.1, "max": 5.0, "step": 0.1,
-         "label": "Horizont", "unit": "Jahre"},
+         "label": "Horizon", "unit": "years"},
         {"name": "n_steps", "type": "int", "default": 126, "min": 10, "max": 1260, "step": 1,
-         "label": "Zeitschritte", "help": "126 Schritte auf ½ Jahr = ein Schritt je Handelstag."},
+         "label": "Time steps", "help": "126 steps over ½ year = one step per trading day."},
         {"name": "n_paths", "type": "int", "default": 500, "min": 10, "max": 2000, "step": 10,
-         "label": "Simulierte Pfade"},
-        {"name": "fit_source", "type": "select", "default": "vix", "label": "Parameter-Fit",
-         "options": [{"value": "vix", "label": "VIX des Datensatzes"},
-                     {"value": "sim", "label": "Simulierter Pfad mit deinen Parametern"},
-                     {"value": "none", "label": "kein Fit"}]},
+         "label": "Simulated paths"},
+        {"name": "fit_source", "type": "select", "default": "vix", "label": "Parameter fit",
+         "options": [{"value": "vix", "label": "VIX from the dataset"},
+                     {"value": "sim", "label": "Simulated path with your parameters"},
+                     {"value": "none", "label": "No fit"}]},
         {"name": "fit_years", "type": "float", "default": 4.0, "min": 0.5, "max": 40.0, "step": 0.5,
-         "label": "Länge des simulierten Fit-Pfads", "unit": "Jahre",
-         "help": "Nur für den Fit auf den simulierten Pfad. Ein Schritt je Handelstag (dt = 1/252)."},
-        {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 9999, "step": 1, "label": "Zufalls-Seed"},
+         "label": "Length of the simulated fit path", "unit": "years",
+         "help": "Only for the fit on the simulated path. One step per trading day (dt = 1/252)."},
+        {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 9999, "step": 1, "label": "Random seed"},
     ],
     "covers": [
         "src.physics.ornstein_uhlenbeck.OrnsteinUhlenbeckProcess",
@@ -73,8 +73,8 @@ FORECAST_DAYS = 63  # forecast cone after the fitted series (one quarter)
 DT = 1 / 252
 
 
-def _de(x, digits=2):
-    return f"{x:.{digits}f}".replace(".", ",")
+def _fmt(x, digits=2):
+    return f"{x:.{digits}f}"
 
 
 def _gapped(times, paths):
@@ -95,52 +95,52 @@ def run(params, data, out):
     mc_mean, mc_sd = paths.mean(axis=0), paths.std(axis=0)
     half_days = ou.half_life() * 252
 
-    out.metric("Halbwertszeit", half_days, "num", digits=0 if half_days >= 10 else 1, unit="Handelstage",
-               hint=f"ln 2/θ = {_de(ou.half_life(), 3)} Jahre")
-    out.metric("Stationäre Std σ/√(2θ)", ou.stationary_std(), "num",
-               hint=f"stationäre Varianz {_de(ou.stationary_variance(), 1)}")
-    out.metric("E[X] am Horizont (exakt)", mean_t[-1], "num", hint=f"Simulation: {_de(mc_mean[-1])}")
-    out.metric("Std am Horizont (exakt)", sd_t[-1], "num", hint=f"Simulation: {_de(mc_sd[-1])}")
-    out.metric("Rest der Startabweichung am Horizont", np.exp(-ou.theta * T), "pct", digits=1,
-               hint="e^(−θT): so viel von x₀ − μ ist im Erwartungswert noch übrig")
+    out.metric("Half-life (trading days)", half_days, "num", digits=0 if half_days >= 10 else 1,
+               hint=f"ln 2/θ = {_fmt(ou.half_life(), 3)} years")
+    out.metric("Stationary std σ/√(2θ)", ou.stationary_std(), "num",
+               hint=f"stationary variance {_fmt(ou.stationary_variance(), 1)}")
+    out.metric("E[X] at horizon (exact)", mean_t[-1], "num", hint=f"simulation: {_fmt(mc_mean[-1])}")
+    out.metric("Std at horizon (exact)", sd_t[-1], "num", hint=f"simulation: {_fmt(mc_sd[-1])}")
+    out.metric("Initial deviation remaining at horizon", np.exp(-ou.theta * T), "pct", digits=1,
+               hint="e^(−θT): the share of x₀ − μ still left in the expected value")
 
     gx, gy = _gapped(t, paths[:N_SHOW])
     inside = float(np.mean(np.abs(paths[:, -1] - mean_t[-1]) <= 2 * sd_t[-1]))
-    fan = [C.envelope("±2σ(t) (exakt)", t, mean_t - 2 * sd_t, mean_t + 2 * sd_t, color=2),
-           C.trace(f"{min(N_SHOW, len(paths))} simulierte Pfade", gx, gy, color=1, width=1, decimate_to=None),
-           C.trace("Erwartungswert (exakt)", t, mean_t, color=2, width=3),
-           C.trace(f"Mittel aller {params['n_paths']} Pfade", t, mc_mean, color=3, dash=True)]
-    vlines = [C.vline(ou.half_life(), "1 Halbwertszeit")] if ou.half_life() < T else []
+    fan = [C.envelope("±2σ(t) (exact)", t, mean_t - 2 * sd_t, mean_t + 2 * sd_t, color=2),
+           C.trace(f"{min(N_SHOW, len(paths))} simulated paths", gx, gy, color=1, width=1, decimate_to=None),
+           C.trace("Expected value (exact)", t, mean_t, color=2, width=3),
+           C.trace(f"Mean of all {params['n_paths']:,} paths", t, mc_mean, color=3, dash=True)]
+    vlines = [C.vline(ou.half_life(), "1 half-life")] if ou.half_life() < T else []
     out.chart(C.xy(
-        "Pfad-Fächer mit exaktem Erwartungsband", fan,
-        x=C.axis("Zeit (Jahre)"), y=C.axis("x"), hlines=[C.hline(ou.mu, "μ")], vlines=vlines, height=380,
-        subtitle=f"Die Abweichung vom Mittel schrumpft exponentiell. Im ±2σ(t)-Band liegen am Horizont "
-                 f"{_de(100 * inside, 0)} % der {params['n_paths']} Pfade (exakt: 95,4 %).",
+        "Path fan with exact expectation band", fan,
+        x=C.axis("Time (years)"), y=C.axis("x"), hlines=[C.hline(ou.mu, "μ")], vlines=vlines, height=380,
+        subtitle=f"The deviation from the mean shrinks exponentially. At the horizon, {_fmt(100 * inside, 0)}% of "
+                 f"the {params['n_paths']:,} paths lie within the ±2σ(t) band (exact: 95.4%).",
     ))
     out.chart(C.xy(
-        "Streuung: wächst und sättigt",
-        [C.trace("σ(t) exakt", t, sd_t, color=2, width=2.5),
-         C.trace("σ(t) der Simulation", t, mc_sd, color=1, dash=True)],
-        x=C.axis("Zeit (Jahre)"), y=C.axis("Standardabweichung"),
-        hlines=[C.hline(ou.stationary_std(), "stationär σ/√(2θ)")], height=300,
-        subtitle="Anders als bei einer Irrfahrt (√t) wird die Unsicherheit nicht beliebig groß.",
+        "Standard deviation: growth and saturation",
+        [C.trace("σ(t) exact", t, sd_t, color=2, width=2.5),
+         C.trace("σ(t) of the simulation", t, mc_sd, color=1, dash=True)],
+        x=C.axis("Time (years)"), y=C.axis("Standard deviation"),
+        hlines=[C.hline(ou.stationary_std(), "stationary σ/√(2θ)")], height=300,
+        subtitle="Unlike in a random walk (√t), the uncertainty does not grow without bound.",
     ))
     end = paths[:, -1]
     centers, heights = C.histogram(end, bins=40)
     grid = np.linspace(centers[0], centers[-1], 300)
     out.chart(C.xy(
-        "Verteilung am Horizont",
+        "Distribution at the horizon",
         [C.trace("Simulation", centers, heights, type="bar", color=1),
-         C.trace("Exakt N(E[X_T], Var[X_T])", grid, stats.norm.pdf(grid, mean_t[-1], sd_t[-1]), color=2),
-         C.trace("Stationär N(μ, σ²/2θ)", grid, stats.norm.pdf(grid, ou.mu, ou.stationary_std()),
+         C.trace("Exact N(E[X_T], Var[X_T])", grid, stats.norm.pdf(grid, mean_t[-1], sd_t[-1]), color=2),
+         C.trace("Stationary N(μ, σ²/2θ)", grid, stats.norm.pdf(grid, ou.mu, ou.stationary_std()),
                  color="muted", dash=True)],
-        x=C.axis(f"x nach {_de(T, 1)} Jahren"), y=C.axis("Dichte"), height=300,
-        subtitle="Die Verteilung ist normal. Nach einigen Halbwertszeiten ist sie von der stationären nicht "
-                 "mehr zu unterscheiden.",
+        x=C.axis(f"x after {_fmt(T, 1)} years"), y=C.axis("Density"), height=300,
+        subtitle="The distribution is normal. After a few half-lives it is indistinguishable from the "
+                 "stationary distribution.",
     ))
     if ou.mu > 0 and ou.mu - 2 * ou.stationary_std() < 0:
-        out.note("Achtung bei VIX-Anwendungen: Der OU-Prozess ist normalverteilt und kann negativ werden – "
-                 "die echte Volatilität nicht.", "warning")
+        out.note("Caution with VIX applications: the OU process is normally distributed and can turn negative – "
+                 "actual volatility cannot.", "warning")
 
     if params["fit_source"] != "none":
         _fit(params, data, out, ou)
@@ -149,48 +149,48 @@ def run(params, data, out):
 def _fit(params, data, out, true_ou):
     fit_source = params["fit_source"]
     if fit_source == "vix" and (data is None or data.vix is None):
-        out.note("Dein Datensatz enthält keinen VIX – der Fit nutzt deshalb einen simulierten Pfad mit deinen "
-                 "Parametern. Für den echten VIX wähle als Datensatz „S&P 500“.")
+        out.note("Your dataset contains no VIX, so the fit uses a simulated path with your parameters. To fit "
+                 "the actual VIX, select the ‘S&P 500’ dataset.")
         fit_source = "sim"
     if fit_source == "vix":
         series = np.asarray(data.vix, dtype=float)
         derived = (data.meta or {}).get("source") in ("synthetic", "crisis")
-        label = "abgeleiteter VIX" if derived else "VIX"
-        source = "dem aus den Renditen abgeleiteten VIX" if derived else "dem VIX des Datensatzes"
+        label = "derived VIX" if derived else "VIX"
+        source = "the VIX derived from the returns" if derived else "the dataset's VIX"
     else:
         n_fit = int(round(params["fit_years"] * 252))
         series = true_ou.simulate(true_ou.mu, n_fit * DT, n_steps=n_fit, n_paths=1, seed=params["seed"] + 1)[0]
-        label, source = "simulierter Pfad", "dem simulierten Pfad"
+        label, source = "simulated path", "the simulated path"
 
     try:
         fit = OrnsteinUhlenbeckProcess.fit(series, dt=DT)
     except ValueError as exc:
         msg = str(exc)
-        reason = ("Die AR(1)-Steigung ist ≥ 1: Die Reihe zeigt keine Rückkehr zum Mittel (Irrfahrt oder Trend)."
+        reason = ("The AR(1) slope is ≥ 1: the series shows no mean reversion (random walk or trend)."
                   if ">= 1" in msg else
-                  "Die AR(1)-Steigung ist ≤ 0: Die Reihe springt eher hin und her, als dass sie zurückkehrt – "
-                  "θ wäre unendlich." if "<= 0" in msg else msg)
-        out.note(f"Kein OU-Fit auf {source} möglich. {reason}", "warning")
+                  "The AR(1) slope is ≤ 0: the series flips back and forth rather than reverting – "
+                  "θ would be infinite." if "<= 0" in msg else msg)
+        out.note(f"No OU fit possible on {source}. {reason}", "warning")
         return
 
     b = np.exp(-fit.theta * DT)
-    rows = [["θ (pro Jahr)", fit.theta], ["μ", fit.mu], ["σ (pro √Jahr)", fit.sigma],
-            ["Halbwertszeit (Handelstage)", fit.half_life() * 252], ["stationäre Std", fit.stationary_std()],
-            ["AR(1)-Steigung b = e^(−θ·dt)", b]]
+    rows = [["θ (per year)", fit.theta], ["μ", fit.mu], ["σ (per √year)", fit.sigma],
+            ["Half-life (trading days)", fit.half_life() * 252], ["Stationary std", fit.stationary_std()],
+            ["AR(1) slope b = e^(−θ·dt)", b]]
     truth = [true_ou.theta, true_ou.mu, true_ou.sigma, true_ou.half_life() * 252, true_ou.stationary_std(),
              np.exp(-true_ou.theta * DT)]
     if fit_source == "sim":
         rows = [r + [tv, r[1] / tv - 1 if tv else None] for r, tv in zip(rows, truth)]
-        out.table(f"Parameter-Schätzung aus {len(series)} Tagen ({_de(len(series) / 252, 1)} Jahre)",
-                  ["Parameter", "geschätzt", "wahr", "Fehler"], rows, formats=["text", "num", "num", "pct"],
-                  note="θ braucht viele Halbwertszeiten Daten: Bei kurzen Reihen wird es systematisch überschätzt.")
+        out.table(f"Parameter estimate from {len(series):,} days ({_fmt(len(series) / 252, 1)} years)",
+                  ["Parameter", "Estimated", "True", "Error"], rows, formats=["text", "num", "num", "pct"],
+                  note="θ needs data covering many half-lives: for short series it is systematically overestimated.")
     else:
-        out.table(f"OU-Fit: {label} · {data.name} · {len(series)} Tage", ["Parameter", "geschätzt", "deine Simulation"],
+        out.table(f"OU fit: {label} · {data.name} · {len(series):,} days", ["Parameter", "Estimated", "Your simulation"],
                   [r + [tv] for r, tv in zip(rows, truth)], formats=["text", "num", "num"],
-                  note="Rechts zum Vergleich die Parameter, mit denen du oben simulierst.")
-    out.metric("Fit: Halbwertszeit", fit.half_life() * 252, "num", digits=0, unit="Handelstage",
-               hint=f"geschätzt aus {source}")
-    out.metric("Fit: μ", fit.mu, "num", hint=f"θ = {_de(fit.theta, 1)} pro Jahr, σ = {_de(fit.sigma, 1)}")
+                  note="On the right, for comparison: the parameters you are simulating with above.")
+    out.metric("Fit: half-life (trading days)", fit.half_life() * 252, "num", digits=0,
+               hint=f"estimated from {source}")
+    out.metric("Fit: μ", fit.mu, "num", hint=f"θ = {_fmt(fit.theta, 1)} per year, σ = {_fmt(fit.sigma, 1)}")
 
     hist = series[-252:]
     h_days = np.arange(-len(hist) + 1, 1)
@@ -199,13 +199,13 @@ def _fit(params, data, out, true_ou):
     f_mean = fit.expected_value(series[-1], tf)
     f_sd = np.sqrt(fit.variance_at_time(tf))
     out.chart(C.xy(
-        f"Fit und Prognosekegel – {label}",
-        [C.envelope("±2σ-Prognoseband", f_days, f_mean - 2 * f_sd, f_mean + 2 * f_sd, color=2),
-         C.trace(f"Beobachtet (letzte {len(hist)} Tage)", h_days, hist, color=1, width=1.5),
-         C.trace("Prognose E[X]", f_days, f_mean, color=2, width=2.5)],
-        x=C.axis("Handelstage relativ zum letzten Wert (0 = heute)", fmt="int"),
+        f"Fit and forecast cone – {label}",
+        [C.envelope("±2σ forecast band", f_days, f_mean - 2 * f_sd, f_mean + 2 * f_sd, color=2),
+         C.trace(f"Observed (last {len(hist)} days)", h_days, hist, color=1, width=1.5),
+         C.trace("Forecast E[X]", f_days, f_mean, color=2, width=2.5)],
+        x=C.axis("Trading days relative to the last value (0 = today)", fmt="int"),
         y=C.axis("VIX" if fit_source == "vix" else "x"),
-        hlines=[C.hline(fit.mu, "geschätztes μ")], height=340,
-        subtitle=f"Mit dem geschätzten Modell: nach {_de(fit.half_life() * 252, 0)} Handelstagen ist die "
-                 "Hälfte der heutigen Abweichung abgebaut.",
+        hlines=[C.hline(fit.mu, "estimated μ")], height=340,
+        subtitle=f"With the estimated model, half of today's deviation has decayed after "
+                 f"{_fmt(fit.half_life() * 252, 0)} trading days.",
     ))

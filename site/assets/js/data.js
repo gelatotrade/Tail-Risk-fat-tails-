@@ -4,25 +4,25 @@
 const SHEETJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
 
 export const SYNTHETIC_MODELS = [
-  { value: 'levy_jump', label: 'Gauß + Lévy-Sprünge', hint: 'Realistisch: ruhige Tage mit seltenen, heftigen Sprüngen.' },
-  { value: 'garch', label: 'GARCH(1,1)', hint: 'Volatilitäts-Cluster: unruhige Phasen folgen aufeinander.' },
-  { value: 'student_t', label: 'Student-t (ν = 4)', hint: 'Klassische fette Ränder, symmetrisch.' },
-  { value: 'levy', label: 'Lévy-stabil (α = 1,7)', hint: 'Sehr fette Ränder, unendliche Varianz.' },
-  { value: 'regime_switching', label: 'Regimewechsel', hint: 'Wechsel zwischen ruhigem und Stress-Regime.' },
-  { value: 'gaussian', label: 'Normalverteilung', hint: 'Referenz ohne fette Ränder – zum Vergleich.' },
+  { value: 'levy_jump', label: 'Gaussian + Lévy jumps', hint: 'Realistic: calm days with rare, violent jumps.' },
+  { value: 'garch', label: 'GARCH(1,1)', hint: 'Volatility clustering: turbulent periods follow one another.' },
+  { value: 'student_t', label: "Student's t (ν = 4)", hint: 'Classic fat tails, symmetric.' },
+  { value: 'levy', label: 'Lévy-stable (α = 1.7)', hint: 'Very fat tails, infinite variance.' },
+  { value: 'regime_switching', label: 'Regime switching', hint: 'Alternates between a calm and a stress regime.' },
+  { value: 'gaussian', label: 'Normal distribution', hint: 'Benchmark without fat tails – for comparison.' },
 ];
 
 export const PRESETS = [
-  { id: 'all', label: 'Gesamter Zeitraum' },
-  { id: '1y', label: '1 Jahr', years: 1 },
-  { id: '3y', label: '3 Jahre', years: 3 },
-  { id: '5y', label: '5 Jahre', years: 5 },
-  { id: 'volmageddon', label: 'Volmageddon 2018', from: '2017-07-01', to: '2018-06-30' },
-  { id: 'covid', label: 'COVID-Crash 2020', from: '2019-07-01', to: '2020-08-31' },
-  { id: 'bear2022', label: 'Bärenmarkt 2022', from: '2021-07-01', to: '2023-03-31' },
-  { id: 'tariff', label: 'Zoll-Crash 2025', from: '2024-10-01', to: '2025-08-31' },
-  { id: 'dotcom', label: 'Dotcom 2000–02', from: '1999-01-01', to: '2003-06-30' },
-  { id: 'gfc', label: 'Finanzkrise 2008', from: '2007-01-01', to: '2009-12-31' },
+  { id: 'all', label: 'Full period' },
+  { id: '1y', label: '1 year', years: 1 },
+  { id: '3y', label: '3 years', years: 3 },
+  { id: '5y', label: '5 years', years: 5 },
+  { id: 'volmageddon', label: '2018 Volmageddon', from: '2017-07-01', to: '2018-06-30' },
+  { id: 'covid', label: '2020 COVID crash', from: '2019-07-01', to: '2020-08-31' },
+  { id: 'bear2022', label: '2022 bear market', from: '2021-07-01', to: '2023-03-31' },
+  { id: 'tariff', label: '2025 tariff crash', from: '2024-10-01', to: '2025-08-31' },
+  { id: 'dotcom', label: '2000–02 dot-com crash', from: '1999-01-01', to: '2003-06-30' },
+  { id: 'gfc', label: '2008 financial crisis', from: '2007-01-01', to: '2009-12-31' },
 ];
 
 export const DEFAULT_CHOICE = { kind: 'market', id: 'sp500', preset: 'all' };
@@ -30,7 +30,7 @@ export const DEFAULT_CHOICE = { kind: 'market', id: 'sp500', preset: 'all' };
 let marketP = null;
 export function loadMarket(base) {
   marketP ??= fetch(new URL('data/market.json?v=__BUILD__', base)).then((r) => {
-    if (!r.ok) throw new Error(`Marktdaten: HTTP ${r.status}`);
+    if (!r.ok) throw new Error(`Market data: HTTP ${r.status}`);
     return r.json();
   });
   return marketP;
@@ -74,12 +74,12 @@ export async function resolve(choice, base) {
     const m = SYNTHETIC_MODELS.find((x) => x.value === choice.model) || SYNTHETIC_MODELS[0];
     const n = Math.max(60, Math.min(20000, Number(choice.n) || 2520)), seed = Number(choice.seed) || 0;
     return { key: `syn:${m.value}:${n}:${seed}`, descriptor: { source: 'synthetic', model: m.value, n, seed },
-      arrays: null, label: `Synthetisch · ${m.label}`, detail: `${n.toLocaleString('de-DE')} Tage · Seed ${seed}`, shareable: true };
+      arrays: null, label: `Synthetic · ${m.label}`, detail: `${n.toLocaleString('en-GB')} days · seed ${seed}`, shareable: true };
   }
   if (choice.kind === 'crisis') {
     const seed = Number.isFinite(Number(choice.seed)) && choice.seed !== '' ? Number(choice.seed) : 42;
     return { key: `crisis:${seed}`, descriptor: { source: 'crisis', seed }, arrays: null,
-      label: 'Synthetisches Krisenszenario', detail: `1.000 Tage: ruhig → Crash → Erholung · Seed ${seed}`, shareable: true };
+      label: 'Synthetic crisis scenario', detail: `1,000 days: calm → crash → recovery · seed ${seed}`, shareable: true };
   }
   if (choice.kind === 'upload') {
     const up = uploads.get(choice.key);
@@ -99,12 +99,13 @@ export async function resolve(choice, base) {
     descriptor: { source: 'market', name: ds.name + (presetLabel && choice.preset !== 'all' ? ` · ${presetLabel}` : '') },
     arrays: { dates: arrays.dates, prices: arrays.prices, ...(hasVix ? { vix: arrays.vix, vix3m: arrays.vix3m.map((v) => (v == null ? NaN : v)) } : {}) },
     label: ds.name + (presetLabel && choice.preset !== 'all' ? ` · ${presetLabel}` : ''),
-    detail: `${fmtD(range.from)} – ${fmtD(range.to)} · ${(arrays.dates.length - 1).toLocaleString('de-DE')} Renditen${hasVix ? ' · mit VIX' : ''}`,
+    detail: `${fmtD(range.from)} – ${fmtD(range.to)} · ${(arrays.dates.length - 1).toLocaleString('en-GB')} returns${hasVix ? ' · with VIX' : ''}`,
     range, shareable: true, source: market.source, updated: market.updated,
   };
 }
 
-const fmtD = (iso) => { const [y, m, d] = iso.split('-'); return `${d}.${m}.${y}`; };
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const fmtD = (iso) => { const [y, m, d] = iso.split('-'); return `${Number(d)} ${MON[Number(m) - 1]} ${y}`; };
 
 // --------------------------------------------------------------------------- URL encoding
 export function encodeChoice(c) {
@@ -130,18 +131,37 @@ function loadSheetJS() {
     const s = document.createElement('script');
     s.src = SHEETJS_URL; s.async = true;
     s.onload = () => resolve(window.XLSX);
-    s.onerror = () => { sheetP = null; reject(new Error('Excel-Bibliothek (SheetJS) konnte nicht geladen werden.')); };
+    s.onerror = () => { sheetP = null; reject(new Error('The Excel library (SheetJS) could not be loaded.')); };
     document.head.appendChild(s);
   });
   return sheetP;
 }
 export { loadSheetJS };
 
-/** Parse a number written the German or English way: "1.234,56", "1,234.56", "-0,8 %", "12%". */
-export function parseNumber(v) {
+/**
+ * Decide how numbers in a column are written.  A comma followed by anything but exactly three
+ * digits ("0,95", "12,5") can only be a decimal comma (German exports); a comma always followed by
+ * exactly three digits ("4,567", "1,234.50") is a thousands separator (English).  Returns ',' or '.'
+ * as the decimal mark, or null when the column gives no hint.
+ */
+export function detectDecimalMark(values) {
+  let comma = 0, thousands = 0;
+  for (const v of values) {
+    if (typeof v !== 'string') continue;
+    const s = v.trim();
+    if (/\d,\d{3}(?!\d)/.test(s) && !/,\d{1,2}(?!\d)|,\d{4,}/.test(s)) thousands += 1;
+    else if (/\d,\d/.test(s)) comma += 1;
+  }
+  if (comma > 0 && comma >= thousands) return ',';
+  if (thousands > 0) return '.';
+  return null;
+}
+
+/** Parse "1,234.56", "1.234,56", "-0.8%", "12%" ... ; `decimal` (',' | '.') resolves ambiguous cases. */
+export function parseNumber(v, decimal = null) {
   if (typeof v === 'number') return Number.isFinite(v) ? v : NaN;
   if (v == null) return NaN;
-  let s = String(v).trim().replace(/ |\s/g, '').replace(/[€$]/g, '').replace(/−/g, '-');
+  let s = String(v).trim().replace(/ |\s/g, '').replace(/[€$£]/g, '').replace(/−/g, '-');
   if (!s) return NaN;
   const pct = s.endsWith('%');
   if (pct) s = s.slice(0, -1);
@@ -149,16 +169,37 @@ export function parseNumber(v) {
   if (lastComma > -1 && lastDot > -1) {
     s = lastComma > lastDot ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
   } else if (lastComma > -1) {
-    s = (s.match(/,/g).length > 1) ? s.replace(/,/g, '') : s.replace(',', '.');
+    const many = s.match(/,/g).length > 1;
+    const looksThousands = /^[-+]?\d{1,3}(,\d{3})+$/.test(s);
+    if (decimal === ',') s = s.replace(',', '.');
+    else if (decimal === '.' || many || looksThousands) s = s.replace(/,/g, '');
+    else s = s.replace(',', '.');
   } else if ((s.match(/\./g) || []).length > 1) {
+    s = s.replace(/\./g, '');
+  } else if (decimal === ',' && /^[-+]?\d{1,3}(\.\d{3})+$/.test(s)) {
     s = s.replace(/\./g, '');
   }
   if (!/^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(s)) return NaN;
   return Number(s);
 }
 
-/** Parse a date cell: Date, ISO, dd.mm.yyyy, mm/dd/yyyy, Excel serial. Returns ISO or null. */
-export function parseDate(v, allowSerial = false) {
+/**
+ * Decide how slash dates in a column are written. A first part above 12 ("31/12/2024") can only be
+ * a day (British exports), a second part above 12 ("12/31/2024") only a day in US order. A column
+ * that never settles it (every day ≤ 12) is read the British way.
+ */
+export function detectDateOrder(values) {
+  for (const v of values) {
+    const m = typeof v === 'string' && v.trim().match(/^(\d{1,2})\/(\d{1,2})\/\d{4}/);
+    if (!m) continue;
+    if (+m[1] > 12) return 'dmy';
+    if (+m[2] > 12) return 'mdy';
+  }
+  return 'dmy';
+}
+
+/** Parse a date cell: Date, ISO, dd.mm.yyyy, dd/mm/yyyy or mm/dd/yyyy, Excel serial. Returns ISO or null. */
+export function parseDate(v, allowSerial = false, order = 'dmy') {
   if (v instanceof Date && !isNaN(v)) {
     const d = new Date(Date.UTC(v.getFullYear(), v.getMonth(), v.getDate()));
     return d.toISOString().slice(0, 10);
@@ -171,7 +212,7 @@ export function parseDate(v, allowSerial = false) {
   let m;
   if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return iso(m[1], m[2], m[3]);
   if ((m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})/))) return iso(m[3].length === 2 ? '20' + m[3] : m[3], m[2], m[1]);
-  if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))) return iso(m[3], m[1], m[2]);
+  if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))) return order === 'mdy' ? iso(m[3], m[1], m[2]) : iso(m[3], m[2], m[1]);
   return null;
 }
 function iso(y, m, d) {
@@ -201,7 +242,7 @@ function splitLine(line, delim) {
 }
 
 export async function readFile(file) {
-  const name = file.name || 'Datei';
+  const name = file.name || 'File';
   if (/\.(xlsx|xlsm|xls|ods)$/i.test(name)) {
     const XLSX = await loadSheetJS();
     const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
@@ -210,7 +251,7 @@ export async function readFile(file) {
     return { name, sheets };
   }
   const text = await file.text();
-  return { name, sheets: [{ name: 'Tabelle', rows: parseDelimited(text) }] };
+  return { name, sheets: [{ name: 'Sheet', rows: parseDelimited(text) }] };
 }
 
 /** Inspect a 2D array: header row, column kinds, sensible default mapping. */
@@ -218,14 +259,16 @@ export function analyzeTable(rows) {
   rows = rows.filter((r) => r && r.some((c) => c !== null && c !== ''));
   const width = Math.max(...rows.slice(0, 50).map((r) => r.length));
   const isHeader = rows[0] && rows[0].filter((c) => c !== null && c !== '').every((c) => typeof c === 'string' && Number.isNaN(parseNumber(c)) && !parseDate(c));
-  const header = isHeader ? rows[0].map((c, i) => String(c ?? `Spalte ${i + 1}`)) : Array.from({ length: width }, (_, i) => `Spalte ${String.fromCharCode(65 + (i % 26))}`);
+  const header = isHeader ? rows[0].map((c, i) => String(c ?? `Column ${i + 1}`)) : Array.from({ length: width }, (_, i) => `Column ${String.fromCharCode(65 + (i % 26))}`);
   const body = isHeader ? rows.slice(1) : rows;
   const cols = header.map((h, j) => {
     const vals = body.slice(0, 400).map((r) => r[j]).filter((v) => v !== null && v !== '' && v !== undefined);
     const dateHint = /dat|date|tag|zeit|time/i.test(h);
-    const nDate = vals.filter((v) => parseDate(v, dateHint)).length;
-    const nums = vals.map(parseNumber).filter(Number.isFinite);
-    return { index: j, name: h, date: vals.length > 0 && nDate / vals.length > 0.8, numeric: vals.length > 0 && nums.length / vals.length > 0.8, sample: nums.slice(0, 200) };
+    const dateOrder = detectDateOrder(vals);
+    const nDate = vals.filter((v) => parseDate(v, dateHint, dateOrder)).length;
+    const decimal = detectDecimalMark(vals);
+    const nums = vals.map((v) => parseNumber(v, decimal)).filter(Number.isFinite);
+    return { index: j, name: h, decimal, dateOrder, date: vals.length > 0 && nDate / vals.length > 0.8, numeric: vals.length > 0 && nums.length / vals.length > 0.8, sample: nums.slice(0, 200) };
   });
   const dateCol = cols.find((c) => c.date);
   const numeric = cols.filter((c) => c.numeric && c !== dateCol);
@@ -250,18 +293,19 @@ export function guessKind(sample, name = '') {
   return 'percent';
 }
 
-export const KIND_LABELS = { prices: 'Kurse / Indexstände', percent: 'Renditen in %', simple: 'Renditen dezimal (0,01 = 1 %)', log: 'Log-Renditen dezimal' };
+export const KIND_LABELS = { prices: 'Prices / index levels', percent: 'Returns in %', simple: 'Returns as decimals (0.01 = 1%)', log: 'Log returns as decimals' };
 
 /** Build upload arrays from a mapping. Sorts by date ascending, drops unparseable rows. */
 export function buildUpload(name, table, { dateCol, valueCol, vixCol, kind }) {
   const recs = [];
   let dropped = 0;
   const dateHint = dateCol >= 0 && /dat|date|tag|zeit|time/i.test(table.header[dateCol] || '');
+  const dateOrder = table.cols[dateCol]?.dateOrder;
   for (const r of table.body) {
-    const v = parseNumber(r[valueCol]);
-    const d = dateCol >= 0 ? parseDate(r[dateCol], dateHint || typeof r[dateCol] === 'number') : null;
+    const v = parseNumber(r[valueCol], table.cols[valueCol]?.decimal);
+    const d = dateCol >= 0 ? parseDate(r[dateCol], dateHint || typeof r[dateCol] === 'number', dateOrder) : null;
     if (!Number.isFinite(v) || (dateCol >= 0 && !d)) { dropped++; continue; }
-    recs.push({ d, v, x: vixCol >= 0 ? parseNumber(r[vixCol]) : NaN });
+    recs.push({ d, v, x: vixCol >= 0 ? parseNumber(r[vixCol], table.cols[vixCol]?.decimal) : NaN });
   }
   let reversed = false;
   if (dateCol >= 0 && recs.length > 1 && recs[0].d > recs[recs.length - 1].d) { recs.reverse(); reversed = true; }
@@ -271,7 +315,7 @@ export function buildUpload(name, table, { dateCol, valueCol, vixCol, kind }) {
   if (kind === 'prices') arrays.prices = recs.map((r) => r.v); else arrays.returns = recs.map((r) => r.v);
   if (vixCol >= 0) arrays.vix = recs.map((r) => r.x);
   const hash = hashString(name + JSON.stringify(arrays).slice(0, 20000) + recs.length + kind);
-  const detail = `${recs.length.toLocaleString('de-DE')} Zeilen${arrays.dates ? ` · ${fmtD(arrays.dates[0])} – ${fmtD(arrays.dates[arrays.dates.length - 1])}` : ''} · ${KIND_LABELS[kind]}`;
+  const detail = `${recs.length.toLocaleString('en-GB')} rows${arrays.dates ? ` · ${fmtD(arrays.dates[0])} – ${fmtD(arrays.dates[arrays.dates.length - 1])}` : ''} · ${KIND_LABELS[kind]}`;
   return { name, arrays, hash, detail, dropped, reversed, n: recs.length, returnsUnit: kind === 'percent' ? 'percent' : kind === 'simple' ? 'simple' : 'log' };
 }
 

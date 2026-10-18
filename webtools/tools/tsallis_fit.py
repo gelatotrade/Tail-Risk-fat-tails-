@@ -1,4 +1,4 @@
-"""q-Gauß an echte Renditen anpassen: q, β, Tsallis-Entropie und das Risikourteil des Tsallis-Modells."""
+"""Fit a q-Gaussian to real returns: q, β, Tsallis entropy and the risk assessment of the Tsallis model."""
 
 import numpy as np
 from scipy import stats
@@ -10,30 +10,30 @@ from ..core import ToolError
 
 SPEC = {
     "id": "tsallis-fit",
-    "title": "Tsallis-Fit & Risikostufe",
+    "title": "Tsallis fit and risk level",
     "group": "physics",
-    "order": 70,
-    "summary": "Schätzt den Tsallis-Index q deiner Renditen auf drei Wegen, vergleicht Modell und Daten an den "
-               "Rändern und zeigt die Risikostufe des Tsallis-Modells.",
+    "order": 80,
+    "summary": "Estimates the Tsallis index q of your returns in three ways, compares model and data in the "
+               "tails, and shows the risk level of the Tsallis model.",
     "description": (
-        "Drei Schätzer für den entropischen Index **q**: Die **Momenten-Methode** invertiert die Kurtosis "
-        "(k = 6(q − 1)/(7 − 5q)) und kann deshalb nur q < 7/5 erkennen – darüber ist die Kurtosis unendlich. Die "
-        "**Maximum-Likelihood-Methode** passt q und β direkt an die Dichte an und sieht auch schwerere Ränder. Der "
-        "**Hill-Weg** (`estimate_optimal_q`) rechnet den Tail-Index der 5 % größten |Renditen| in q um.\n\n"
-        "`TsallisTailRiskModel.update` nutzt den Momenten-Fit: Es berechnet die Wahrscheinlichkeit für 3- bis "
-        "6-Sigma-Tage, das Verhältnis zur Normalverteilung, die Tsallis-Entropie der Renditeverteilung (50 Klassen) "
-        "und daraus eine Risikostufe. „Erhöht“ gilt ab q > 1,3 und S_q > 1, „Hoch“ ab q > 1,5 und S_q > 1,5, "
-        "„Extrem“ ab q > 1,8 und S_q > 2. Weil der Momenten-Fit unter 1,4 bleibt, erreicht das Modell die beiden "
-        "obersten Stufen praktisch nicht – vergleiche deshalb auch das MLE-q.\n\n"
-        "So liest du die Diagramme: Im Log-Log-Plot zeigt sich, ob das Modell die Häufigkeit großer Tage trifft; im "
-        "Q-Q-Plot liegen die Punkte auf der Diagonale, wenn der q-Gauß auch die extremen Quantile beschreibt."
+        "Three estimators for the entropic index **q**: the **method of moments** inverts the kurtosis "
+        "(k = 6(q − 1)/(7 − 5q)) and can therefore only detect q < 7/5 – above that the kurtosis is infinite. "
+        "**Maximum likelihood** fits q and β directly to the density and also captures heavier tails. The "
+        "**Hill route** (`estimate_optimal_q`) converts the tail index of the 5% largest |returns| into q.\n\n"
+        "`TsallisTailRiskModel.update` uses the moment fit: it computes the probability of 3- to 6-sigma days, "
+        "the ratio to the normal distribution, the Tsallis entropy of the return distribution (50 bins) and, "
+        "from these, a risk level. ‘Elevated’ applies from q > 1.3 and S_q > 1, ‘High’ from q > 1.5 and "
+        "S_q > 1.5, ‘Extreme’ from q > 1.8 and S_q > 2. Because the moment fit stays below 1.4, the model "
+        "practically never reaches the two top levels – so compare the MLE q as well.\n\n"
+        "How to read the charts: the log-log plot shows whether the model matches the frequency of large days; "
+        "on the Q-Q plot the points lie on the diagonal if the q-Gaussian also describes the extreme quantiles."
     ),
     "needs": ["returns"],
     "params": [
-        {"name": "fit", "type": "select", "default": "mle", "label": "Fit für Ränder und Q-Q-Plot",
-         "options": [{"value": "mle", "label": "Maximum Likelihood"}, {"value": "moments", "label": "Momente (Kurtosis)"}]},
+        {"name": "fit", "type": "select", "default": "mle", "label": "Fit for tails and Q-Q plot",
+         "options": [{"value": "mle", "label": "Maximum likelihood"}, {"value": "moments", "label": "Moments (kurtosis)"}]},
         {"name": "bins", "type": "int", "default": 90, "min": 30, "max": 200, "step": 10,
-         "label": "Klassen im Histogramm"},
+         "label": "Histogram bins"},
     ],
     "covers": [
         "src.physics.tsallis_statistics.TsallisDistribution.fit",
@@ -48,18 +48,18 @@ SPEC = {
     "cost": "fast",
 }
 
-LEVELS = {"NORMAL": ("good", "Normal"), "ELEVATED": ("warning", "Erhöht"),
-          "HIGH": ("serious", "Hoch"), "EXTREME": ("critical", "Extrem")}
+LEVELS = {"NORMAL": ("good", "Normal"), "ELEVATED": ("warning", "Elevated"),
+          "HIGH": ("serious", "High"), "EXTREME": ("critical", "Extreme")}
 STEP = {"NORMAL": 1, "ELEVATED": 2, "HIGH": 3, "EXTREME": 4}
 
 
 def _days(x):
-    """Expected number of days: tiny Gaussian expectations as text instead of 4,96e-6."""
-    return "< 0,001" if x < 1e-3 else float(x)
+    """Expected number of days: tiny Gaussian expectations as text instead of 4.96e-6."""
+    return "< 0.001" if x < 1e-3 else float(x)
 
 
-def _de(x, digits=2):
-    return f"{x:.{digits}f}".replace(".", ",")
+def _fmt(x, digits=2):
+    return f"{x:.{digits}f}"
 
 
 def _sd(dist):
@@ -74,43 +74,43 @@ def run(params, data, out):
         mom = TsallisDistribution.fit(r, method="moments")
         mle = TsallisDistribution.fit(r, method="mle")
     except ValueError as exc:
-        raise ToolError(f"Der Tsallis-Fit ist nicht möglich: Die Renditen sind (fast) konstant ({exc}).")
+        raise ToolError(f"The Tsallis fit is not possible: the returns are (almost) constant ({exc}).")
     q_hill = float(TsallisEntropyAnalyzer().estimate_optimal_q(r))
     model = TsallisTailRiskModel()
     u = model.update(r)
     mu, sd = float(np.mean(r)), float(np.std(r))
     gauss = TsallisDistribution(q=1.0, beta=1.0 / (2 * sd ** 2), mu=mu)  # q = 1 is the normal distribution
-    chosen, cname = (mle, "MLE") if params["fit"] == "mle" else (mom, "Momente")
+    chosen, cname = (mle, "MLE") if params["fit"] == "mle" else (mom, "moments")
 
     level, label = LEVELS.get(u["risk_level"], ("warning", u["risk_level"]))
-    out.metric("q (Maximum Likelihood)", mle.q, "num", hint="1 = Gauß; Aktien meist 1,4–1,6")
-    out.metric("q (Momente)", mom.q, "num", hint="aus der Kurtosis, nur bis 7/5 identifizierbar")
-    out.metric("q (Hill)", q_hill, "num", hint="aus dem Tail-Index der größten 5 %")
-    out.metric("Tail-Exponent der Dichte", float(chosen.tail_exponent()), "num",
-               hint=f"2/(q − 1), {cname}-Fit; < 3 hieße unendliche Varianz")
-    out.metric("Tsallis-Entropie S_q", u["tsallis_entropy"], "num", hint="Histogramm mit 50 Klassen, q aus Momenten")
-    out.metric("Risikostufe (Tsallis-Modell)", label, "text", status=level,
-               badge=f"Stufe {STEP.get(u['risk_level'], '?')} von 4",
-               hint=f"aus q = {_de(u['q'])} und S_q = {_de(u['tsallis_entropy'])}")
+    out.metric("q (maximum likelihood)", mle.q, "num", hint="1 = Gaussian; equities typically 1.4–1.6")
+    out.metric("q (moments)", mom.q, "num", hint="from the kurtosis; identifiable only up to 7/5")
+    out.metric("q (Hill)", q_hill, "num", hint="from the tail index of the largest 5%")
+    out.metric("Tail exponent of the density", float(chosen.tail_exponent()), "num",
+               hint=f"2/(q − 1), {cname} fit; < 3 would mean infinite variance")
+    out.metric("Tsallis entropy S_q", u["tsallis_entropy"], "num", hint="histogram with 50 bins, q from moments")
+    out.metric("Risk level (Tsallis model)", label, "text", status=level,
+               badge=f"Level {STEP.get(u['risk_level'], '?')} of 4",
+               hint=f"from q = {_fmt(u['q'])} and S_q = {_fmt(u['tsallis_entropy'])}")
     ratio4 = float(u["fat_tail_ratio"]["4sigma"])
-    out.metric("4σ-Tage gegenüber Gauß", ratio4, "x", hint="Wahrscheinlichkeit laut Momenten-Fit ÷ Gauß-Wert",
+    out.metric("4σ days relative to Gaussian", ratio4, "x", hint="probability from the moment fit ÷ Gaussian value",
                status="serious" if ratio4 > 5 else None,
-               badge="Gauß unterschätzt" if ratio4 > 5 else "")
+               badge="Gaussian understates risk" if ratio4 > 5 else "")
 
     # --- table: the estimators side by side
     def ll(d):
         return float(np.sum(d.log_pdf(r)))
 
-    fits = [("Momente (Kurtosis)", mom, 3), ("Maximum Likelihood", mle, 3), ("Normalverteilung (q = 1)", gauss, 2)]
+    fits = [("Moments (kurtosis)", mom, 3), ("Maximum likelihood", mle, 3), ("Normal distribution (q = 1)", gauss, 2)]
     rows = []
     for name, d, k in fits:
         lv = ll(d)
         rows.append([name, float(d.q), float(d.beta), _sd(d), float(d.tail_exponent()) if d.q > 1 else "∞", lv, 2 * k - 2 * lv])
     rows.insert(2, ["Hill (estimate_optimal_q)", q_hill, None, None, 2 / (q_hill - 1), None, None])
-    out.table("Drei Wege zu q", ["Methode", "q", "β", "Modell-σ täglich", "Tail-Exponent", "Log-Likelihood", "AIC"],
+    out.table("Three routes to q", ["Method", "q", "β", "Model σ (daily)", "Tail exponent", "Log-likelihood", "AIC"],
               rows, formats=["text", "num", "num", "pct", "num", "num", "num"],
-              note="Kleineres AIC = bessere Beschreibung der gesamten Verteilung. β ist für Tagesrenditen groß, weil "
-                   "1/√β die Breite in Renditeeinheiten ist.")
+              note="Lower AIC = better description of the whole distribution. β is large for daily returns because "
+                   "1/√β is the width in return units.")
 
     # --- table: model vs data in the tails, as numbers of days
     med = float(np.median(r))
@@ -120,14 +120,15 @@ def run(params, data, out):
         obs = int(np.sum(np.abs(r - med) > k * sd))
         p_mle = float(mle.tail_probability(mle.mu + k * sd, "both", exact=True))
         ratio = float(u["fat_tail_ratio"][key])
-        trows.append([f"{k} σ", obs, _days(p_mle * n), _days(float(u["extreme_probabilities"][key]) * n),
+        trows.append([f"{k}σ", obs, _days(p_mle * n), _days(float(u["extreme_probabilities"][key]) * n),
                       _days(float(2 * stats.norm.sf(k)) * n), "> 10⁵" if ratio > 1e5 else ratio])
-    out.table("Extreme Tage: Modell vs. Daten",
-              ["Schwelle", "Tage beobachtet", "erwartet q-Gauß (MLE)", "erwartet q-Gauß (Momente)", "erwartet Gauß",
-               "Faktor Momente / Gauß"],
+    out.table("Extreme days: model vs data",
+              ["Threshold", "Observed", "q-Gaussian (MLE)", "q-Gaussian (moments)", "Gaussian",
+               "Moments ÷ Gaussian"],
               trows, formats=["text", "int", "num", "num", "num", "x"],
-              note=f"Tage mit |r − Median| > k·σ unter {n} Tagen; erwartet = Modellwahrscheinlichkeit × {n}. Die "
-                   "Momente-Spalte und der Faktor stammen direkt aus `TsallisTailRiskModel.update`.")
+              note=f"Observed: days with |r − median| > k·σ out of {n:,} days. Model columns: expected number of "
+                   f"days = model probability × {n:,}. The moments column and the ratio come directly from "
+                   "TsallisTailRiskModel.update.")
 
     # --- chart 1: histogram vs both fits, log scale
     centers, heights = C.histogram(r, bins=params["bins"], density=True)
@@ -135,13 +136,13 @@ def run(params, data, out):
     floor = float(np.min(heights[heights > 0])) / 4
     keep = lambda y: np.where(y >= floor, y, np.nan)  # noqa: E731
     out.chart(C.xy(
-        "Tagesrenditen und q-Gauß-Fits",
-        [C.trace("Beobachtet", centers, np.where(heights > 0, heights, np.nan), type="bar", color=1),
-         C.trace(f"q-Gauß MLE (q = {_de(mle.q)})", grid, keep(mle.pdf(grid)), color=2, width=2.5),
-         C.trace(f"q-Gauß Momente (q = {_de(mom.q)})", grid, keep(mom.pdf(grid)), color=3, width=1.5),
-         C.trace("Normalverteilung", grid, keep(gauss.pdf(grid)), color="muted", dash=True)],
-        x=C.axis("Tagesrendite", fmt="pct", digits=1), y=C.axis("Dichte", type="log", range=(floor, float(heights.max()) * 3)),
-        subtitle="Logarithmische Skala. Die Gauß-Parabel fällt an den Rändern viel zu früh ab.",
+        "Daily returns and q-Gaussian fits",
+        [C.trace("Observed", centers, np.where(heights > 0, heights, np.nan), type="bar", color=1),
+         C.trace(f"q-Gaussian, MLE (q = {_fmt(mle.q)})", grid, keep(mle.pdf(grid)), color=2, width=2.5),
+         C.trace(f"q-Gaussian, moments (q = {_fmt(mom.q)})", grid, keep(mom.pdf(grid)), color=3, width=1.5),
+         C.trace("Normal distribution", grid, keep(gauss.pdf(grid)), color="muted", dash=True)],
+        x=C.axis("Daily return", fmt="pct", digits=1), y=C.axis("Density", type="log", range=(floor, float(heights.max()) * 3)),
+        subtitle="Logarithmic scale. The Gaussian parabola drops off far too early in the tails.",
     ))
 
     # --- chart 2: tails P(|r - mu| > x), log-log
@@ -153,16 +154,16 @@ def run(params, data, out):
     y_lo = 0.5 / n
     pos = lambda y: np.where((np.asarray(y) >= y_lo) & (np.asarray(y) < 1), y, np.nan)  # noqa: E731
     tail_traces = [
-        C.trace("Beobachtet", xs, pos(np.where(emp > 0, emp, np.nan)), type="step", color=1, width=2.5),
-        C.trace(f"q-Gauß {cname}", xs, pos(exact), color=2),
+        C.trace("Observed", xs, pos(np.where(emp > 0, emp, np.nan)), type="step", color=1, width=2.5),
+        C.trace(f"q-Gaussian ({cname})", xs, pos(exact), color=2),
         C.trace("Asymptote", xs, pos(asym), color=2, dash=True, width=1.5),
-        C.trace("Gauß", xs, pos(2 * stats.norm.sf(xs / sd)), color="muted", dash=True)]
+        C.trace("Gaussian", xs, pos(2 * stats.norm.sf(xs / sd)), color="muted", dash=True)]
     out.chart(C.xy(
-        "Ränder im Log-Log-Plot: P(|r − μ| > x)",
+        "Tails on a log-log plot: P(|r − μ| > x)",
         [t for t in tail_traces if np.any(np.isfinite(t["y"]))],
-        x=C.axis("Abstand x vom Zentrum", type="log", fmt="pct", digits=1),
-        y=C.axis("Anteil der Tage", type="log", fmt="pct", range=(y_lo, 1.0)),
-        subtitle="Potenzgesetze sind Geraden. Die Asymptote aus `tail_probability` gilt erst weit draußen.", height=370,
+        x=C.axis("Distance x from the centre", type="log", fmt="pct", digits=1),
+        y=C.axis("Share of days", type="log", fmt="pct", range=(y_lo, 1.0)),
+        subtitle="Power laws are straight lines. The asymptote from tail_probability applies only far out.", height=370,
     ))
 
     # --- chart 3: QQ plot against the chosen fit (tails kept, centre thinned)
@@ -173,17 +174,17 @@ def run(params, data, out):
     idx = np.unique(np.r_[np.arange(0, n, max(1, n // 800)), np.arange(tail), np.arange(n - tail, n)])
     lim = [float(min(rs[0], theo[0])), float(max(rs[-1], theo[-1]))]
     out.chart(C.xy(
-        f"Q-Q-Plot gegen den q-Gauß ({cname})",
-        [C.trace("Perfekte Übereinstimmung", lim, lim, color="muted", dash=True),
-         C.trace("Renditen", theo[idx], rs[idx], type="scatter", color=1, size=5, decimate_to=None)],
-        x=C.axis("Quantil des q-Gauß", fmt="pct", digits=1), y=C.axis("Beobachtetes Quantil", fmt="pct", digits=1),
-        subtitle="Knicken die Enden von der Diagonale ab, sind die echten Ränder schwerer (oder leichter) als im Modell.",
+        f"Q-Q plot against the q-Gaussian ({cname})",
+        [C.trace("Perfect fit", lim, lim, color="muted", dash=True),
+         C.trace("Returns", theo[idx], rs[idx], type="scatter", color=1, size=5, decimate_to=None)],
+        x=C.axis("q-Gaussian quantile", fmt="pct", digits=1), y=C.axis("Observed quantile", fmt="pct", digits=1),
+        subtitle="If the ends bend away from the diagonal, the real tails are heavier (or lighter) than in the model.",
     ))
 
-    thresholds = "Erhöht ab q > 1,3 und S_q > 1 · Hoch ab q > 1,5 und S_q > 1,5 · Extrem ab q > 1,8 und S_q > 2"
-    out.set_verdict(level, f"Tsallis-Risikostufe: {label}",
-                    f"q = {_de(u['q'])} (Momente) und S_q = {_de(u['tsallis_entropy'])}. 4σ-Tage sind laut Modell "
-                    f"{ratio4:.0f}-mal so häufig wie bei Gauß. Schwellen: {thresholds}.")
+    thresholds = "Elevated if q > 1.3 and S_q > 1 · High if q > 1.5 and S_q > 1.5 · Extreme if q > 1.8 and S_q > 2"
+    out.set_verdict(level, f"Tsallis risk level: {label}",
+                    f"q = {_fmt(u['q'])} (moments) and S_q = {_fmt(u['tsallis_entropy'])}. According to the model, "
+                    f"4σ days are {ratio4:,.0f} times as frequent as under a Gaussian. Thresholds: {thresholds}.")
     if mle.q > 1.42 and mom.q < 1.4:
-        out.note(f"Das MLE-q ({_de(mle.q)}) liegt über 7/5 – dort ist die Kurtosis unendlich und der Momenten-Fit "
-                 f"bleibt zwangsläufig darunter ({_de(mom.q)}). Die Risikostufe beruht auf dem Momenten-Fit.", "info")
+        out.note(f"The MLE q ({_fmt(mle.q)}) lies above 7/5, where the kurtosis is infinite, so the moment fit "
+                 f"necessarily stays below it ({_fmt(mom.q)}). The risk level is based on the moment fit.", "info")

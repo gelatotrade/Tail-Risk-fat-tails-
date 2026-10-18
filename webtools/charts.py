@@ -168,7 +168,7 @@ def heatmap(title: str, xs: Sequence, ys: Sequence, zs, *, x: Optional[dict] = N
 
 
 def gauge(title: str, value: float, *, max_value: float = 100.0,
-          thresholds: Sequence[float] = (25, 50, 75), labels: Sequence[str] = ("Normal", "Erhöht", "Hoch", "Extrem"),
+          thresholds: Sequence[float] = (25, 50, 75), labels: Sequence[str] = ("Normal", "Elevated", "High", "Extreme"),
           subtitle: str = "") -> Dict[str, Any]:
     """A 0..max score with status bands (composite early-warning score)."""
     return {"kind": "gauge", "title": title, "subtitle": subtitle, "value": float(value),

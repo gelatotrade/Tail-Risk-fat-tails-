@@ -1,233 +1,233 @@
 {
   "sections": [
     {
-      "title": "Grundlagen: Warum fette Ränder",
+      "title": "Fundamentals: why fat tails matter",
       "items": [
         {
           "file": "fat_tails_comparison.png",
-          "title": "Fette Ränder vs. Normalverteilung",
-          "caption": "Linear sehen die Spitzen ähnlich aus – logarithmisch zeigt sich, wie viel häufiger Extreme sind.",
+          "title": "Fat tails vs the normal distribution",
+          "caption": "On a linear scale the peaks look alike; on a log scale the far higher frequency of extremes becomes obvious.",
           "teaser": true,
           "tool": "fat-tails"
         },
         {
           "file": "physics_finance_mapping.png",
-          "title": "Physik → Finanzen",
-          "caption": "Welche physikalischen Konzepte welches Marktphänomen beschreiben.",
+          "title": "Physics → finance",
+          "caption": "Which physical concept describes which market phenomenon.",
           "tool": "script-readme-figures"
         },
         {
           "file": "tail_index_interpretation.png",
-          "title": "Tail-Index α richtig lesen",
-          "caption": "Von α = 2 (Gauß) bis α ≈ 1 (extreme Ränder).",
+          "title": "Reading the tail index α",
+          "caption": "From α = 2 (Gaussian) down to α ≈ 1 (extreme tails).",
           "tool": "script-readme-figures"
         },
         {
           "file": "var_comparison.png",
-          "title": "VaR-Methoden im Vergleich",
-          "caption": "Historisch, Gauß, Cornish-Fisher und EVT bei unterschiedlichen Konfidenzniveaus.",
+          "title": "VaR methods compared",
+          "caption": "Historical, Gaussian, Cornish-Fisher and EVT at different confidence levels.",
           "tool": "script-readme-figures"
         },
         {
           "file": "early_warning_signals.png",
-          "title": "Kritische Verlangsamung",
-          "caption": "Steigende Autokorrelation und Varianz vor Phasenübergängen.",
+          "title": "Critical slowing down",
+          "caption": "Rising autocorrelation and variance ahead of phase transitions.",
           "tool": "script-readme-figures"
         }
       ]
     },
     {
-      "title": "3D-Tail-Risk-Fläche",
+      "title": "3D tail-risk surface",
       "items": [
         {
           "file": "tail_risk_surface_3d.png",
-          "title": "3D-Tail-Risk-Fläche",
-          "caption": "Crash-Wahrscheinlichkeit über Volatilität und Tail-Index mit historischen Krisenpfaden.",
+          "title": "3D tail-risk surface",
+          "caption": "Crash probability across volatility and tail index, with historical crisis paths.",
           "teaser": true,
           "tool": "script-tail-risk-surface"
         },
         {
           "file": "tail_risk_surface_animation.gif",
-          "title": "Animierte Risikofläche",
-          "caption": "Die Crash-Schwelle wandert, ein Marktpfad läuft vom ruhigen Regime in die Krise.",
+          "title": "Animated risk surface",
+          "caption": "The crash threshold shifts while a market path moves from a calm regime into crisis.",
           "tool": "script-surface-animation"
         },
         {
           "file": "tail_risk_3d_dashboard.png",
-          "title": "3D-Phasenraum-Dashboard",
-          "caption": "Lévy-, Tsallis- und Phasenübergangs-Koordinaten im Vergleich.",
+          "title": "3D phase-space dashboard",
+          "caption": "Lévy, Tsallis and phase-transition coordinates side by side.",
           "tool": "script-main-demo"
         },
         {
           "file": "early_warning_3d_phase_space.png",
-          "title": "Frühwarnung im 3D-Phasenraum",
-          "caption": "Trajektorien der Indikatoren vor den Crashs.",
+          "title": "Early warning in 3D phase space",
+          "caption": "Indicator trajectories ahead of the crashes.",
           "tool": "script-early-warning-figures"
         }
       ]
     },
     {
-      "title": "Frühwarnsystem",
+      "title": "Early-warning system",
       "items": [
         {
           "file": "warning_matrix.png",
-          "title": "Warnmatrix",
-          "caption": "Die fünf Indikatoren und ihre Warnzustände.",
+          "title": "Warning matrix",
+          "caption": "The five indicators and their warning states.",
           "tool": "script-early-warning-figures"
         },
         {
           "file": "early_warning_indicators.png",
-          "title": "Die fünf Frühwarnindikatoren",
-          "caption": "GEX, TailDex, VIX-Laufzeitstruktur, DIX und Smart-Money-Flow.",
+          "title": "The five early-warning indicators",
+          "caption": "GEX, TailDex, VIX term structure, DIX and Smart Money Flow.",
           "tool": "script-early-warning-figures"
         },
         {
           "file": "early_warning_dashboard_demo.png",
-          "title": "Frühwarn-Dashboard",
-          "caption": "Composite-Score mit Einzelindikatoren.",
+          "title": "Early-warning dashboard",
+          "caption": "Composite score with the individual indicators.",
           "teaser": true,
           "tool": "script-early-warning-figures"
         },
         {
           "file": "crash_timeline_indicators.png",
-          "title": "Zeitachse der Signale",
-          "caption": "Wann welcher Indikator vor den Crashs angeschlagen hat.",
+          "title": "Signal timeline",
+          "caption": "When each indicator fired ahead of the crashes.",
           "tool": "script-early-warning-figures"
         },
         {
           "file": "crash_comparison_indicators.png",
-          "title": "Indikatoren im Crash-Vergleich",
-          "caption": "Signalstärke über die vier Krisen.",
+          "title": "Indicators across crashes",
+          "caption": "Signal strength across the four crises.",
           "tool": "script-early-warning-figures"
         },
         {
           "file": "ews_analysis_jan2026.png",
-          "title": "Frühwarnanalyse Januar 2026",
-          "caption": "Stand der Indikatoren zum Jahresbeginn 2026.",
+          "title": "Early-warning analysis, January 2026",
+          "caption": "Indicator readings at the start of 2026.",
           "tool": "script-ews-jan2026"
         }
       ]
     },
     {
-      "title": "Historische Krisen",
+      "title": "Historical crises",
       "items": [
         {
           "file": "crisis_comparison.png",
-          "title": "Krisenvergleich",
-          "caption": "COVID-19 2020, Bärenmarkt 2022 und Zoll-Crash 2025 im direkten Vergleich.",
+          "title": "Crisis comparison",
+          "caption": "The 2020 COVID crash, the 2022 bear market and the 2025 tariff crash side by side.",
           "tool": "script-crisis-examples"
         },
         {
           "file": "crash_comparison_with_dates.png",
-          "title": "Crashs mit Datumsachsen",
-          "caption": "Alle vier Krisen mit echten Kalenderdaten.",
+          "title": "Crashes on a calendar axis",
+          "caption": "All four crises with real calendar dates.",
           "tool": "script-crash-deep-dives"
         },
         {
           "file": "volmageddon_2018_deep_dive.png",
-          "title": "Volmageddon 2018 im Detail",
-          "caption": "VIX +115 % an einem Tag – Gamma-Squeeze ohne Vorlaufzeit.",
+          "title": "Volmageddon 2018 in detail",
+          "caption": "VIX +115% in one day – a gamma squeeze with no lead time.",
           "tool": "script-crash-deep-dives"
         },
         {
           "file": "covid_2020_deep_dive.png",
-          "title": "COVID-Crash 2020 im Detail",
-          "caption": "Schnellster Bärenmarkt der Geschichte: −33,9 % in 23 Handelstagen.",
+          "title": "2020 COVID crash in detail",
+          "caption": "The fastest bear market on record: −33.9% in 23 trading days.",
           "tool": "script-crash-deep-dives"
         },
         {
           "file": "bear_2022_deep_dive.png",
-          "title": "Bärenmarkt 2022 im Detail",
-          "caption": "Langsamer, zinsgetriebener Rückgang über 282 Tage.",
+          "title": "2022 bear market in detail",
+          "caption": "A slow, rate-driven decline over 282 days.",
           "tool": "script-crash-deep-dives"
         },
         {
           "file": "tariff_2025_deep_dive.png",
-          "title": "Zoll-Crash 2025 im Detail",
-          "caption": "TailDex- und DIX-Divergenz vier bis sechs Wochen vor dem Crash.",
+          "title": "2025 tariff crash in detail",
+          "caption": "TailDex and DIX divergence four to six weeks before the crash.",
           "tool": "script-crash-deep-dives"
         },
         {
           "file": "covid_crash_analysis.png",
-          "title": "COVID-Crash: Analyse",
-          "caption": "Renditen, Volatilität und Tail-Index im Krisenverlauf.",
+          "title": "COVID crash: analysis",
+          "caption": "Returns, volatility and tail index through the crisis.",
           "tool": "script-crisis-examples"
         },
         {
           "file": "bear_2022_analysis.png",
-          "title": "Bärenmarkt 2022: Analyse",
-          "caption": "Renditen, Volatilität und Tail-Index im Krisenverlauf.",
+          "title": "2022 bear market: analysis",
+          "caption": "Returns, volatility and tail index through the crisis.",
           "tool": "script-crisis-examples"
         },
         {
           "file": "tariff_crash_analysis.png",
-          "title": "Zoll-Crash 2025: Analyse",
-          "caption": "Renditen, Volatilität und Tail-Index im Krisenverlauf.",
+          "title": "2025 tariff crash: analysis",
+          "caption": "Returns, volatility and tail index through the crisis.",
           "tool": "script-crisis-examples"
         },
         {
           "file": "tariff_crash_deep_dive.png",
-          "title": "Zoll-Crash 2025: Vertiefung",
-          "caption": "Indikatoren im Zeitverlauf.",
+          "title": "2025 tariff crash: deep dive",
+          "caption": "Indicators over time.",
           "tool": "script-early-warning-figures"
         },
         {
           "file": "covid_crash_dashboard.png",
-          "title": "Dashboard COVID-19",
-          "caption": "Vollständiges Tail-Risk-Dashboard für 2020.",
+          "title": "Dashboard: COVID-19",
+          "caption": "Full tail-risk dashboard for 2020.",
           "tool": "script-crisis-examples"
         },
         {
           "file": "bear_2022_dashboard.png",
-          "title": "Dashboard Bärenmarkt 2022",
-          "caption": "Vollständiges Tail-Risk-Dashboard für 2022.",
+          "title": "Dashboard: 2022 bear market",
+          "caption": "Full tail-risk dashboard for 2022.",
           "tool": "script-crisis-examples"
         },
         {
           "file": "tariff_crash_dashboard.png",
-          "title": "Dashboard Zoll-Crash 2025",
-          "caption": "Vollständiges Tail-Risk-Dashboard für 2025.",
+          "title": "Dashboard: 2025 tariff crash",
+          "caption": "Full tail-risk dashboard for 2025.",
           "tool": "script-crisis-examples"
         },
         {
           "file": "crisis_dashboard.png",
-          "title": "Krisen-Dashboard",
-          "caption": "Synthetisches Krisenszenario im Gesamtbild.",
+          "title": "Crisis dashboard",
+          "caption": "The synthetic crisis scenario at a glance.",
           "tool": "script-main-demo"
         }
       ]
     },
     {
-      "title": "Marktlage & Dashboards",
+      "title": "Market conditions and dashboards",
       "items": [
         {
           "file": "full_dashboard.png",
-          "title": "Vollständiges Dashboard",
-          "caption": "Alle Kennzahlen und Modelle auf einen Blick.",
+          "title": "Full dashboard",
+          "caption": "All metrics and models at a glance.",
           "tool": "script-main-demo"
         },
         {
           "file": "current_market_dashboard.png",
-          "title": "Aktuelles Markt-Dashboard",
-          "caption": "Marktlage zum Analysezeitpunkt.",
+          "title": "Current market dashboard",
+          "caption": "Market conditions at the time of analysis.",
           "tool": "script-crisis-examples"
         },
         {
           "file": "current_market_analysis.png",
-          "title": "Aktuelle Marktanalyse",
-          "caption": "Einordnung der Marktlage.",
+          "title": "Current market analysis",
+          "caption": "Putting the market conditions into context.",
           "tool": "script-crisis-examples"
         },
         {
           "file": "current_state_jan2026.png",
-          "title": "Marktlage Januar 2026",
-          "caption": "Alle Frühwarnindikatoren im Normalbereich.",
+          "title": "Market conditions, January 2026",
+          "caption": "All early-warning indicators in the normal range.",
           "tool": "script-crash-deep-dives"
         },
         {
           "file": "crisis_vs_current_comparison.png",
-          "title": "Krisen vs. heute",
-          "caption": "Die aktuelle Lage im Vergleich zu den Krisen.",
+          "title": "Crises vs today",
+          "caption": "Current conditions compared with the crises.",
           "tool": "script-crisis-examples"
         }
       ]

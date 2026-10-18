@@ -1,18 +1,18 @@
-"""Animierte 3D-Risikofläche (GIF) – runs `generate_tail_risk_surface_animation.py` unmodified in the browser."""
+"""Animated 3D risk surface (GIF) – runs `generate_tail_risk_surface_animation.py` unmodified in the browser."""
 
 from ..scriptrunner import QUALITY_PARAM, script_tool
 
 SPEC = {
     "id": "script-surface-animation",
-    "title": "Animierte 3D-Risikofläche (GIF)",
+    "title": "Animated 3D risk surface (GIF)",
     "group": "scripts",
     "order": 31,
-    "summary": "Rendert die Animation der Risikofläche Bild für Bild als GIF – direkt im Browser.",
+    "summary": "Renders the risk-surface animation frame by frame as a GIF – directly in the browser.",
     "description": (
-        "Führt `generate_tail_risk_surface_animation.py` aus: Die Crash-Schwelle wandert von 3 % auf 10 %, ein "
-        "synthetischer Marktpfad läuft vom ruhigen Regime in die Krise und zurück, die Kamera dreht sich.\n\n"
-        "Sehr rechenintensiv, weil jedes Einzelbild gerendert wird. In Vorschauqualität entstehen die Bilder "
-        "mit geringerer Auflösung und deutlich schneller."
+        "Runs `generate_tail_risk_surface_animation.py`: the crash threshold moves from 3% to 10%, a synthetic "
+        "market path runs from a calm regime into a crisis and back, and the camera rotates.\n\n"
+        "Very compute-intensive, because every single frame is rendered. In preview quality the frames are "
+        "produced at a lower resolution and considerably faster."
     ),
     "needs": [],
     "params": [QUALITY_PARAM],

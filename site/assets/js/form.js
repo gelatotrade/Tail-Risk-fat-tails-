@@ -1,8 +1,9 @@
 // Parameter forms generated from a tool SPEC.
-import { escapeHtml } from './format.js';
+import { escapeHtml, withUnit } from './format.js';
+import { parseNumber } from './data.js';
 
 const dec = (step) => { const s = String(step ?? 1); return s.includes('.') ? s.split('.')[1].length : 0; };
-const show = (v, step) => Number(v).toLocaleString('de-DE', { minimumFractionDigits: dec(step), maximumFractionDigits: dec(step) });
+const show = (v, step) => Number(v).toLocaleString('en-GB', { minimumFractionDigits: dec(step), maximumFractionDigits: dec(step) });
 
 export function buildForm(spec, values, onChange) {
   const form = document.createElement('form');
@@ -32,22 +33,23 @@ export function buildForm(spec, values, onChange) {
       const step = p.step ?? (p.type === 'int' ? 1 : (p.max - p.min) / 100);
       el = document.createElement('label');
       el.className = 'field';
-      el.innerHTML = `<span class="lbl"><b>${escapeHtml(p.label)}</b><output for="${id}">${show(v, step)}${p.unit ? ' ' + escapeHtml(p.unit) : ''}</output></span>
+      el.innerHTML = `<span class="lbl"><b>${escapeHtml(p.label)}</b><output for="${id}">${escapeHtml(withUnit(show(v, step), p.unit, v))}</output></span>
         <div class="range-row"><input type="range" id="${id}" min="${p.min}" max="${p.max}" step="${step}" value="${v}">
-        <input type="number" min="${p.min}" max="${p.max}" step="${step}" value="${v}" aria-label="${escapeHtml(p.label)} (Zahl)"></div>
+        <input type="text" inputmode="decimal" class="num-box" value="${show(v, step)}" aria-label="${escapeHtml(p.label)} (number)"></div>
         ${p.help ? `<span class="help">${escapeHtml(p.help)}</span>` : ''}`;
-      const range = el.querySelector('input[type=range]'), num = el.querySelector('input[type=number]'), out = el.querySelector('output');
+      const range = el.querySelector('input[type=range]'), num = el.querySelector('input.num-box'), out = el.querySelector('output');
       const set = (raw, commit) => {
-        let x = Number(raw);
-        if (!Number.isFinite(x)) return;
+        let x = typeof raw === 'number' ? raw : parseNumber(raw); // accepts 0.95 (and 0,95)
+        if (!Number.isFinite(x)) { num.value = show(state[p.name], step); return; }
         x = Math.min(p.max, Math.max(p.min, x));
         if (p.type === 'int') x = Math.round(x);
-        range.value = x; num.value = x; out.textContent = show(x, step) + (p.unit ? ' ' + p.unit : '');
+        range.value = x; num.value = show(x, step); out.textContent = withUnit(show(x, step), p.unit, x);
         emit(p.name, x, commit);
       };
-      range.addEventListener('input', () => set(range.value, false));
-      range.addEventListener('change', () => set(range.value, true));
+      range.addEventListener('input', () => set(Number(range.value), false));
+      range.addEventListener('change', () => set(Number(range.value), true));
       num.addEventListener('change', () => set(num.value, true));
+      num.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); set(num.value, true); } });
     } else {
       el = document.createElement('label');
       el.className = 'field';

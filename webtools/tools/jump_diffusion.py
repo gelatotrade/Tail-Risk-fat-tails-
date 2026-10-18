@@ -6,45 +6,44 @@ from scipy import optimize, stats
 from src.physics.ornstein_uhlenbeck import JumpDiffusionRiskAnalyzer, compute_ou_coordinates
 
 from .. import charts as C
-from ..data import index_axis
+from ..data import index_axis, fmt_date
 
 SPEC = {
     "id": "jump-diffusion",
-    "title": "Sprünge vs. Diffusion: VaR-Zerlegung",
+    "title": "Jumps vs diffusion: VaR decomposition",
     "group": "risk",
     "order": 60,
-    "summary": "Welcher Teil des Tail-Risikos kommt aus seltenen Sprüngen und welcher aus dem normalen "
-               "Rauschen? Sprungerkennung, Monte-Carlo-VaR-Zerlegung und OU-Koordinaten.",
+    "summary": "How much of the tail risk comes from rare jumps and how much from ordinary noise – with jump "
+               "detection, a Monte Carlo VaR decomposition and OU coordinates.",
     "description": (
-        "Das Modell zerlegt deine Renditen in zwei Teile: **Sprünge** sind alle Tage, die weiter als die "
-        "Schwelle (in Standardabweichungen) vom Mittel entfernt liegen; der Rest ist die **Diffusion**. Auf die "
-        "ruhigen Tage wird ein Ornstein-Uhlenbeck-Prozess gefittet, die Sprünge liefern Häufigkeit, Mittel und "
-        "Streuung. Eine Monte-Carlo-Simulation des Modells mit und ohne Sprünge – mit **denselben Zufallszahlen** "
-        "für die Diffusion – zeigt dann, wie viel des Tages-VaR auf die Sprünge entfällt.\n\n"
-        "So liest du die Diagramme: Rote Punkte sind erkannte Sprünge. Das Balkendiagramm je Jahr zeigt, ob die "
-        "Sprünge gleichmäßig kommen (wie es das Poisson-Modell annimmt) oder in Krisen gehäuft – meist "
-        "Letzteres. Die Zerlegung je Schwelle zeigt, wie stark das Ergebnis von dieser Definition abhängt. "
-        "Die OU-Koordinaten fitten in jedem rollierenden Fenster einen OU-Prozess auf |Rendite|: X ist das "
-        "Vola-Niveau, Z die Rückstellgeschwindigkeit (Y, der letzte Ausschlag |r|, steckt schon im ersten "
-        "Diagramm).\n\n"
-        "Zur Kontrolle rechnet das Werkzeug den Modell-VaR zusätzlich analytisch aus (Poisson-Mischung von "
-        "Normalverteilungen) – weicht die Monte-Carlo-Zahl davon ab, ist das reiner Simulationszufall.\n\n"
-        "Hinweis: Tagesrenditen haben kaum Gedächtnis. Der OU-Fit landet deshalb meist im Grenzfall "
-        "„weißes Rauschen“ (θ wird gedeckelt, Halbwertszeit ≈ 0,1 Tage) – die Diffusion entspricht dann einer "
-        "Normalverteilung mit der Streuung der ruhigen Tage."
+        "The model splits your returns into two parts: **jumps** are all days that lie further from the mean "
+        "than the threshold (in standard deviations); the rest is **diffusion**. An Ornstein-Uhlenbeck process is "
+        "fitted to the calm days, while the jumps provide frequency, mean and standard deviation. A Monte Carlo "
+        "simulation of the model with and without jumps – using **the same random numbers** for the diffusion – "
+        "then shows how much of the one-day VaR is attributable to jumps.\n\n"
+        "How to read the charts: red dots are detected jumps. The bar chart by year shows whether jumps arrive "
+        "evenly (as the Poisson model assumes) or cluster in crises – usually the latter. The decomposition by "
+        "threshold shows how strongly the result depends on this definition. The OU coordinates fit an OU process "
+        "to |return| in each rolling window: X is the volatility level, Z the speed of mean reversion (Y, the "
+        "latest move |r|, already appears in the first chart).\n\n"
+        "As a check, the tool also computes the model VaR analytically (Poisson mixture of normal distributions) – "
+        "any difference from the Monte Carlo figure is pure simulation noise.\n\n"
+        "Note: daily returns have very little memory. The OU fit therefore usually ends up in the limiting case "
+        "of ‘white noise’ (θ is capped, half-life ≈ 0.1 days) – the diffusion then corresponds to a normal "
+        "distribution with the standard deviation of the calm days."
     ),
     "needs": ["returns"],
     "params": [
         {"name": "threshold", "type": "float", "default": 3.0, "min": 2.0, "max": 6.0, "step": 0.1,
-         "label": "Sprungschwelle", "unit": "σ", "help": "Tage jenseits von Mittel ± Schwelle·σ gelten als Sprung."},
+         "label": "Jump threshold", "unit": "σ", "help": "Days beyond mean ± threshold·σ count as jumps."},
         {"name": "confidence", "type": "float", "default": 0.99, "min": 0.9, "max": 0.999, "step": 0.001,
-         "label": "Konfidenzniveau"},
+         "label": "Confidence level"},
         {"name": "n_simulations", "type": "int", "default": 50000, "min": 5000, "max": 200000, "step": 5000,
-         "label": "Monte-Carlo-Szenarien", "help": "Der Sprung-Anteil am VaR hängt an wenigen Szenarien – mehr "
-                                                   "Szenarien machen ihn stabiler."},
+         "label": "Monte Carlo scenarios", "help": "The jump share of the VaR depends on a few scenarios – more "
+                                                   "scenarios make it more stable."},
         {"name": "window", "type": "int", "default": 30, "min": 10, "max": 120, "step": 5,
-         "label": "Fenster der OU-Koordinaten", "unit": "Tage"},
-        {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 9999, "step": 1, "label": "Zufalls-Seed"},
+         "label": "OU coordinate window", "unit": "days"},
+        {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 9999, "step": 1, "label": "Random seed"},
     ],
     "covers": [
         "src.physics.ornstein_uhlenbeck.JumpDiffusionRiskAnalyzer",
@@ -56,25 +55,23 @@ SPEC = {
 }
 
 FIT_STATUS = {
-    "ok": "regulär",
-    "theta_capped": "weißes Rauschen (θ gedeckelt)",
-    "no_mean_reversion": "keine Rückkehr zum Mittel",
-    "too_few_points": "zu wenige ruhige Tage",
+    "ok": "OK",
+    "theta_capped": "white noise (θ capped)",
+    "no_mean_reversion": "no mean reversion",
+    "too_few_points": "too few calm days",
 }
 SWEEP = [2.0, 2.5, 3.0, 3.5, 4.0, 5.0]
 
 
-def _de(x, digits=2):
-    return f"{x:.{digits}f}".replace(".", ",")
+
+def _num(x, digits=2):
+    return f"{x:.{digits}f}".replace("-", "−")
 
 
-def _date(d):
-    """ISO date -> German date; trading-day indices stay as they are."""
-    return f"{d[8:10]}.{d[5:7]}.{d[:4]}" if isinstance(d, str) and len(d) >= 10 else d
 
 
 def _level(conf):
-    return f"{100 * conf:.1f}".rstrip("0").rstrip(".").replace(".", ",") + " %"
+    return f"{100 * conf:.1f}".rstrip("0").rstrip(".") + "%"
 
 
 def _model_var(model, dt, p, jump_mean, jump_std, conf):
@@ -111,38 +108,38 @@ def run(params, data, out):
     exact = (_model_var(ja.ou_model, ja.DT, dec["jump_intensity"], dec["jump_mean"], dec["jump_std"], conf)
              if has_model else None)
 
-    out.metric(f"VaR {lvl} Modell gesamt", dec["var_total"], "pct",
-               hint="OU + Sprünge, 1 Tag" + (f" · analytisch: {_de(100 * exact)} %" if exact is not None else ""))
-    out.metric("davon Diffusion", dec["var_continuous"], "pct", hint="dasselbe Modell ohne Sprünge")
-    out.metric("davon Sprünge", dec["var_jump"], "pct",
-               hint=f"{_de(100 * share, 0)} % des VaR" if share is not None else "",
+    out.metric(f"{lvl} VaR · model total", dec["var_total"], "pct",
+               hint="OU + jumps, 1 day" + (f" · analytical: {_num(100 * exact)}%" if exact is not None else ""))
+    out.metric("Diffusion VaR", dec["var_continuous"], "pct", hint="the same model without jumps")
+    out.metric("Jump add-on", dec["var_jump"], "pct",
+               hint=f"{_num(100 * share, 0)}% of the VaR" if share is not None else "",
                status="serious" if share is not None and share > 0.25 else None)
-    out.metric(f"Historischer VaR {lvl}", var_hist, "pct", hint=f"Normalverteilung: {_de(100 * var_gauss)} %")
-    out.metric("Erkannte Sprünge", int(dec["n_jumps"]), "int",
-               hint=f"{_de(dec['jump_intensity'] * 252, 1)} pro Jahr ({_de(100 * dec['jump_intensity'], 2)} % der Tage)")
+    out.metric(f"{lvl} historical VaR", var_hist, "pct", hint=f"Normal distribution: {_num(100 * var_gauss)}%")
+    out.metric("Detected jumps", int(dec["n_jumps"]), "int",
+               hint=f"{_num(dec['jump_intensity'] * 252, 1)} per year ({_num(100 * dec['jump_intensity'], 2)}% of days)")
     n_jumps = int(dec["n_jumps"])
     if n_jumps:
-        out.metric("Ø-Sprung", dec["jump_mean"], "pct",
-                   hint=f"Streuung {_de(100 * dec['jump_std'])} %" if n_jumps > 1 else "zu wenige Sprünge für eine Streuung")
+        out.metric("Average jump", dec["jump_mean"], "pct",
+                   hint=f"Std. dev. {_num(100 * dec['jump_std'])}%" if n_jumps > 1 else "too few jumps for a std. dev.")
     else:
-        out.metric("Ø-Sprung", "–", "text", hint=f"kein Tag jenseits von {_de(thr, 1)} σ")
-    out.metric("Anteil der Sprünge an Σ|r|", dec["jump_contribution"], "pct", digits=1,
-               hint="so viel der gesamten Bewegung steckt in den Sprungtagen")
+        out.metric("Average jump", "–", "text", hint=f"no day beyond {_num(thr, 1)}σ")
+    out.metric("Jump share of Σ|r|", dec["jump_contribution"], "pct", digits=1,
+               hint="the share of total movement that falls on jump days")
     if has_model:
-        out.metric("Streuung der ruhigen Tage", ja.ou_model.stationary_std(), "pct",
-                   hint=f"stationäre Std des OU · Fit: {FIT_STATUS[dec['ou_fit_status']]}")
+        out.metric("Std. dev. of calm days", ja.ou_model.stationary_std(), "pct",
+                   hint=f"stationary std. dev. of the OU process · fit: {FIT_STATUS[dec['ou_fit_status']]}")
     else:
-        out.metric("OU-Fit", FIT_STATUS[dec["ou_fit_status"]], "text", status="warning",
-                   hint="ohne Modell ist der VaR der historische")
+        out.metric("OU fit", FIT_STATUS[dec["ou_fit_status"]], "text", status="warning",
+                   hint="without a model, the VaR is the historical one")
 
     x, xa = index_axis(data)
     out.chart(C.xy(
-        f"Tagesrenditen mit erkannten Sprüngen (jenseits von {_de(thr, 1)} σ)",
-        [C.trace("Tagesrendite", x, r, color=1, width=1),
-         C.trace("Sprung", [xi for xi, j in zip(x, is_jump) if j], r[is_jump], type="scatter", color="critical",
+        f"Daily returns with detected jumps (beyond {_num(thr, 1)}σ)",
+        [C.trace("Daily return", x, r, color=1, width=1),
+         C.trace("Jump", [xi for xi, j in zip(x, is_jump) if j], r[is_jump], type="scatter", color="critical",
                  size=7, decimate_to=None)],
-        x=xa, y=C.axis("Rendite", fmt="pct", digits=1),
-        hlines=[C.hline(mean + thr * std, f"+{_de(thr, 1)} σ"), C.hline(mean - thr * std, f"−{_de(thr, 1)} σ")],
+        x=xa, y=C.axis("Return", fmt="pct", digits=1),
+        hlines=[C.hline(mean + thr * std, f"+{_num(thr, 1)}σ"), C.hline(mean - thr * std, f"−{_num(thr, 1)}σ")],
         height=390,
     ))
 
@@ -152,7 +149,7 @@ def run(params, data, out):
         years = [str(y) for y in years]
     else:
         inv = np.arange(n) // 252
-        years = [f"Jahr {i + 1}" for i in range(int(inv[-1]) + 1)]
+        years = [f"Year {i + 1}" for i in range(int(inv[-1]) + 1)]
     counts = np.bincount(inv, weights=is_jump.astype(float), minlength=len(years))
     days = np.bincount(inv, minlength=len(years))
     expected = dec["jump_intensity"] * days
@@ -162,29 +159,29 @@ def run(params, data, out):
             if counts.sum() > 0 and ok.sum() > 1 else None)
     if counts.sum() > 0:
         out.chart(C.xy(
-            "Sprünge je Jahr",
-            [C.trace("Sprünge", years, counts, type="bar", color=1),
-             C.trace("Poisson-Erwartung", years, expected, color="muted", dash=True)],
-            x=C.axis("Jahr", type="category"), y=C.axis("Anzahl", fmt="int"), height=300,
-            subtitle=(f"Streuungsindex = {_de(disp, 1)} (Poisson: ≈ 1, Teiljahre gewichtet). Größer heißt: "
-                      "Sprünge kommen gehäuft." if disp is not None else
-                      "Die Reihe umfasst nur ein Jahr – ob Sprünge gehäuft kommen, lässt sich so nicht prüfen."),
+            "Jumps per year",
+            [C.trace("Jumps", years, counts, type="bar", color=1),
+             C.trace("Poisson expectation", years, expected, color="muted", dash=True)],
+            x=C.axis("Year", type="category"), y=C.axis("Count", fmt="int"), height=300,
+            subtitle=(f"Dispersion index = {_num(disp, 1)} (Poisson: ≈ 1, partial years weighted). Higher means "
+                      "that jumps cluster." if disp is not None else
+                      "The series covers only one year, so it cannot show whether jumps cluster."),
         ))
 
     # Decomposition across thresholds
-    out.progress("VaR-Zerlegung für mehrere Schwellen …", 0.5)
+    out.progress("VaR decomposition for several thresholds …", 0.5)
     sweep = sorted(set(SWEEP + [round(thr, 2)]))
     sw = [JumpDiffusionRiskAnalyzer().tail_risk_decomposition(r, confidence=conf, threshold=t,
                                                               n_simulations=min(n_sim, 20000), seed=seed)
           for t in sweep]
-    labels = [f"{_de(t, 1)} σ" + (" ◆" if abs(t - thr) < 1e-9 else "") for t in sweep]
+    labels = [f"{_num(t, 1)}σ" +(" ◆" if abs(t - thr) < 1e-9 else "") for t in sweep]
     out.chart(C.xy(
-        "VaR-Zerlegung je Sprungschwelle",
+        "VaR decomposition by jump threshold",
         [C.trace("Diffusion", labels, [d["var_continuous"] for d in sw], type="bar", color=1),
-         C.trace("Sprung-Aufschlag", labels, [d["var_jump"] for d in sw], type="bar", color=2)],
-        x=C.axis("Sprungschwelle (◆ = deine Wahl)", type="category"), y=C.axis(f"VaR {lvl}", fmt="pct", digits=1),
-        hlines=[C.hline(var_hist, "historischer VaR")], stacked=True, height=320,
-        subtitle="Niedrige Schwelle: mehr Tage gelten als Sprung, die Diffusion wird ruhiger – und umgekehrt.",
+         C.trace("Jump add-on", labels, [d["var_jump"] for d in sw], type="bar", color=2)],
+        x=C.axis("Jump threshold (◆ = your choice)", type="category"), y=C.axis(f"{lvl} VaR", fmt="pct", digits=1),
+        hlines=[C.hline(var_hist, "historical VaR")], stacked=True, height=320,
+        subtitle="Low threshold: more days count as jumps and the diffusion becomes calmer – and vice versa.",
     ))
 
     # OU coordinates of |r|
@@ -198,66 +195,67 @@ def run(params, data, out):
         clip = q99 > 0 and float(xv.max()) > 2.5 * q99  # one estimation spike would flatten everything else
         top = min(1.02, 1.6 * q99) if clip else 1.02
         n_cut = int(np.sum(xv > top))
-        peak = _date(xs[int(np.argmax(xv))])
+        peak = fmt_date(xs[int(np.argmax(xv))])
         out.chart(C.xy(
-            f"OU-Koordinate X: Vola-Niveau (Fenster {w} Tage)",
-            [C.trace("X: Niveau μ von |Rendite|", xs, xv, color=1, width=1.5)],
-            x=xa, y=C.axis("normiert (0 = Minimum, 1 = Maximum)", range=(0, top)), height=260,
-            subtitle="Langfristiges Niveau μ des OU-Fits auf |Rendite| im Fenster. Liegt die AR(1)-Steigung b nahe 1 "
-                     "(etwa weil ein Schock am Fensterende steht), wird μ = a/(1 − b) instabil – solche Spitzen sind "
-                     "Schätzfehler, kein echtes Vola-Niveau."
-                     + (f" {n_cut} Tag{'e' if n_cut != 1 else ''} ragen über den Rand hinaus (Maximum 1 am {peak}); "
-                        "Doppelklick zeigt alles." if clip else ""),
+            f"OU coordinate X: volatility level ({w}-day window)",
+            [C.trace("X: level μ of |return|", xs, xv, color=1, width=1.5)],
+            x=xa, y=C.axis("Scaled (0 = minimum, 1 = maximum)", range=(0, top)), height=260,
+            subtitle="Long-run level μ of the OU fit to |return| in the window. If the AR(1) slope b is close to 1 "
+                     "(for instance because a shock sits at the end of the window), μ = a/(1 − b) becomes unstable – "
+                     "such spikes are estimation errors, not a genuine volatility level."
+                     + (f" {n_cut:,} {'day extends' if n_cut == 1 else 'days extend'} beyond the top of the chart "
+                        f"(maximum 1 on {peak if data.dates else f'trading day {peak}'}); double-click to show "
+                        "everything." if clip else ""),
         ))
         out.chart(C.xy(
-            f"OU-Koordinate Z: Rückstellgeschwindigkeit θ (Fenster {w} Tage)",
-            [C.trace("Z: θ von |Rendite|", xs, Z[valid], color=1, width=1)],
-            x=xa, y=C.axis("normiert (0 = Minimum, 1 = Maximum)", range=(0, 1.02)), height=260,
-            subtitle="1 = |Rendite| ist im Fenster weißes Rauschen (θ gedeckelt), Einbrüche nach unten = "
-                     "Vola-Schocks halten an (Vola-Cluster).",
+            f"OU coordinate Z: mean-reversion speed θ ({w}-day window)",
+            [C.trace("Z: θ of |return|", xs, Z[valid], color=1, width=1)],
+            x=xa, y=C.axis("Scaled (0 = minimum, 1 = maximum)", range=(0, 1.02)), height=260,
+            subtitle="1 = |return| is white noise in the window (θ capped); dips = volatility shocks persist "
+                     "(volatility clustering).",
         ))
     else:
-        out.note(f"Für die OU-Koordinaten mit einem Fenster von {w} Tagen ist die Reihe zu kurz (mindestens "
-                 f"{2 * w + 20} Tage). Verkleinere das Fenster auf höchstens {(n - 20) // 2} Tage.")
+        out.note(f"The series is too short for OU coordinates with a {w}-day window (at least "
+                 f"{2 * w + 20:,} days required). Reduce the window to at most {(n - 20) // 2:,} days.")
 
-    rows = [["Modell: OU + Sprünge (Monte Carlo)", dec["var_total"]]]
+    rows = [["Model: OU + jumps (Monte Carlo)", dec["var_total"]]]
     if exact is not None:
-        rows.append(["Modell: OU + Sprünge (analytisch, Kontrolle)", exact])
-    rows += [["nur Diffusion (OU)", dec["var_continuous"]],
-             ["Sprung-Aufschlag", dec["var_jump"]], ["Historisch (empirisches Quantil)", var_hist],
-             ["Normalverteilung (μ − z·σ)", var_gauss]]
-    out.table(f"Tages-VaR {lvl} im Vergleich", ["Methode", "VaR"], rows, formats=["text", "pct"],
-              note=f"{n_sim:,}".replace(",", ".") + f" Szenarien, Seed {seed}. OU-Fit: "
-                   f"{FIT_STATUS[dec['ou_fit_status']]}. Analytisch = exakte Poisson-Mischung von Normalverteilungen "
-                   "desselben Modells; der Abstand zur Monte-Carlo-Zahl ist Simulationszufall.")
+        rows.append(["Model: OU + jumps (analytical check)", exact])
+    rows += [["Diffusion only (OU)", dec["var_continuous"]],
+             ["Jump add-on", dec["var_jump"]], ["Historical (empirical quantile)", var_hist],
+             ["Normal distribution (μ − z·σ)", var_gauss]]
+    out.table(f"{lvl} one-day VaR compared", ["Method", "VaR"], rows, formats=["text", "pct"],
+              note=f"{n_sim:,} scenarios, seed {seed}. OU fit: "
+                   f"{FIT_STATUS[dec['ou_fit_status']]}. Analytical = exact Poisson mixture of normal distributions "
+                   "for the same model; the gap to the Monte Carlo figure is simulation noise.")
     order = np.argsort(-np.abs(r - mean))
     top = [i for i in order if is_jump[i]][:15]
     if top:
-        out.table("Größte Sprünge", ["Datum" if data.dates else "Tag", "Rendite", "σ-Vielfaches"],
-                  [[_date(x[i]), r[i], abs(r[i] - mean) / std] for i in top], formats=["text", "pct", "num"])
+        out.table("Largest jumps", ["Date" if data.dates else "Day", "Return", "σ multiple"],
+                  [[fmt_date(x[i]), r[i], abs(r[i] - mean) / std] for i in top], formats=["text", "pct", "num"])
 
     if not has_model:
-        out.note("Es gab zu wenige ruhige Tage oder keine Rückkehr zum Mittel – ohne OU-Modell ist der "
-                 "Modell-VaR einfach der historische VaR.", "warning")
+        out.note("There were too few calm days or no mean reversion – without an OU model, the model VaR is "
+                 "simply the historical VaR.", "warning")
         return
     if var_hist > 0 and dec["var_total"] < 0.85 * var_hist:
-        out.note(f"Das Modell liegt {_de(100 * (1 - dec['var_total'] / var_hist), 0)} % unter dem historischen VaR. "
-                 "Es kennt keine Volatilitäts-Cluster: Ruhige und stürmische Phasen werden zu einer einzigen "
-                 "Diffusion gemittelt, und Sprünge kommen gleichmäßig statt gehäuft.", "warning")
+        out.note(f"The model is {_num(100 * (1 - dec['var_total'] / var_hist), 0)}% below the historical VaR. "
+                 "It has no volatility clustering: calm and turbulent phases are averaged into a single "
+                 "diffusion, and jumps arrive evenly rather than in clusters.", "warning")
     if int(dec["n_jumps"]) == 0:
-        out.set_verdict("good", f"Keine Sprünge jenseits von {_de(thr, 1)} σ",
-                        "Das Tail-Risiko ist hier vollständig Diffusion.")
+        out.set_verdict("good", f"No jumps beyond {_num(thr, 1)}σ",
+                        "Tail risk here comes entirely from diffusion.")
         return
     if share is None:
         return
     if share > 0.25:
-        out.set_verdict("serious", "Ein großer Teil des Tail-Risikos steckt in Sprüngen",
-                        f"{_de(100 * share, 0)} % des Tages-VaR entfallen auf Sprünge – ein reines Diffusionsmodell "
-                        "unterschätzt das Risiko deutlich.")
+        out.set_verdict("serious", "A large part of the tail risk lies in jumps",
+                        f"{_num(100 * share, 0)}% of the one-day VaR is attributable to jumps – a pure diffusion "
+                        "model materially understates risk.")
     elif share > 0.1:
-        out.set_verdict("warning", "Sprünge erhöhen den VaR spürbar",
-                        f"{_de(100 * share, 0)} % des Tages-VaR entfallen auf Sprünge.")
+        out.set_verdict("warning", "Jumps raise the VaR noticeably",
+                        f"{_num(100 * share, 0)}% of the one-day VaR is attributable to jumps.")
     else:
-        out.set_verdict("good", "Der VaR wird überwiegend von der Diffusion bestimmt",
-                        f"Nur {_de(100 * max(share, 0), 0)} % des Tages-VaR entfallen auf Sprünge. Für "
-                        "Expected Shortfall und längere Horizonte kann das anders aussehen.")
+        out.set_verdict("good", "The VaR is driven mainly by diffusion",
+                        f"Only {_num(100 * max(share, 0), 0)}% of the one-day VaR is attributable to jumps. "
+                        "Expected Shortfall and longer horizons may look different.")

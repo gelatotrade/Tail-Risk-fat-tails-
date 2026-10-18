@@ -1,4 +1,4 @@
-"""Drei physikalische Phasenräume (Lévy, Tsallis, Fokker-Planck) als interaktive 3D-Bahnen der Marktgeschichte."""
+"""Three physics phase spaces (Lévy, Tsallis, Fokker-Planck) as interactive 3D trajectories of market history."""
 
 import numpy as np
 
@@ -7,37 +7,39 @@ from src.physics.levy_flight import levy_flight_3d_coordinates
 from src.physics.tsallis_statistics import compute_tsallis_coordinates
 
 from .. import charts as C
+from ..data import fmt_date
 from ..core import ToolError
 
 SPEC = {
     "id": "physics-phase-space",
-    "title": "Physikalische Phasenräume in 3D",
+    "title": "Physics phase spaces in 3D",
     "group": "surface",
     "order": 30,
-    "summary": "Verwandelt deine Renditen in drei 3D-Bahnen – Lévy-, Tsallis- und Fokker-Planck-Raum – und zeigt, "
-               "wo der Markt heute im Vergleich zu seiner Geschichte steht.",
+    "summary": "Turns your returns into three 3D trajectories – Lévy, Tsallis and Fokker-Planck space – and shows "
+               "where the market stands today relative to its own history.",
     "description": (
-        "Jeder Handelstag wird zu einem Punkt in drei verschiedenen „Physik-Räumen“, berechnet aus einem "
-        "rollierenden Fenster der vorangegangenen Renditen. **Lévy-Raum** (`levy_flight_3d_coordinates`): "
-        "X = Volatilität relativ zum Durchschnitt (1 = normal), Y = 2/Hill-Tail-Index (höher = fettere Ränder), "
-        "Z = heutige |Rendite| in Standardabweichungen – Crash-Tage ragen als Spitzen heraus. **Tsallis-Raum** "
-        "(`compute_tsallis_coordinates`): X = entropischer Index q, Y = Tsallis-Entropie S_q, Z = Temperatur 1/β "
-        "(wächst mit der Varianz). **Fokker-Planck-Raum** (`compute_fokker_planck_coordinates`): X = Drift "
-        "(mittlere Tagesrendite), Y = Diffusion (Varianz der Tagesrenditen), Z = Ordnung α̂ = 6/Kurtosis mit der "
-        "gewöhnlichen Kurtosis (Gauß: 3, also α̂ = 2), begrenzt auf [1, 2] (kleiner = fettere Ränder).\n\n"
-        "So liest du die Bilder: Graue Punkte sind die Vergangenheit, die farbige Linie sind die letzten Tage, der "
-        "rote Punkt ist heute. Ruhige Phasen bilden eine dichte Wolke, Krisen ziehen lange Ausläufer nach außen. "
-        "Ziehen dreht die Ansicht, das Mausrad zoomt, beim Überfahren siehst du das Datum. Die Tabelle ordnet jede "
-        "Koordinate von heute als Perzentil ihrer eigenen Geschichte ein."
+        "Each trading day becomes a point in three different ‘physics spaces’, computed from a rolling window of "
+        "the preceding returns. **Lévy space** (`levy_flight_3d_coordinates`): X = volatility relative to its "
+        "average (1 = normal), Y = 2/Hill tail index (higher = fatter tails), Z = today's |return| in standard "
+        "deviations – crash days stand out as spikes. **Tsallis space** (`compute_tsallis_coordinates`): "
+        "X = entropic index q, Y = Tsallis entropy S_q, Z = temperature 1/β (rises with the variance). "
+        "**Fokker-Planck space** (`compute_fokker_planck_coordinates`): X = drift (mean daily return), "
+        "Y = diffusion (variance of daily returns), Z = order α̂ = 6/kurtosis using ordinary kurtosis "
+        "(Gaussian: 3, so α̂ = 2), clipped to [1, 2] (lower = fatter tails).\n\n"
+        "How to read the charts: grey dots are the past, the coloured line covers the most recent days and the red "
+        "dot is today. Calm phases form a dense cloud; crises stretch out in long excursions. Drag to rotate, "
+        "scroll to zoom and hover to see the date. The table ranks each of today's coordinates as a percentile of "
+        "its own history."
     ),
     "needs": ["returns"],
     "params": [
         {"name": "window", "type": "int", "default": 30, "min": 20, "max": 120, "step": 5,
-         "label": "Fenster (Handelstage)", "help": "Für alle drei Räume gleich."},
+         "label": "Window (trading days)", "help": "The same for all three spaces."},
         {"name": "recent", "type": "int", "default": 60, "min": 10, "max": 250, "step": 10,
-         "label": "Hervorgehobene letzte Tage"},
+         "label": "Highlighted recent days"},
         {"name": "last_n", "type": "int", "default": 2520, "min": 250, "max": 15000, "step": 250,
-         "label": "Zeitraum (letzte Handelstage)", "help": "Begrenzt Rechenzeit und Datenmenge bei sehr langen Reihen."},
+         "label": "Period (most recent trading days)",
+         "help": "Limits computing time and data volume for very long series."},
     ],
     "covers": [
         "src.physics.levy_flight.levy_flight_3d_coordinates",
@@ -57,29 +59,25 @@ def _sig(a, digits=4):
     return np.round(a * scale) / scale
 
 
-def _de(x, digits=2):
-    return f"{x:.{digits}f}".replace(".", ",")
+def _num(x, digits=2):
+    return f"{x:.{digits}f}"
 
 
 _SUP = str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹")
 
 
-def _date_de(d):
-    s = str(d)
-    return f"{s[8:10]}.{s[5:7]}.{s[:4]}" if len(s) == 10 and s[4] == "-" else s
-
 
 def _show(v, fmt):
-    """German number text: daily drift in %, everything else with 3 significant digits."""
+    """Number text: daily drift in %, everything else with 3 significant digits."""
     if not np.isfinite(v):
         return "–"
     if fmt == "pct":
-        return f"{100 * v:.3f} %".replace(".", ",").replace("-", "−")
+        return f"{100 * v:.3f}%".replace("-", "−")
     txt = f"{v:.3g}"
     if "e" in txt:
         mant, exp = txt.split("e")
-        return mant.replace(".", ",").replace("-", "−") + "·10" + str(int(exp)).translate(_SUP)
-    return txt.replace(".", ",").replace("-", "−")
+        return mant.replace("-", "−") + "·10" + str(int(exp)).translate(_SUP)
+    return txt.replace("-", "−")
 
 
 def _space(title, coords, labels, fmts, days, k_recent, subtitle):
@@ -87,10 +85,10 @@ def _space(title, coords, labels, fmts, days, k_recent, subtitle):
     hist = slice(0, max(0, len(X) - k_recent))
     rec = slice(max(0, len(X) - k_recent), len(X))
     traces = [
-        C.path3d("Geschichte", X[hist], Y[hist], Z[hist], color="muted", mode="markers", size=1.5, text=days[hist]),
-        C.path3d(f"Letzte {k_recent} Tage", X[rec], Y[rec], Z[rec], color=1, mode="lines+markers", size=3,
+        C.path3d("History", X[hist], Y[hist], Z[hist], color="muted", mode="markers", size=1.5, text=days[hist]),
+        C.path3d(f"Last {k_recent} days", X[rec], Y[rec], Z[rec], color=1, mode="lines+markers", size=3,
                  text=days[rec]),
-        C.path3d("Heute", [X[-1]], [Y[-1]], [Z[-1]], color="critical", mode="markers", size=11, text=[days[-1]]),
+        C.path3d("Today", [X[-1]], [Y[-1]], [Z[-1]], color="critical", mode="markers", size=11, text=[days[-1]]),
     ]
     return C.scatter3d(title, traces, x=C.axis(labels[0], fmt=fmts[0]), y=C.axis(labels[1], fmt=fmts[1]),
                        z=C.axis(labels[2], fmt=fmts[2]), subtitle=subtitle, height=520)
@@ -100,15 +98,15 @@ def run(params, data, out):
     w, k_recent = params["window"], params["recent"]
     m = min(params["last_n"], data.n)
     if m < w + 30:
-        raise ToolError(f"Für ein Fenster von {w} Tagen ist die Reihe zu kurz ({m} Tage). Verkleinere das Fenster.")
+        raise ToolError(f"The series is too short for a window of {w} days ({m} days). Reduce the window.")
     r = np.asarray(data.returns[-m:], dtype=float)
-    days_all = [_date_de(d) for d in data.dates[-m:]] if data.dates else [f"Tag {i + 1}" for i in range(data.n - m, data.n)]
+    days_all = [fmt_date(d) for d in data.dates[-m:]] if data.dates else [f"Day {i + 1}" for i in range(data.n - m, data.n)]
 
-    out.progress("Lévy-Koordinaten …", 0.05)
+    out.progress("Lévy coordinates …", 0.05)
     lev = levy_flight_3d_coordinates(r, window=w)
-    out.progress("Tsallis-Koordinaten (q-Fit je Fenster) …", 0.25)
+    out.progress("Tsallis coordinates (q fit per window) …", 0.25)
     tsa = compute_tsallis_coordinates(r, window=w)
-    out.progress("Fokker-Planck-Koordinaten …", 0.75)
+    out.progress("Fokker-Planck coordinates …", 0.75)
     fpc = compute_fokker_planck_coordinates(r, window=w)
 
     # the first `window` points are placeholders (zeros) in all three transforms
@@ -119,46 +117,47 @@ def run(params, data, out):
     days = np.array(days_all[w:], dtype=object)
     k_recent = int(min(k_recent, len(days)))
 
-    out.chart(_space("Lévy-Phasenraum", lev, ("X: Volatilität (Mittel = 1)", "Y: 2 / Tail-Index", "Z: |Rendite| / σ"),
+    out.chart(_space("Lévy phase space", lev, ("X: volatility (mean = 1)", "Y: 2 / tail index", "Z: |return| / σ"),
                      ("num", "num", "num"), days, k_recent,
-                     "Spitzen in Z sind einzelne Crash- oder Rallye-Tage; nach rechts wandert die Bahn in Stressphasen."))
-    out.chart(_space("Tsallis-Phasenraum", tsa, ("X: q", "Y: Entropie S_q", "Z: Temperatur 1/β"),
+                     "Spikes in Z are single crash or rally days; in stress phases the trajectory moves to the right."))
+    out.chart(_space("Tsallis phase space", tsa, ("X: q", "Y: entropy S_q", "Z: temperature 1/β"),
                      ("num", "num", "num"), days, k_recent,
-                     "Die Temperatur 1/β wächst mit der Varianz; q > 1,3 zeigt fette Ränder im Fenster."))
-    out.chart(_space("Fokker-Planck-Phasenraum", fpc, ("X: Drift (Ø Tagesrendite)", "Y: Diffusion (Varianz)",
-                                                       "Z: Ordnung α̂ = 6/Kurtosis"),
+                     "The temperature 1/β rises with the variance; q > 1.3 indicates fat tails in the window."))
+    out.chart(_space("Fokker-Planck phase space", fpc, ("X: drift (avg. daily return)", "Y: diffusion (variance)",
+                                                        "Z: order α̂ = 6/kurtosis"),
                      ("pct", "num", "num"), days, k_recent,
-                     "α̂ = 2: gaußförmiges Fenster, α̂ → 1: fette Ränder. Krisen: Drift negativ, Diffusion hoch."))
+                     "α̂ = 2: Gaussian window, α̂ → 1: fat tails. Crises: negative drift, high diffusion."))
 
     spaces = [
-        ("Lévy", "Volatilität X", lev[0], "num"), ("Lévy", "2 / Tail-Index Y", lev[1], "num"),
-        ("Lévy", "|Rendite| / σ Z", lev[2], "num"),
-        ("Tsallis", "q", tsa[0], "num"), ("Tsallis", "Entropie S_q", tsa[1], "num"),
-        ("Tsallis", "Temperatur 1/β", tsa[2], "num"),
-        ("Fokker-Planck", "Drift", fpc[0], "pct"), ("Fokker-Planck", "Diffusion (Varianz)", fpc[1], "num"),
-        ("Fokker-Planck", "Ordnung α̂", fpc[2], "num"),
+        ("Lévy", "Volatility X", lev[0], "num"), ("Lévy", "2 / tail index Y", lev[1], "num"),
+        ("Lévy", "|Return| / σ Z", lev[2], "num"),
+        ("Tsallis", "q", tsa[0], "num"), ("Tsallis", "Entropy S_q", tsa[1], "num"),
+        ("Tsallis", "Temperature 1/β", tsa[2], "num"),
+        ("Fokker-Planck", "Drift", fpc[0], "pct"), ("Fokker-Planck", "Diffusion (variance)", fpc[1], "num"),
+        ("Fokker-Planck", "Order α̂", fpc[2], "num"),
     ]
     rows = []
     for space, name, series, fmt in spaces:
         s = series[np.isfinite(series)]
         now = float(series[-1])
         pct = float(0.5 * (np.mean(s < now) + np.mean(s <= now))) if s.size else None  # mid-rank (ties)
-        place = "oberes Dezil" if pct is not None and pct >= 0.9 else "unteres Dezil" if pct is not None and pct <= 0.1 else "üblich"
+        place = "upper decile" if pct is not None and pct >= 0.9 else "lower decile" if pct is not None and pct <= 0.1 else "typical"
         rows.append([space, name, _show(now, fmt), _show(float(np.median(s)), fmt), pct, place])
-    out.table("Heute im Vergleich zur eigenen Geschichte", ["Raum", "Koordinate", "heute", "Median", "Perzentil heute",
-                                                             "Einordnung"],
+    out.table("Today vs its own history", ["Space", "Coordinate", "Today", "Median", "Percentile today",
+                                            "Position"],
               rows, formats=["text", "text", "text", "text", "pct", "text"],
-              note=f"Perzentil = Anteil der {len(days)} Tage mit kleinerem Wert (Gleichstände zur Hälfte).")
+              note=f"Percentile = share of the {len(days):,} days with a lower value (ties count as half).")
 
     vol_pct = rows[0][4]
-    out.metric("Heute" if data.dates else "Letzter Tag", str(days[-1]), "text",
-               hint=f"Fenster {w} Tage, {len(days)} Punkte je Raum")
-    out.metric("Lévy-Volatilität X", float(lev[0][-1]), "num", hint=f"Perzentil {_de(100 * vol_pct, 0)} %; 1 = Durchschnitt",
+    out.metric("Today" if data.dates else "Last day", str(days[-1]), "text",
+               hint=f"window {w} days, {len(days):,} points per space")
+    out.metric("Lévy volatility X", float(lev[0][-1]), "num", hint=f"percentile rank {_num(100 * vol_pct, 0)}%; 1 = average",
                status="serious" if vol_pct >= 0.95 else "warning" if vol_pct >= 0.8 else None)
-    out.metric("Tail-Schwere 2/α (Lévy Y)", float(lev[1][-1]), "num", hint=f"Perzentil {_de(100 * rows[1][4], 0)} %")
-    out.metric("Tsallis q", float(tsa[0][-1]), "num", hint=f"Perzentil {_de(100 * rows[3][4], 0)} %")
-    out.metric("Fokker-Planck α̂", float(fpc[2][-1]), "num", hint=f"Perzentil {_de(100 * rows[8][4], 0)} % · 2 = Gauß")
+    out.metric("Tail heaviness 2/α (Lévy Y)", float(lev[1][-1]), "num", hint=f"percentile rank {_num(100 * rows[1][4], 0)}%")
+    out.metric("Tsallis q", float(tsa[0][-1]), "num", hint=f"percentile rank {_num(100 * rows[3][4], 0)}%")
+    out.metric("Fokker-Planck α̂", float(fpc[2][-1]), "num",
+               hint=f"percentile rank {_num(100 * rows[8][4], 0)}% · 2 = Gaussian")
     j = int(np.nanargmax(lev[2]))
-    out.metric("Größter Sprung (Lévy Z)", float(lev[2][j]), "num", hint=f"{days[j]}: |Rendite| in σ")
+    out.metric("Largest jump (Lévy Z)", float(lev[2][j]), "num", hint=f"{days[j]}: |return| in σ")
     if m < data.n:
-        out.note(f"Ausgewertet sind die letzten {m} von {data.n} Handelstagen (Parameter „Zeitraum“).", "info")
+        out.note(f"Only the last {m:,} of {data.n:,} trading days are evaluated (‘Period’ parameter).", "info")

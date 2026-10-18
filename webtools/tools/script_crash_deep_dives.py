@@ -1,17 +1,18 @@
-"""Crash-Tiefenanalysen mit Datumsachsen – runs `generate_crash_deep_dives.py` unmodified in the browser."""
+"""Crash deep dives with date axes – runs `generate_crash_deep_dives.py` unmodified in the browser."""
 
 from ..scriptrunner import QUALITY_PARAM, script_tool
 
 SPEC = {
     "id": "script-crash-deep-dives",
-    "title": "Crash-Tiefenanalysen mit Datumsachsen",
+    "title": "Crash deep dives with date axes",
     "group": "scripts",
     "order": 41,
-    "summary": "Die vier Detailanalysen (2018, 2020, 2022, 2025) mit echten Kalenderdaten und allen Frühwarnindikatoren.",
+    "summary": "The four detailed analyses (2018, 2020, 2022, 2025) with real calendar dates and all early-warning "
+               "indicators.",
     "description": (
-        "Führt `generate_crash_deep_dives.py` aus: Volmageddon 2018, COVID-19 2020, Bärenmarkt 2022 und "
-        "Zoll-Crash 2025 – jeweils Kursverlauf, Indikatoren und Composite-Score auf einer Zeitachse, dazu der "
-        "Vergleich aller vier Crashs."
+        "Runs `generate_crash_deep_dives.py`: Volmageddon 2018, the 2020 COVID crash, the 2022 bear market and the 2025 "
+        "tariff crash – each with price path, indicators and composite score on a single time axis, plus a "
+        "comparison of all four crashes."
     ),
     "needs": [],
     "params": [QUALITY_PARAM],

@@ -1,82 +1,102 @@
-"""Shared pieces of the early-warning tools: German labels for the framework's codes and readings."""
+"""Shared pieces of the early-warning tools: English labels for the framework's codes and readings."""
 
 import numpy as np
 
 from src.analysis.early_warning import NetGammaExposure
 
-# composite level -> (status colour, German label)
+# composite level -> (status colour, label)
 LEVEL = {
     "NORMAL": ("good", "Normal"),
-    "ELEVATED": ("warning", "Erhöht"),
-    "HIGH": ("serious", "Hoch"),
-    "EXTREME": ("critical", "Extrem"),
+    "ELEVATED": ("warning", "Elevated"),
+    "HIGH": ("serious", "High"),
+    "EXTREME": ("critical", "Extreme"),
 }
 ACTION = {
-    "MONITOR": "Beobachten",
-    "INCREASE HEDGES": "Absicherungen erhöhen",
-    "SIGNIFICANT HEDGING REQUIRED": "Deutlich absichern",
-    "IMMEDIATE RISK REDUCTION": "Risiko sofort reduzieren",
+    "MONITOR": "Monitor",
+    "INCREASE HEDGES": "Increase hedges",
+    "SIGNIFICANT HEDGING REQUIRED": "Hedge substantially",
+    "IMMEDIATE RISK REDUCTION": "Reduce risk immediately",
 }
-# first line of CompositeEarlyWarningSystem.get_risk_assessment -> German rendering of its text
+# first line of CompositeEarlyWarningSystem.get_risk_assessment -> prose rendering of its text
 ASSESSMENT = {
     "EXTREME RISK - IMMEDIATE ACTION REQUIRED": (
-        "Mehrere Indikatoren signalisieren eine unmittelbare Verwerfung: negative Gamma-Lage beschleunigt "
-        "Bewegungen, Smart Money sichert sich teuer ab (hoher TDEX), die VIX-Kurve ist invertiert, "
-        "Institutionelle verteilen (niedriger DIX), Profis steigen aus (SMFI). Empfehlung des Frameworks: "
-        "Risiko maximal reduzieren – Vollabsicherung oder Cash erwägen."),
+        "Several indicators point to an imminent dislocation: negative gamma accelerates moves, smart money is "
+        "paying up for protection (high TDEX), the VIX curve is inverted, institutions are distributing (low DIX) "
+        "and professional money is exiting (SMFI). The framework recommends maximum risk reduction: consider a "
+        "full hedge or moving to cash."),
     "HIGH RISK - SIGNIFICANT HEDGING REQUIRED": (
-        "Mehrere Warnindikatoren sind erhöht: Die Marktstruktur wird fragil, institutionelle Absicherung nimmt "
-        "zu, eine rasche Verschlechterung ist möglich. Empfehlung des Frameworks: Absicherungen deutlich "
-        "ausbauen, Positionen verkleinern."),
+        "Several warning indicators are elevated: market structure is becoming fragile, institutional hedging is "
+        "increasing and a rapid deterioration is possible. The framework recommends increasing hedges "
+        "substantially and reducing position sizes."),
     "ELEVATED RISK - INCREASED CAUTION": (
-        "Einige Warnsignale: Die Lage verdient Aufmerksamkeit, erste Verschiebungen in der Positionierung sind "
-        "sichtbar. Empfehlung des Frameworks: Absicherungen ergänzen, Stopps enger setzen."),
+        "Some warning signals are present: conditions warrant attention and early shifts in positioning are "
+        "visible. The framework recommends adding hedges and tightening stop losses."),
     "NORMAL CONDITIONS - MONITOR": (
-        "Indikatoren im Normalbereich: Die Marktstruktur stützt, keine nennenswerten Divergenzen. Empfehlung "
-        "des Frameworks: normales Risikomanagement beibehalten."),
+        "Indicators are within normal ranges: market structure is supportive and there are no significant "
+        "divergences. The framework recommends maintaining standard risk management."),
 }
-# NetGammaExposure.get_regime_description (English) -> German
+# NetGammaExposure.get_regime_description -> edited English
 GEX_DESCRIPTION = {
     "Dealers aggressively selling into decline. Maximum acceleration risk.":
-        "Dealer verkaufen aggressiv in den Abverkauf – maximales Beschleunigungsrisiko.",
+        "Dealers are selling aggressively into the decline – maximum acceleration risk.",
     "Dealers selling as market falls. Volatility amplification active.":
-        "Dealer verkaufen in fallende Kurse – Schwankungen werden verstärkt.",
+        "Dealers are selling into falling prices – volatility is being amplified.",
     "Mixed dealer positioning. Normal market dynamics.":
-        "Gemischte Dealer-Positionierung – normale Marktdynamik.",
+        "Mixed dealer positioning – normal market dynamics.",
     "Dealers buying dips. Volatility suppression active.":
-        "Dealer kaufen Rücksetzer – Schwankungen werden gedämpft.",
+        "Dealers are buying the dips – volatility is being dampened.",
     "Strong dealer buying support. Market likely pinned to strikes.":
-        "Starke Dealer-Unterstützung – der Markt klebt vermutlich an großen Strikes.",
+        "Strong dealer support – the market is likely pinned to large strikes.",
 }
-GEX_REGIME = {"EXTREME_NEGATIVE": "Stark negativ", "NEGATIVE": "Negativ", "NEUTRAL": "Neutral",
-              "POSITIVE": "Positiv", "EXTREME_POSITIVE": "Stark positiv"}
-GEX_SIGNAL = {"CRITICAL_WARNING": "kritische Warnung", "HIGH_WARNING": "hohe Warnung", "MODERATE": "moderat",
-              "LOW": "gering", "SUPPRESSED": "gedämpft"}
-TDEX_LEVEL = {"COMPLACENT": "Sorglos", "NORMAL": "Normal", "ELEVATED": "Erhöht", "EXTREME": "Extrem"}
-TDEX_SIGNAL = {"WARNING_LOW_FEAR": "kaum Tail-Angst", "NEUTRAL": "neutral",
-               "SMART_MONEY_HEDGING": "Smart Money sichert ab", "PANIC_PROTECTION": "Panik-Absicherung"}
-STRUCTURE = {"STEEP_CONTANGO": "Steiles Contango", "MILD_CONTANGO": "Leichtes Contango", "FLAT": "Flach",
-             "BACKWARDATION": "Backwardation", "SEVERE_BACKWARDATION": "Starke Backwardation"}
-STRUCTURE_SIGNAL = {"COMPLACENT": "Sorglosigkeit", "NORMAL": "normal", "ELEVATED_CAUTION": "erhöhte Vorsicht",
-                    "HIGH_FEAR": "hohe Angst", "CRITICAL_PANIC": "Panik"}
-DIX_LEVEL = {"STRONG_BUYING": "Starke Käufe", "NORMAL": "Normal", "WEAK_BUYING": "Schwache Käufe",
+GEX_REGIME = {"EXTREME_NEGATIVE": "Strongly negative", "NEGATIVE": "Negative", "NEUTRAL": "Neutral",
+              "POSITIVE": "Positive", "EXTREME_POSITIVE": "Strongly positive"}
+GEX_SIGNAL = {"CRITICAL_WARNING": "Critical warning", "HIGH_WARNING": "High warning", "MODERATE": "Moderate",
+              "LOW": "Low", "SUPPRESSED": "Dampened"}
+TDEX_LEVEL = {"COMPLACENT": "Complacent", "NORMAL": "Normal", "ELEVATED": "Elevated", "EXTREME": "Extreme"}
+TDEX_SIGNAL = {"WARNING_LOW_FEAR": "Little tail fear", "NEUTRAL": "Neutral",
+               "SMART_MONEY_HEDGING": "Smart money hedging", "PANIC_PROTECTION": "Panic hedging"}
+STRUCTURE = {"STEEP_CONTANGO": "Steep contango", "MILD_CONTANGO": "Mild contango", "FLAT": "Flat",
+             "BACKWARDATION": "Backwardation", "SEVERE_BACKWARDATION": "Severe backwardation"}
+STRUCTURE_SIGNAL = {"COMPLACENT": "Complacency", "NORMAL": "Normal", "ELEVATED_CAUTION": "Heightened caution",
+                    "HIGH_FEAR": "High fear", "CRITICAL_PANIC": "Panic"}
+DIX_LEVEL = {"STRONG_BUYING": "Strong buying", "NORMAL": "Normal", "WEAK_BUYING": "Weak buying",
              "DISTRIBUTION": "Distribution"}
-DIX_SIGNAL = {"BULLISH_FLOW": "bullischer Fluss", "NEUTRAL": "neutral", "CAUTION": "Vorsicht",
-              "BEARISH_FLOW": "bärischer Fluss"}
-SMFI_SIGNAL = {"SMART_MONEY_ACCUMULATING": "Smart Money kauft", "SMART_MONEY_DISTRIBUTING": "Smart Money verkauft",
-               "MIXED": "gemischt"}
-DIVERGENCE = {"BEARISH": "bärisch", "BULLISH": "bullisch", "NONE": "keine"}
-WARNING_LEVEL = {"HIGH": "hoch", "LOW": "niedrig", "OPPORTUNITY": "Chance", "NEUTRAL": "neutral"}
+DIX_SIGNAL = {"BULLISH_FLOW": "Bullish flow", "NEUTRAL": "Neutral", "CAUTION": "Caution",
+              "BEARISH_FLOW": "Bearish flow"}
+SMFI_SIGNAL = {"SMART_MONEY_ACCUMULATING": "Smart money buying", "SMART_MONEY_DISTRIBUTING": "Smart money selling",
+               "MIXED": "Mixed"}
+DIVERGENCE = {"BEARISH": "Bearish", "BULLISH": "Bullish", "NONE": "None"}
+WARNING_LEVEL = {"HIGH": "High", "LOW": "Low", "OPPORTUNITY": "Opportunity", "NEUTRAL": "Neutral"}
 
-NAMES = {"gex": "Net Gamma (GEX)", "tdex": "TailDex (TDEX)", "vix_term": "VIX-Kurve",
+NAMES = {"gex": "Net Gamma (GEX)", "tdex": "TailDex (TDEX)", "vix_term": "VIX curve",
          "dix": "Dark Index (DIX)", "smfi": "Smart Money Flow (SMFI)"}
 KEYS = ("gex", "tdex", "vix_term", "dix", "smfi")
 
 
-def de(x, digits=2, sign=False):
-    """German number string: 1234.5 -> '1.234,50'; sign=True prefixes '+' for positives."""
+def num(x, digits=2, sign=False):
+    """English number string: 1234.5 -> '1,234.50'; sign=True prefixes '+' for positives (minus as U+2212)."""
     s = f"{x:+,.{digits}f}" if sign else f"{x:,.{digits}f}"
-    return s.replace(",", "_").replace(".", ",").replace("_", ".").replace("-", "−")
+    return s.replace("-", "−")
+
+
+def bn(x, digits=1, sign=False):
+    """US dollars in billions: 4.2 -> '$4.2bn'; sign=True gives '+$4.2bn' / '−$4.2bn'.
+
+    A word joiner (U+2060) follows the sign so narrow table cells never wrap between sign and '$'.
+    """
+    body = f"${abs(x):,.{digits}f}bn"
+    if x < 0 and round(abs(x), digits) != 0:
+        return "−⁠" + body
+    return ("+⁠" + body) if sign else body
+
+
+def ordinal(x):
+    """62.4 -> '62nd' (for percentiles); '–' for a missing value."""
+    if x is None or not np.isfinite(float(x)):
+        return "–"
+    n = int(round(float(x)))
+    suffix = "th" if 10 <= abs(n) % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(abs(n) % 10, "th")
+    return f"{n:,}{suffix}"
 
 
 def status_of(score):
@@ -84,7 +104,8 @@ def status_of(score):
     return "critical" if score >= 90 else "serious" if score >= 75 else "warning" if score >= 50 else "good"
 
 
-def assessment_de(text):
+def assessment_text(text):
+    """Prose version of ``CompositeEarlyWarningSystem.get_risk_assessment`` (falls back to the raw text)."""
     head = text.strip().splitlines()[0].strip() if text and text.strip() else ""
     return ASSESSMENT.get(head, text.strip())
 

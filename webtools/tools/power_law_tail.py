@@ -10,38 +10,38 @@ from ..core import ToolError
 
 SPEC = {
     "id": "power-law-tail",
-    "title": "Potenzgesetz im Rand: Tail-Exponent",
+    "title": "Power-law tail exponent",
     "group": "data",
     "order": 40,
-    "summary": "Wie schnell fällt die Wahrscheinlichkeit großer Tage ab? Exponent, Beginn des Rands und welche "
-               "Momente (Varianz, Kurtosis) überhaupt existieren.",
+    "summary": "How quickly the probability of large moves decays – the tail exponent, where the tail begins and "
+               "which moments (variance, kurtosis) exist at all.",
     "description": (
-        "Oberhalb einer Schwelle x_min folgen große Tagesbewegungen oft einem **Potenzgesetz**: Die Dichte fällt "
-        "wie x^−α, die Wahrscheinlichkeit eines Tages jenseits von x wie x^−(α−1). Der **Tail-Index α − 1** ist "
-        "die entscheidende Zahl: Ein Moment k (Varianz k = 2, Schiefe 3, Kurtosis 4) existiert nur, wenn α − 1 > k. "
-        "Für Aktien liegt α − 1 typischerweise um 3 („kubisches Gesetz“) – die Varianz existiert, die Kurtosis nicht.\n\n"
-        "So liest du das Hauptdiagramm: Doppelt-logarithmisch wird ein Potenzgesetz zur **Geraden**. Die Punkte "
-        "zeigen, wie oft ein Tag mindestens so groß war; die Gerade ist der Fit ab x_min, die gestrichelte Kurve "
-        "die Normalverteilung mit derselben Volatilität. Wo die Punkte über der Gauß-Kurve liegen, unterschätzt "
-        "die Normalverteilung das Risiko – oft um Größenordnungen.\n\n"
-        "Methode: **Clauset** wählt x_min so, dass der Abstand (KS-Distanz) zwischen Daten und Fit am kleinsten "
-        "ist, und schätzt α per Maximum-Likelihood. **Feste Schwelle** nimmt einfach die größten 10 %. Der "
-        "Bootstrap-p-Wert prüft, ob ein echtes Potenzgesetz so gut passen würde (vereinfacht: x_min wird je "
-        "Stichprobe nicht neu optimiert, der p-Wert fällt deshalb eher zu hoch aus)."
+        "Above a threshold x_min, large daily moves often follow a **power law**: the density falls like x^−α "
+        "and the probability of a day beyond x like x^−(α−1). The **tail index α − 1** is the decisive figure: a "
+        "moment k (variance k = 2, skewness 3, kurtosis 4) exists only if α − 1 > k. For equities α − 1 is "
+        "typically around 3 (the ‘cubic law’) – the variance exists, the kurtosis does not.\n\n"
+        "How to read the main chart: on log-log axes a power law becomes a **straight line**. The points show how "
+        "often a day was at least that large; the line is the fit from x_min upwards, and the dashed curve is the "
+        "normal distribution with the same volatility. Where the points lie above the Gaussian curve, the normal "
+        "distribution underestimates the risk – often by orders of magnitude.\n\n"
+        "Method: **Clauset** chooses x_min to minimise the distance (KS distance) between data and fit, and "
+        "estimates α by maximum likelihood. **Fixed threshold** simply takes the largest 10%. The bootstrap p-value "
+        "tests whether a genuine power law would fit this well (simplified: x_min is not re-optimised for each "
+        "sample, so the p-value tends to be too high)."
     ),
     "needs": ["returns"],
     "params": [
-        {"name": "tail", "type": "select", "default": "both", "label": "Rand",
-         "options": [{"value": "both", "label": "|Rendite| – beide Ränder"},
-                     {"value": "left", "label": "Verluste (linker Rand)"},
-                     {"value": "right", "label": "Gewinne (rechter Rand)"}]},
-        {"name": "method", "type": "select", "default": "clauset", "label": "Schwelle x_min",
+        {"name": "tail", "type": "select", "default": "both", "label": "Tail",
+         "options": [{"value": "both", "label": "|Return| – both tails"},
+                     {"value": "left", "label": "Losses (left tail)"},
+                     {"value": "right", "label": "Gains (right tail)"}]},
+        {"name": "method", "type": "select", "default": "clauset", "label": "Threshold x_min",
          "options": [{"value": "clauset", "label": "Clauset (KS-optimal)"},
-                     {"value": "fixed", "label": "Fest: größte 10 %"}]},
+                     {"value": "fixed", "label": "Fixed: largest 10%"}]},
         {"name": "n_bootstrap", "type": "int", "default": 100, "min": 20, "max": 1000, "step": 20,
-         "label": "Bootstrap-Stichproben", "help": "für den p-Wert des Potenzgesetz-Tests"},
-        {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 9999, "step": 1, "label": "Zufalls-Seed",
-         "help": "nur für den Bootstrap"},
+         "label": "Bootstrap samples", "help": "For the p-value of the power-law test."},
+        {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 9999, "step": 1, "label": "Random seed",
+         "help": "Used for the bootstrap only."},
     ],
     "covers": [
         "src.physics.phase_transitions.PowerLawAnalyzer",
@@ -51,13 +51,13 @@ SPEC = {
     "cost": "fast",
 }
 
-SIDES = {"left": "Verluste", "right": "Gewinne", "both": "|Rendite|"}
-MOMENTS = [(1, "Mittelwert"), (2, "Varianz"), (3, "Schiefe"), (4, "Kurtosis")]
+SIDES = {"left": "Losses", "right": "Gains", "both": "|Return|"}
+MOMENTS = [(1, "Mean"), (2, "Variance"), (3, "Skewness"), (4, "Kurtosis")]
 LEVELS = [0.02, 0.03, 0.05, 0.07, 0.10, 0.15, 0.20]
 
 
-def _de(x, digits=2):
-    return f"{x:.{digits}f}".replace(".", ",")
+def _num(x, digits=2):
+    return f"{x:.{digits}f}".replace("-", "−")
 
 
 def _side_values(r, side):
@@ -80,13 +80,13 @@ _SUP = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
 
 
 def _years(y):
-    """Waiting time in years, readable in German even when astronomically large."""
+    """Waiting time in years, readable even when astronomically large."""
     if y < 1:
-        return f"{_de(y * 252, 0)} Handelstage"
+        return f"{_num(y * 252, 0)} trading days"
     if y < 1e5:
-        return f"{y:,.0f} Jahre".replace(",", ".") if y >= 10 else f"{_de(y, 1)} Jahre"
+        return f"{y:,.0f} years" if y >= 10 else f"{_num(y, 1)} years"
     exp = int(np.floor(np.log10(y)))
-    return f"{_de(y / 10 ** exp, 1)}·10{str(exp).translate(_SUP)} Jahre"
+    return f"{_num(y / 10 ** exp, 1)}·10{str(exp).translate(_SUP)} years"
 
 
 def _se(tail_index, n_tail):
@@ -96,7 +96,7 @@ def _se(tail_index, n_tail):
 
 def _existing(tail_index):
     names = [name for k, name in MOMENTS if tail_index > k]
-    return ", ".join(names) if names else "keines"
+    return ", ".join(names).capitalize() if names else "None"
 
 
 def run(params, data, out):
@@ -115,25 +115,25 @@ def run(params, data, out):
             fits[key] = (values, None)
     values, fit = fits[side]
     if fit is None:
-        raise ToolError(f"Für den Rand „{SIDES[side]}“ gibt es zu wenige von null verschiedene Werte "
-                        "(mindestens 10 nötig).")
+        raise ToolError(f"The ‘{SIDES[side]}’ tail has too few non-zero values (at least 10 are required). "
+                        "Use a longer series or choose a different tail.")
 
     alpha, x_min, n_tail = float(fit["alpha"]), float(fit["x_min"]), int(fit["n_tail"])
     tail_index = alpha - 1.0
     se = _se(tail_index, n_tail)
     p_val = float(fit["p_value"])
-    out.metric("Tail-Index α − 1", tail_index, "num",
-               hint=f"± {_de(se)} (Standardfehler) · P(X > x) ∝ x^−(α−1) · kubisches Gesetz ≈ 3",
+    out.metric("Tail index α − 1", tail_index, "num",
+               hint=f"± {_num(se)} (standard error) · P(X > x) ∝ x^−(α−1) · cubic law ≈ 3",
                status="critical" if tail_index < 2 else "serious" if tail_index < 3 else
                "warning" if tail_index < 4 else None)
-    out.metric("Dichte-Exponent α", alpha, "num", hint="Dichte p(x) ∝ x^−α")
-    out.metric("Beginn des Rands x_min", x_min, "pct", hint="ab hier gilt das Potenzgesetz")
-    out.metric("Tage im Rand", n_tail, "int", hint=f"{_de(100 * n_tail / n, 1)} % aller Tage")
+    out.metric("Density exponent α", alpha, "num", hint="Density p(x) ∝ x^−α")
+    out.metric("Tail start x_min", x_min, "pct", hint="The power law applies from here")
+    out.metric("Days in the tail", n_tail, "int", hint=f"{_num(100 * n_tail / n, 1)}% of all days")
     if fit["ks_statistic"] is not None:
-        out.metric("KS-Distanz", fit["ks_statistic"], "num", digits=3, hint="Abstand Daten ↔ Fit (kleiner = besser)")
-    out.metric("Bootstrap-p-Wert", p_val, "num", hint="> 0,1: Potenzgesetz plausibel",
+        out.metric("KS distance", fit["ks_statistic"], "num", digits=3, hint="Distance data ↔ fit (smaller = better)")
+    out.metric("Bootstrap p-value", p_val, "num", hint="> 0.1: power law plausible",
                status="warning" if p_val < 0.1 else None)
-    out.metric("Existierende Momente", _existing(tail_index), "text", hint="Moment k existiert, wenn α − 1 > k")
+    out.metric("Existing moments", _existing(tail_index), "text", hint="Moment k exists if α − 1 > k")
 
     # Log-log CCDF: unconditional P(X >= x) for the chosen side, from a tenth of x_min upwards
     xs = np.sort(values[values > 0])[::-1]
@@ -147,44 +147,44 @@ def run(params, data, out):
     gauss = _gauss_tail(grid, side, mu, sd)
     gauss = np.where(gauss >= floor, gauss, np.nan)
     out.chart(C.xy(
-        f"Wahrscheinlichkeit eines Tages jenseits von x – {SIDES[side]}",
-        [C.trace("Beobachtet", xs[keep], ccdf[keep], type="scatter", color=1, size=5, decimate_to=None),
-         C.trace(f"Potenzgesetz (α − 1 = {_de(tail_index)})", grid, fit_line, color=2, width=2.5),
-         C.trace("Normalverteilung", grid, gauss, color="muted", dash=True),
-         C.trace(f"x_min = {_de(100 * x_min)} %", [x_min, x_min], [floor, 1.0], color=3, dash=True, width=1.5,
+        f"Probability of a day beyond x – {SIDES[side]}",
+        [C.trace("Observed", xs[keep], ccdf[keep], type="scatter", color=1, size=5, decimate_to=None),
+         C.trace(f"Power law (α − 1 = {_num(tail_index)})", grid, fit_line, color=2, width=2.5),
+         C.trace("Normal distribution", grid, gauss, color="muted", dash=True),
+         C.trace(f"x_min = {_num(100 * x_min)}%", [x_min, x_min], [floor, 1.0], color=3, dash=True, width=1.5,
                  decimate_to=None)],
-        x=C.axis("Tagesbewegung x", type="log", fmt="pct", digits=1, range=(x_lo, xs[0] * 1.6)),
+        x=C.axis("Daily move x", type="log", fmt="pct", digits=1, range=(x_lo, xs[0] * 1.6)),
         y=C.axis("P(X ≥ x)", type="log", range=(floor, 1.2)), height=420,
-        subtitle="Doppelt-logarithmisch wird ein Potenzgesetz zur Geraden. Die Gauß-Kurve stürzt dagegen ab.",
+        subtitle="On log-log axes a power law becomes a straight line. The Gaussian curve, by contrast, plunges.",
     ))
 
     # Comparison of the two tails (same method)
     order = [k for k in ("left", "right", "both") if fits[k][1] is not None]
     out.chart(C.xy(
-        "Tail-Index je Rand",
+        "Tail index by tail",
         [C.trace("α − 1", [SIDES[k] for k in order], [fits[k][1]["alpha"] - 1 for k in order], type="bar", color=1)],
-        x=C.axis("Rand", type="category"), y=C.axis("Tail-Index α − 1"),
-        hlines=[C.hline(2.0, "darüber: Varianz endlich"), C.hline(4.0, "darüber: Kurtosis endlich")],
-        height=300, subtitle="Ein kleinerer Index heißt: dieser Rand ist fetter. Bei Aktien meist die Verlustseite.",
+        x=C.axis("Tail", type="category"), y=C.axis("Tail index α − 1"),
+        hlines=[C.hline(2.0, "above: finite variance"), C.hline(4.0, "above: finite kurtosis")],
+        height=300, subtitle="A smaller index means a fatter tail. For equities this is usually the loss side.",
     ))
-    out.table("Vergleich der Ränder",
-              ["Rand", "α", "α − 1", "± Std.-Fehler", "x_min", "Tage im Rand", "p-Wert", "Existierende Momente"],
+    out.table("Comparison of tails",
+              ["Tail", "α", "α − 1", "± std. error", "x_min", "Days in the tail", "p-value", "Existing moments"],
               [[SIDES[k], fits[k][1]["alpha"], fits[k][1]["alpha"] - 1,
                 _se(fits[k][1]["alpha"] - 1, fits[k][1]["n_tail"]), fits[k][1]["x_min"], fits[k][1]["n_tail"],
                 fits[k][1]["p_value"], _existing(fits[k][1]["alpha"] - 1)] for k in order],
               formats=["text", "num", "num", "num", "pct", "int", "num", "text"],
-              note="Methode: " + ("Clauset (KS-optimales x_min)" if method == "clauset" else "feste Schwelle (größte 10 %)")
-                   + ". Unterscheiden sich zwei Ränder um weniger als etwa zwei Standardfehler, ist der Unterschied "
-                     "nicht belastbar.")
+              note="Method: " + ("Clauset (KS-optimal x_min)" if method == "clauset" else "fixed threshold (largest 10%)")
+                   + ". If two tails differ by less than about two standard errors, the difference is not "
+                     "significant.")
 
-    sample = [_de(100 * mu, 3) + " %", _de(100 * sd, 2) + " % (Volatilität)",
-              _de(stats.skew(r)), _de(stats.kurtosis(r), 1) + " (Exzess)"]
-    out.table("Welche Momente existieren?", ["Moment", "Bedingung", "existiert?", "Stichprobe (Tagesrenditen)"],
-              [[name, f"α − 1 > {k}", "ja" if tail_index > k else "nein – divergiert", s]
+    sample = [_num(100 * mu, 3) + "%", _num(100 * sd, 2) + "% (volatility)",
+              _num(stats.skew(r)), _num(stats.kurtosis(r), 1) + " (excess)"]
+    out.table("Existence of moments", ["Moment", "Condition", "Exists", "Sample (daily returns)"],
+              [[name, f"α − 1 > {k}", "Yes" if tail_index > k else "No – diverges", s]
                for (k, name), s in zip(MOMENTS, sample)],
               formats=["text", "text", "text", "text"],
-              note="Auch ein divergierendes Moment liefert in jeder Stichprobe eine endliche Zahl – sie ist aber "
-                   "instabil und wächst mit jedem neuen Extremtag.")
+              note="Even a divergent moment yields a finite number in every sample – but that number is unstable "
+                   "and grows with every new extreme day.")
 
     rows = []
     for lvl in LEVELS:
@@ -193,33 +193,33 @@ def run(params, data, out):
         pl = (n_tail / n) * (lvl / x_min) ** (-tail_index) if lvl >= x_min else None
         g = float(_gauss_tail(lvl, side, mu, sd))
         rows.append([lvl, int(np.sum(values >= lvl)), pl, _years(1 / (pl * 252)) if pl else "–",
-                     _years(1 / (g * 252)) if g > 0 else "nie (numerisch 0)"])
-    out.table("Wie oft kommt ein Tag jenseits von x vor?",
-              ["Schwelle x", "Tage beobachtet", "Potenzgesetz: Häufigkeit je Tag", "Potenzgesetz: einmal alle …",
-               "Normalverteilung: einmal alle …"], rows,
+                     _years(1 / (g * 252)) if g > 0 else "never (numerically 0)"])
+    out.table("Frequency of days beyond x",
+              ["Threshold x", "Days observed", "Power law: frequency per day", "Power law: once every …",
+               "Normal distribution: once every …"], rows,
               formats=["pct", "int", "pct", "text", "text"],
-              note=f"Beobachtet in {n} Handelstagen ({_de(n / 252, 1)} Jahre). Das Potenzgesetz gilt erst ab x_min, "
-                   "darunter bleibt es leer.")
+              note=f"Observed over {n:,} trading days ({_num(n / 252, 1)} years). The power law applies only from "
+                   "x_min upwards; below that its columns stay empty.")
 
     if n_tail < 50:
-        out.note(f"Nur {n_tail} Tage im Rand: Der Tail-Index ist sehr unsicher (± {_de(se)}, grob 95 %: "
-                 f"{_de(tail_index - 2 * se)} bis {_de(tail_index + 2 * se)}). Für belastbare Aussagen brauchst du "
-                 "eine längere Reihe.", "warning")
+        out.note(f"Only {n_tail} days in the tail: the tail index is highly uncertain (± {_num(se)}, roughly 95%: "
+                 f"{_num(tail_index - 2 * se)} to {_num(tail_index + 2 * se)}). Robust conclusions require a "
+                 "longer series.", "warning")
     if p_val < 0.1:
-        out.note(f"Der Bootstrap lehnt ein reines Potenzgesetz ab (p = {_de(p_val)}). Der Exponent ist dann nur "
-                 "eine Näherung für die Steigung im Rand.", "warning")
+        out.note(f"The bootstrap rejects a pure power law (p = {_num(p_val)}). The exponent is then only an "
+                 "approximation of the slope in the tail.", "warning")
     if tail_index < 2:
-        out.set_verdict("critical", "Unendliche Varianz im Rand",
-                        f"α − 1 = {_de(tail_index)} < 2: Volatilität und varianzbasierte Risikomaße sind hier "
-                        "nicht stabil schätzbar.")
+        out.set_verdict("critical", "Infinite variance in the tail",
+                        f"α − 1 = {_num(tail_index)} < 2: volatility and variance-based risk measures cannot be "
+                        "estimated reliably here.")
     elif tail_index < 3:
-        out.set_verdict("serious", "Fetter Rand: Varianz endlich, Schiefe und Kurtosis nicht",
-                        f"α − 1 = {_de(tail_index)}. Existierende Momente: {_existing(tail_index)}. Stichproben-"
-                        "Schiefe und -Kurtosis sind deshalb keine verlässlichen Maße.")
+        out.set_verdict("serious", "Fat tail: finite variance, infinite skewness and kurtosis",
+                        f"α − 1 = {_num(tail_index)}. Existing moments: {_existing(tail_index).lower()}. Sample skewness "
+                        "and kurtosis are therefore not reliable measures.")
     elif tail_index < 4:
-        out.set_verdict("warning", "Fetter Rand: Varianz und Schiefe endlich, Kurtosis nicht",
-                        f"α − 1 = {_de(tail_index)}. Existierende Momente: {_existing(tail_index)}. Die "
-                        "Stichproben-Kurtosis ist deshalb kein verlässliches Maß.")
+        out.set_verdict("warning", "Fat tail: finite variance and skewness, infinite kurtosis",
+                        f"α − 1 = {_num(tail_index)}. Existing moments: {_existing(tail_index).lower()}. Sample kurtosis is "
+                        "therefore not a reliable measure.")
     else:
-        out.set_verdict("good", "Dünner Rand: alle vier Momente endlich",
-                        f"α − 1 = {_de(tail_index)} > 4 – die Ränder fallen schnell genug ab.")
+        out.set_verdict("good", "Thin tail: all four moments finite",
+                        f"α − 1 = {_num(tail_index)} > 4 – the tail decays quickly enough.")

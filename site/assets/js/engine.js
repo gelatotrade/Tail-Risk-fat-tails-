@@ -8,7 +8,7 @@
 //   engine.cancel();                                // kills a long run, reboots silently
 
 export class CancelledError extends Error {
-  constructor() { super('Abgebrochen'); this.name = 'CancelledError'; }
+  constructor() { super('Cancelled'); this.name = 'CancelledError'; }
 }
 
 export class Engine extends EventTarget {
@@ -17,7 +17,7 @@ export class Engine extends EventTarget {
     this.base = base;
     this.build = build;
     this.state = 'idle'; // idle | booting | ready | busy | error
-    this.statusInfo = { stage: 'idle', text: 'Python-Engine noch nicht gestartet', pct: 0 };
+    this.statusInfo = { stage: 'idle', text: 'Python engine not started yet', pct: 0 };
     this.catalogue = null;
     this.bootSeconds = null;
     this._nextId = 1;
@@ -41,11 +41,11 @@ export class Engine extends EventTarget {
     this.worker = new Worker(new URL(`worker.js?v=${this.build}`, import.meta.url), { type: 'module' });
     this.worker.onmessage = (e) => this._onMessage(e.data);
     this.worker.onerror = (e) => {
-      const msg = e.message || 'Worker-Fehler';
+      const msg = e.message || 'Worker error';
       for (const [, p] of this._pending) p.reject(new Error(msg));
       this._pending.clear();
       this._setState('error');
-      this._emitStatus({ stage: 'error', text: `Python-Engine konnte nicht starten: ${msg}`, pct: 0 });
+      this._emitStatus({ stage: 'error', text: `The Python engine could not start: ${msg}`, pct: 0 });
     };
   }
 
@@ -86,7 +86,7 @@ export class Engine extends EventTarget {
       (err) => {
         this._ready = null;
         this._setState('error');
-        this._emitStatus({ stage: 'error', text: `Python-Engine konnte nicht starten: ${err.message}`, pct: 0 });
+        this._emitStatus({ stage: 'error', text: `The Python engine could not start: ${err.message}`, pct: 0 });
         throw err;
       },
     );

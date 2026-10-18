@@ -7,8 +7,8 @@ A tool module provides::
         "id": "risk-metrics",              # kebab-case, unique, = module name with '-' for '_'
         "title": "VaR & Expected Shortfall",
         "group": "risk",                   # see GROUPS
-        "summary": "Ein Satz: was man lernt.",
-        "description": "Längerer Text (Absätze durch Leerzeile getrennt).",
+        "summary": "One sentence: what the user learns.",
+        "description": "Longer text (paragraphs separated by a blank line).",
         "needs": ["returns"],              # subset of DATA_KEYS; [] for pure simulators
         "params": [ {...}, ... ],          # see PARAM_TYPES
         "covers": ["src.models.risk_metrics.TailRiskMetrics", ...],
@@ -39,14 +39,14 @@ from typing import Any, Callable, Dict, List, Optional
 import numpy as np
 
 GROUPS = {
-    "data": "Daten & Verteilung",
-    "risk": "Risikokennzahlen",
-    "physics": "Physik-Modelle",
-    "regime": "Regime & Phasen",
-    "warning": "Frühwarnsystem",
-    "surface": "3D-Risikoflächen",
-    "dashboard": "Dashboards & Berichte",
-    "scripts": "Original-Skripte",
+    "data": "Data and distributions",
+    "risk": "Risk metrics",
+    "physics": "Physics models",
+    "regime": "Regimes and phase transitions",
+    "warning": "Early-warning system",
+    "surface": "3D risk surfaces",
+    "dashboard": "Dashboards and reports",
+    "scripts": "Original scripts",
 }
 
 DATA_KEYS = ("returns", "prices", "vix", "vix3m", "dates")
@@ -55,7 +55,7 @@ COSTS = ("fast", "medium", "slow")
 
 
 class ToolError(Exception):
-    """An error whose message is meant for the end user (German, actionable)."""
+    """An error whose message is meant for the end user (plain English, actionable)."""
 
 
 # --------------------------------------------------------------------------- #
@@ -76,11 +76,11 @@ class Dataset:
     def require(self, *keys: str) -> None:
         missing = [k for k in keys if getattr(self, k) is None]
         if missing:
-            labels = {"returns": "Renditen", "prices": "Kurse", "vix": "VIX", "vix3m": "VIX3M", "dates": "Datum"}
+            labels = {"returns": "returns", "prices": "prices", "vix": "VIX", "vix3m": "VIX3M", "dates": "dates"}
             raise ToolError(
-                "Für dieses Werkzeug fehlen im aktiven Datensatz: "
+                "This tool needs data the active dataset does not contain: "
                 + ", ".join(labels.get(k, k) for k in missing)
-                + ". Wähle oben einen Datensatz, der diese Reihen enthält (z. B. S&P 500 mit VIX)."
+                + ". Choose a dataset that includes these series (e.g. S&P 500 with VIX)."
             )
 
     @property
@@ -160,8 +160,8 @@ class Result:
                hint: str = "", status: Optional[str] = None, unit: str = "", badge: str = "") -> "Result":
         """A headline number.  ``fmt='pct'`` expects a fraction (0.0123 -> 1,23 %).
 
-        ``status`` adds a coloured badge (default labels: Unauffällig / Erhöht / Hoch / Kritisch);
-        ``badge`` overrides its text, e.g. ``badge="Fette Ränder"``.
+        ``status`` adds a coloured badge (default labels: Normal / Elevated / High / Critical);
+        ``badge`` overrides its text, e.g. ``badge="Fat tails"``.
         """
         assert fmt in FORMATS, fmt
         assert status in STATUSES, status
@@ -329,7 +329,7 @@ def run_tool(tool_id: str, params: Optional[dict] = None, data: Optional[Dataset
     registry = _load_registry()
     started = time.perf_counter()
     if tool_id not in registry:
-        return {"ok": False, "error": f"Unbekanntes Werkzeug: {tool_id}", "kind": "user"}
+        return {"ok": False, "error": f"Unknown tool: {tool_id}", "kind": "user"}
     module = registry[tool_id]
     spec = module.SPEC
     clean = coerce_params(spec, params)

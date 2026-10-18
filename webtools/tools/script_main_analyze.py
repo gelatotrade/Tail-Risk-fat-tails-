@@ -6,15 +6,16 @@ from ..scriptrunner import QUALITY_PARAM, script_tool
 
 SPEC = {
     "id": "script-main-analyze",
-    "title": "main.py – Analyse deiner Daten",
+    "title": "main.py – analysis of your data",
     "group": "scripts",
     "order": 11,
-    "summary": "Die Analyse-Funktion der Kommandozeile auf deinem Datensatz: vollständiges Dashboard plus Textbericht.",
+    "summary": "Runs the command-line analysis mode on your dataset: full dashboard plus text report.",
     "description": (
-        "Entspricht `python main.py --mode analyze --data renditen.csv`: Der aktive Datensatz wird als CSV mit "
-        "einer Spalte `returns` in das Arbeitsverzeichnis des Skripts gelegt, dann läuft das Original-Skript.\n\n"
-        "Ergebnis ist das große Tail-Risk-Dashboard des Frameworks und der Zusammenfassungsbericht – ideal, um "
-        "eigene Excel-Daten in einem Schritt komplett durchleuchten zu lassen."
+        "Equivalent to `python main.py --mode analyze --data returns.csv`: the active dataset is saved to the script's "
+        "working directory as a CSV file with a single `returns` column, then the original script "
+        "runs.\n\n"
+        "The result is the framework's full tail-risk dashboard and the summary report – a convenient way to "
+        "analyse your own Excel data comprehensively in a single step."
     ),
     "needs": ["returns"],
     "params": [QUALITY_PARAM],

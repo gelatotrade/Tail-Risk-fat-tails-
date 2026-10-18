@@ -1,14 +1,14 @@
 <!doctype html>
-<html lang="de">
+<html lang="en-GB">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Tail Risk Lab · Fette Ränder live im Browser</title>
-  <meta name="description" content="Physikbasiertes Tail-Risk-Framework – Lévy-Flüge, Fokker-Planck, Tsallis, Extremwerttheorie und Frühwarnsystem – läuft per Pyodide direkt im Browser. Mit FRED-Marktdaten oder eigenen Excel-Daten.">
+  <title>Tail Risk Lab · Fat tails, live in your browser</title>
+  <meta name="description" content="A physics-based tail-risk framework – Lévy flights, Fokker-Planck, Tsallis statistics, extreme value theory and an early-warning system – running directly in your browser via Pyodide. With FRED market data or your own Excel data.">
   <meta name="theme-color" content="#f6f6f3" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
   <meta property="og:title" content="Tail Risk Lab">
-  <meta property="og:description" content="Krisen leben in den Rändern der Verteilung. Das komplette Tail-Risk-Framework, live im Browser.">
+  <meta property="og:description" content="Crises live in the tails of the distribution. The complete tail-risk framework, live in your browser.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://gelatotrade.github.io/Tail-Risk-fat-tails-/gallery/fat_tails_comparison.png">
   <meta name="twitter:card" content="summary_large_image">
@@ -22,24 +22,24 @@
   </script>
 </head>
 <body>
-  <a class="sr-only" href="#view">Zum Inhalt springen</a>
+  <a class="sr-only" href="#view">Skip to content</a>
   <header class="topbar">
     <div class="wrap">
-      <a class="brand" href="#/" aria-label="Tail Risk Lab – Startseite">
+      <a class="brand" href="#/" aria-label="Tail Risk Lab – home">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h18" opacity=".35"/><path d="M3 19c3 0 4-1 5.5-5S11 4 12 4s2 6 3.5 10S19 18 21 18"/><path d="M3 19c1.4 0 2.3-.3 3.1-1" stroke="var(--critical)" stroke-width="2.4"/><circle cx="4.3" cy="16.4" r="1.6" fill="var(--critical)" stroke="none"/></svg>
         Tail Risk Lab
       </a>
-      <nav class="nav" aria-label="Hauptnavigation">
-        <a href="#/" data-route="home">Start</a>
-        <a href="#/werkzeuge" data-route="tools">Werkzeuge</a>
-        <a href="#/galerie" data-route="gallery">Galerie</a>
-        <a href="#/methodik" data-route="method">Methodik</a>
+      <nav class="nav" aria-label="Main navigation">
+        <a href="#/" data-route="home">Home</a>
+        <a href="#/tools" data-route="tools">Tools</a>
+        <a href="#/gallery" data-route="gallery">Gallery</a>
+        <a href="#/methodology" data-route="method">Methodology</a>
       </nav>
       <div class="spacer"></div>
-      <span class="engine-pill" id="engine-pill" data-state="idle" role="status"><span class="dot"></span><span class="txt">Python bereit zum Start</span></span>
-      <button class="icon-btn" id="theme-btn" type="button" aria-label="Farbschema wechseln"></button>
-      <a class="icon-btn" href="https://github.com/gelatotrade/Tail-Risk-fat-tails-" rel="noopener" aria-label="Quellcode auf GitHub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a>
-      <button class="icon-btn menu-btn" type="button" aria-label="Menü"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <span class="engine-pill" id="engine-pill" data-state="idle" role="status"><span class="dot"></span><span class="txt">Python ready to start</span></span>
+      <button class="icon-btn" id="theme-btn" type="button" aria-label="Toggle colour scheme"></button>
+      <a class="icon-btn" href="https://github.com/gelatotrade/Tail-Risk-fat-tails-" rel="noopener" aria-label="Source code on GitHub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a>
+      <button class="icon-btn menu-btn" type="button" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
     </div>
   </header>
 
@@ -49,11 +49,11 @@
 
   <footer class="footer">
     <div class="wrap">
-      <p class="disclaimer">Forschung &amp; Ausbildung – keine Anlageberatung. Marktdaten: Federal Reserve Bank of St. Louis (FRED). Python im Browser: <a href="https://pyodide.org" rel="noopener">Pyodide</a>. Quellcode: <a href="https://github.com/gelatotrade/Tail-Risk-fat-tails-" rel="noopener">GitHub</a>.</p>
+      <p class="disclaimer">For research and education – not investment advice. Market data: Federal Reserve Bank of St. Louis (FRED). Python in the browser: <a href="https://pyodide.org" rel="noopener">Pyodide</a>. Source code: <a href="https://github.com/gelatotrade/Tail-Risk-fat-tails-" rel="noopener">GitHub</a>.</p>
       <p id="build-info" class="num"></p>
     </div>
   </footer>
-  <noscript><div class="wrap empty">Diese Seite benötigt JavaScript, weil das Python-Framework direkt im Browser läuft.</div></noscript>
+  <noscript><div class="wrap empty">This site needs JavaScript because the Python framework runs directly in your browser.</div></noscript>
   <script type="module" src="assets/js/app.js?v=__BUILD__"></script>
 </body>
 </html>

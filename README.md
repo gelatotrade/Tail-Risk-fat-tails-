@@ -11,7 +11,8 @@
 
 Every feature of this repository runs as an interactive tool in the browser — no installation, no server.
 The unmodified `src/` package executes client-side via [Pyodide](https://pyodide.org) (CPython 3.14 compiled to
-WebAssembly, with NumPy, SciPy and Matplotlib) inside a Web Worker. The UI is in German.
+WebAssembly, with NumPy, SciPy and Matplotlib) inside a Web Worker. The site is in Business English
+(British spelling); Excel and CSV imports accept both English (1,234.56) and German (1.234,56) number formats.
 
 - **Data**: S&P 500, NASDAQ, VIX and VIX3M from FRED (refreshed daily by GitHub Actions), synthetic
   generators from `src/utils/data_loader.py`, or your own Excel/CSV file — also pasted straight from Excel.

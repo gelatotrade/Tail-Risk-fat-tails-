@@ -23,12 +23,12 @@ from .core import Dataset, ToolError
 
 MIN_OBS = 60
 SYNTHETIC_MODELS = {
-    "levy_jump": "Gauß + Lévy-Sprünge (realistisch)",
-    "garch": "GARCH(1,1) – Volatilitäts-Cluster",
-    "student_t": "Student-t (ν = 4)",
-    "levy": "Lévy-stabil (α = 1,7)",
-    "regime_switching": "Regimewechsel (ruhig ↔ Stress)",
-    "gaussian": "Normalverteilung (Referenz)",
+    "levy_jump": "Gaussian + Lévy jumps (realistic)",
+    "garch": "GARCH(1,1) – volatility clustering",
+    "student_t": "Student's t (ν = 4)",
+    "levy": "Lévy-stable (α = 1.7)",
+    "regime_switching": "Regime switching (calm ↔ stress)",
+    "gaussian": "Normal distribution (benchmark)",
 }
 
 
@@ -60,7 +60,7 @@ def from_arrays(name: str, *, prices=None, returns=None, dates=None, vix=None, v
     prices, returns, vix, vix3m = _arr(prices), _arr(returns), _arr(vix), _arr(vix3m)
     dates = _dates(dates)
     if prices is None and returns is None:
-        raise ToolError("Der Datensatz enthält weder Kurse noch Renditen.")
+        raise ToolError("The dataset contains neither prices nor returns.")
 
     if returns is None:
         n = len(prices)
@@ -68,11 +68,11 @@ def from_arrays(name: str, *, prices=None, returns=None, dates=None, vix=None, v
         keep = np.isfinite(prices) & (prices > 0)
         for key in ("v", "v3"):
             if cols[key] is not None and len(cols[key]) != n:
-                raise ToolError("VIX-Reihe und Kursreihe haben unterschiedliche Längen.")
+                raise ToolError("The VIX series and the price series differ in length.")
         prices_c = prices[keep]
         idx = np.flatnonzero(keep)
         if len(prices_c) < MIN_OBS + 1:
-            raise ToolError(f"Zu wenige gültige Kurse ({len(prices_c)}). Mindestens {MIN_OBS + 1} nötig.")
+            raise ToolError(f"Too few valid prices ({len(prices_c)}). At least {MIN_OBS + 1} are required.")
         returns = np.diff(np.log(prices_c))
         ridx = idx[1:]  # a return belongs to the later price
         out_dates = [dates[i] for i in ridx] if dates is not None else None
@@ -91,7 +91,7 @@ def from_arrays(name: str, *, prices=None, returns=None, dates=None, vix=None, v
     for series in (out_vix, out_vix3m):
         if series is not None:
             if len(series) != len(returns):
-                raise ToolError("VIX-Reihe und Renditereihe haben unterschiedliche Längen.")
+                raise ToolError("The VIX series and the return series differ in length.")
     if out_vix is not None and np.isfinite(out_vix).mean() > 0.9:
         mask &= np.isfinite(out_vix)
     else:
@@ -106,10 +106,10 @@ def from_arrays(name: str, *, prices=None, returns=None, dates=None, vix=None, v
 
     returns = returns[mask]
     if len(returns) < MIN_OBS:
-        raise ToolError(f"Zu wenige gültige Beobachtungen ({len(returns)}). Mindestens {MIN_OBS} nötig.")
+        raise ToolError(f"Too few valid observations ({len(returns)}). At least {MIN_OBS} are required.")
     if np.nanmax(np.abs(returns)) > 1.5:
-        raise ToolError("Die Renditen wirken unplausibel groß (> 150 % an einem Tag). "
-                        "Prüfe, ob die Spalte Kurse statt Renditen enthält oder Prozentwerte sind.")
+        raise ToolError("The returns look implausibly large (more than 150% in one day). "
+                        "Check whether the column holds prices rather than returns, or whether the values are percentages.")
     return Dataset(
         name=name,
         returns=returns,
@@ -125,11 +125,11 @@ def synthetic(model: str = "levy_jump", n: int = 2520, seed: int = 42) -> Datase
     from src.utils.data_loader import generate_synthetic_returns, generate_vix_from_returns
 
     if model not in SYNTHETIC_MODELS:
-        raise ToolError(f"Unbekanntes Modell: {model}")
+        raise ToolError(f"Unknown model: {model}")
     n = int(min(max(n, MIN_OBS), 20000))
     returns = np.asarray(generate_synthetic_returns(n, model, seed=int(seed)), dtype=float)
     vix = np.asarray(generate_vix_from_returns(returns), dtype=float)
-    return Dataset(name=f"Synthetisch · {SYNTHETIC_MODELS[model]}", returns=returns, vix=vix,
+    return Dataset(name=f"Synthetic · {SYNTHETIC_MODELS[model]}", returns=returns, vix=vix,
                    meta={"source": "synthetic", "model": model, "seed": int(seed)})
 
 
@@ -142,7 +142,7 @@ def crisis(seed: int = 42, n_pre: int = 500, n_crisis: int = 100, n_post: int = 
     vix = np.asarray(generate_vix_from_returns(returns), dtype=float)
     meta = {k: (int(v) if isinstance(v, (int, np.integer)) else v) for k, v in dict(meta).items()}
     meta["source"] = "crisis"
-    return Dataset(name="Synthetisches Krisenszenario", returns=returns, vix=vix, meta=meta)
+    return Dataset(name="Synthetic crisis scenario", returns=returns, vix=vix, meta=meta)
 
 
 def build(descriptor: Dict[str, Any], arrays: Optional[Dict[str, Any]] = None) -> Dataset:
@@ -159,13 +159,28 @@ def build(descriptor: Dict[str, Any], arrays: Optional[Dict[str, Any]] = None) -
         return crisis(descriptor.get("seed", 42))
     if source in ("market", "upload"):
         return from_arrays(
-            descriptor.get("name", "Eigene Daten"),
+            descriptor.get("name", "Your data"),
             prices=arrays.get("prices"), returns=arrays.get("returns"), dates=arrays.get("dates"),
             vix=arrays.get("vix"), vix3m=arrays.get("vix3m"),
             returns_unit=descriptor.get("returns_unit", "log"),
             meta={"source": source, **{k: v for k, v in descriptor.items() if k not in ("source",)}},
         )
-    raise ToolError(f"Unbekannte Datenquelle: {source}")
+    raise ToolError(f"Unknown data source: {source}")
+
+
+MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def fmt_date(d, otherwise: str = "{}") -> str:
+    """'2026-10-15' -> '15 Oct 2026', the site's date style (locale-independent).
+
+    Anything that is not an ISO date (e.g. a trading-day index) goes through ``otherwise``,
+    so ``fmt_date(i, "Day {}")`` reads 'Day 812' on datasets without dates.
+    """
+    s = str(d)
+    if len(s) >= 10 and s[4] == "-" and s[7] == "-" and s[5:7].isdigit() and s[8:10].isdigit():
+        return f"{int(s[8:10])} {MONTHS[int(s[5:7]) - 1]} {s[:4]}"
+    return otherwise.format(d)
 
 
 def index_axis(data: Dataset):
@@ -174,4 +189,4 @@ def index_axis(data: Dataset):
 
     if data.dates:
         return list(data.dates), axis("", type="date")
-    return list(range(data.n)), axis("Handelstag", type="linear", fmt="int")
+    return list(range(data.n)), axis("Trading day", type="linear", fmt="int")
