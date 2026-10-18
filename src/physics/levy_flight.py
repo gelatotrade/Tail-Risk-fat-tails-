@@ -359,7 +359,7 @@ class LevyStableDistribution:
             # McCulloch's quantile-based estimator: alpha and beta from the
             # quantile ratios nu_alpha = (q95-q05)/(q75-q25) and
             # nu_beta = (q95+q05-2 q50)/(q95-q05), scale gamma = IQR/phi_3,
-            # location from the median. Fast and consistent for 0.6 < alpha <= 2.
+            # location from the median. Fast and consistent; tables cover 0.5 <= alpha <= 2.
             if data.size < 5:
                 raise ValueError("Lévy fit needs at least 5 finite observations")
             alpha, beta, gamma, delta = _mcculloch_fit(data)

@@ -127,9 +127,11 @@ class GeneralizedExtremeValue:
 
         Divides data into blocks and fits GEV to block maxima.
 
-        The maxima are standardized before the MLE (the GEV is a
-        location-scale family, so μ and σ are mapped back exactly); on raw
-        daily-return scale scipy's optimizer stops far from the optimum.
+        The maxima are standardized before the MLE and the optimizer starts
+        from the moment-matched Gumbel (ξ = 0); the GEV is a location-scale
+        family, so μ and σ are mapped back exactly. On raw daily-return scale
+        (and from scipy's default start) the optimizer stops far from the
+        maximum likelihood.
 
         Args:
             data: Time series of returns
@@ -150,8 +152,12 @@ class GeneralizedExtremeValue:
         if not (np.isfinite(spread) and spread > 0):
             raise ValueError("block maxima are constant; GEV cannot be fitted")
 
-        # Fit using scipy's genextreme (note: scipy uses c = -ξ)
-        c, loc, scale = stats.genextreme.fit((maxima - center) / spread)
+        # Fit using scipy's genextreme (note: scipy uses c = -ξ). Start: Gumbel
+        # with mean 0 and std 1, i.e. scale √6/π and loc -γ_Euler·scale.
+        gumbel_scale = np.sqrt(6) / np.pi
+        gumbel_loc = -np.euler_gamma * gumbel_scale
+        c, loc, scale = stats.genextreme.fit((maxima - center) / spread, 0.0,
+                                             loc=gumbel_loc, scale=gumbel_scale)
 
         return GeneralizedExtremeValue(xi=-c, mu=center + spread * loc, sigma=spread * scale)
 

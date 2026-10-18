@@ -13,6 +13,7 @@ This module provides methods to:
 - Adjust risk metrics for regime
 """
 
+import math
 import numpy as np
 from scipy import stats
 from typing import Tuple, Optional, Dict, List
@@ -125,26 +126,31 @@ class MarkovRegimeSwitching:
         """
         lik = self._state_likelihoods(returns)
         n, k = lik.shape
-        P_T = self.transition_matrix.T
+        # The recursion runs on Python floats: for k = 2..3 states this is
+        # several times faster than per-step NumPy calls on tiny arrays.
+        columns = self.transition_matrix.T.tolist()  # columns[j][i] = P_ij
+        lik_rows = lik.tolist()
+        log = math.log
 
-        filtered = np.empty((n, k))
-        predicted = np.empty((n, k))
+        filtered = [None] * n
+        predicted = [None] * n
         log_likelihood = 0.0
 
         # Initial distribution: uniform
-        pred = np.full(k, 1.0 / k)
+        pred = [1.0 / k] * k
         for t in range(n):
             predicted[t] = pred
-            joint = pred * lik[t]
-            density = joint.sum()
-            if density > 0 and np.isfinite(density):
-                filtered[t] = joint / density
+            joint = [p * l for p, l in zip(pred, lik_rows[t])]
+            density = sum(joint)
+            if 0.0 < density < math.inf:
+                filt = [x / density for x in joint]
             else:
-                filtered[t] = pred  # observation impossible under every state
-            log_likelihood += np.log(max(density, 1e-300))
-            pred = P_T @ filtered[t]
+                filt = pred  # observation impossible under every state
+            filtered[t] = filt
+            log_likelihood += log(max(density, 1e-300))
+            pred = [sum([f * p for f, p in zip(filt, col)]) for col in columns]
 
-        return filtered, predicted, float(log_likelihood)
+        return np.array(filtered), np.array(predicted), float(log_likelihood)
 
     def _backward(self, filtered: np.ndarray,
                   predicted: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -157,21 +163,27 @@ class MarkovRegimeSwitching:
         """
         n, k = filtered.shape
         P = self.transition_matrix
+        rows = P.tolist()
+        filt = filtered.tolist()
+        pred = predicted.tolist()
 
-        smoothed = np.empty((n, k))
-        smoothed[-1] = filtered[-1]
-        ratio = np.zeros((n, k))  # smoothed[t] / predicted[t]
+        smoothed = [None] * n
+        smoothed[-1] = filt[-1]
+        ratio = [[0.0] * k for _ in range(n)]  # smoothed[t] / predicted[t]
 
         for t in range(n - 1, 0, -1):
-            pred = predicted[t]
-            ratio[t] = np.divide(smoothed[t], pred, out=np.zeros(k), where=pred > 0)
-            prev = filtered[t - 1] * (P @ ratio[t])
-            smoothed[t - 1] = prev / (prev.sum() or 1.0)
+            r = [s / p if p > 0 else 0.0 for s, p in zip(smoothed[t], pred[t])]
+            ratio[t] = r
+            prev = [f * sum([a * b for a, b in zip(row, r)])
+                    for f, row in zip(filt[t - 1], rows)]
+            total = sum(prev) or 1.0
+            smoothed[t - 1] = [x / total for x in prev]
 
+        ratio = np.array(ratio)
         # P(S_{t-1}=i, S_t=j | Y_n) = filtered[t-1,i] P_ij smoothed[t,j] / predicted[t,j]
         transitions = P * (filtered[:-1].T @ ratio[1:])
 
-        return smoothed, transitions
+        return np.array(smoothed), transitions
 
     def _m_step(self, returns: np.ndarray, smoothed: np.ndarray,
                 transitions: np.ndarray):
