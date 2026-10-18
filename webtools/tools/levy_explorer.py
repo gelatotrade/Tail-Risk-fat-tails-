@@ -118,8 +118,10 @@ def run(params, data, out):
         out.metric("Endliche Momente E|X|^p", "alle p", "text", hint="Gauß-Fall")
     out.metric("P(X < −5γ)", p_left5, "pct", hint=f"Stichprobe; Gauß: {g5 * 100:.2g} %".replace(".", ","),
                status="critical" if p_left5 > 1000 * g5 else "serious" if p_left5 > 10 * g5 else None)
-    out.metric("1 %-Quantil", float(np.quantile(s, 0.01)), "num", hint=f"in γ; Gauß: {_de(stats.norm.ppf(0.01) * g_sd)}")
-    out.metric("Größter Ausschlag", float(np.max(np.abs(s))), "num", hint=f"in γ, unter {m:,} Ziehungen".replace(",", "."))
+    out.metric("1 %-Quantil", float(np.quantile(s, 0.01)), "num",
+               hint=f"in γ; Gauß: {_de(stats.norm.ppf(0.01) * g_sd)}".replace("-", "−"))
+    out.metric("Größter Ausschlag", float(np.max(np.abs(s))), "num",
+               hint="in γ, unter " + f"{m:,}".replace(",", ".") + " Ziehungen")
 
     # --- chart 1: density on a log scale
     edges = np.linspace(-xr, xr, 121)
