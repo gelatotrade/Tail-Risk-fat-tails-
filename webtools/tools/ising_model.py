@@ -150,7 +150,7 @@ def run(params, data, out):
                hint=f"−{_de(J + abs(h))}: völlige Ordnung · ≈ 0: Chaos" if J + abs(h) > 0 else
                "ohne Herdentrieb und Stimmung (J = h = 0) ist die Energie immer 0")
     out.metric("Suszeptibilität χ", exact_chi, "num",
-               hint=f"exakt für die Kette, N·Var(|M|)/T · Momentaufnahme ohne Herdentrieb (1−M²)/T: {_de(chi_now)}")
+               hint=f"exakt für die Kette · Momentaufnahme ohne Herdentrieb (1−M²)/T: {_de(chi_now)}")
     if tc > 0:
         out.metric("T / T_c (2D-Referenz)", T / tc, "num",
                    hint="nur Skala: die 1D-Kette hat keinen echten Phasenübergang")

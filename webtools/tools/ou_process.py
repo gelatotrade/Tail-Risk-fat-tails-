@@ -68,7 +68,7 @@ SPEC = {
     "cost": "fast",
 }
 
-N_SHOW = 15         # paths drawn individually
+N_SHOW = 10         # paths drawn individually
 FORECAST_DAYS = 63  # forecast cone after the fitted series (one quarter)
 DT = 1 / 252
 
@@ -154,7 +154,9 @@ def _fit(params, data, out, true_ou):
         fit_source = "sim"
     if fit_source == "vix":
         series = np.asarray(data.vix, dtype=float)
-        label, source = f"VIX ({data.name})", "dem VIX des Datensatzes"
+        derived = (data.meta or {}).get("source") in ("synthetic", "crisis")
+        label = "abgeleiteter VIX" if derived else "VIX"
+        source = "dem aus den Renditen abgeleiteten VIX" if derived else "dem VIX des Datensatzes"
     else:
         n_fit = int(round(params["fit_years"] * 252))
         series = true_ou.simulate(true_ou.mu, n_fit * DT, n_steps=n_fit, n_paths=1, seed=params["seed"] + 1)[0]
@@ -183,7 +185,7 @@ def _fit(params, data, out, true_ou):
                   ["Parameter", "geschätzt", "wahr", "Fehler"], rows, formats=["text", "num", "num", "pct"],
                   note="θ braucht viele Halbwertszeiten Daten: Bei kurzen Reihen wird es systematisch überschätzt.")
     else:
-        out.table(f"OU-Fit auf {label} ({len(series)} Tage)", ["Parameter", "geschätzt", "deine Simulation"],
+        out.table(f"OU-Fit: {label} · {data.name} · {len(series)} Tage", ["Parameter", "geschätzt", "deine Simulation"],
                   [r + [tv] for r, tv in zip(rows, truth)], formats=["text", "num", "num"],
                   note="Rechts zum Vergleich die Parameter, mit denen du oben simulierst.")
     out.metric("Fit: Halbwertszeit", fit.half_life() * 252, "num", digits=0, unit="Handelstage",
