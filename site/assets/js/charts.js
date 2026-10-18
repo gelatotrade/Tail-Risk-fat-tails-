@@ -44,7 +44,7 @@ function withAlpha(hex, a) {
 
 function tickformat(ax) {
   if (ax.type === 'date') return undefined;
-  if (ax.fmt === 'pct') return `.${Math.max(0, (ax.digits ?? 1))}%`;
+  if (ax.fmt === 'pct') return ax.type === 'log' ? '~%' : `.${Math.max(0, (ax.digits ?? 1))}%`;
   if (ax.fmt === 'int') return ',d';
   return undefined;
 }
@@ -75,7 +75,7 @@ function baseLayout(spec, t) {
     font: { family: t.font, color: t.ink2, size: 12 },
     margin: { l: 8, r: 12, t: 8, b: 8 }, height: spec.height || 340,
     showlegend: true,
-    legend: { orientation: 'h', x: 0, y: -0.16, yanchor: 'top', font: { size: 12, color: t.ink2 }, bgcolor: 'rgba(0,0,0,0)' },
+    legend: { orientation: 'h', x: 0, xanchor: 'left', y: 1.02, yanchor: 'bottom', font: { size: 12, color: t.ink2 }, bgcolor: 'rgba(0,0,0,0)' },
     hoverlabel: { bgcolor: t.surface, bordercolor: t.axis, font: { color: t.ink, family: t.font, size: 12 } },
     separators: ',.',
   };
@@ -108,7 +108,7 @@ function xyFigure(spec, t) {
   const layout = baseLayout(spec, t);
   layout.xaxis = axisLayout(spec.x, t);
   layout.yaxis = axisLayout(spec.y, t);
-  layout.barmode = spec.barmode === 'stack' ? 'stack' : 'overlay';
+  layout.barmode = spec.barmode === 'stack' ? 'stack' : spec.barmode === 'group' && spec.traces.filter((tr) => tr.type === 'bar').length > 1 ? 'group' : 'overlay';
   layout.bargap = 0.04;
   layout.hovermode = spec.x.type === 'date' ? 'x unified' : 'closest';
   layout.showlegend = data.length > 1;
@@ -119,11 +119,12 @@ function xyFigure(spec, t) {
   }
   // labels of nearby reference lines alternate between the right and the left edge so they never overlap
   const hl = [...(spec.hlines || [])].sort((a, b) => a.y - b.y);
+  const logY = spec.y.type === 'log';
   hl.forEach((h, i) => {
     shapes.push({ type: 'line', xref: 'paper', x0: 0, x1: 1, y0: h.y, y1: h.y, line: { color: color(h.color, t), width: 1.2, dash: h.dash ? 'dot' : 'solid' } });
-    if (h.label) {
+    if (h.label && (!logY || h.y > 0)) {
       const right = i % 2 === 0;
-      annotations.push({ xref: 'paper', x: right ? 1 : 0, y: h.y, text: escapeHtml(h.label), showarrow: false, xanchor: right ? 'right' : 'left', yanchor: 'bottom', font: { size: 11, color: t.ink2 }, bgcolor: withAlpha(t.surface, 0.75) });
+      annotations.push({ xref: 'paper', x: right ? 1 : 0, y: logY ? Math.log10(h.y) : h.y, text: escapeHtml(h.label), showarrow: false, xanchor: right ? 'right' : 'left', yanchor: 'bottom', font: { size: 11, color: t.ink2 }, bgcolor: withAlpha(t.surface, 0.75) });
     }
   });
   const logX = spec.x.type === 'log';
