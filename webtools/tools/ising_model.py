@@ -200,7 +200,7 @@ def run(params, data, out):
         if t_lo <= T <= t_hi:
             out_.append(C.trace("dein T", [T, T], [0, top], color=2, dash=True, width=1.5, decimate_to=None))
         if t_lo <= tc <= t_hi:
-            out_.append(C.trace("T_c (2D-Referenz)", [tc, tc], [0, top], color="ink", dash=True, width=1.5,
+            out_.append(C.trace("T_c (2D-Referenz)", [tc, tc], [0, top], color=3, dash=True, width=1.5,
                                 decimate_to=None))
         return out_
 

@@ -76,6 +76,19 @@ def _gauss_tail(x, side, mu, sd):
     return stats.norm.cdf(-x, mu, sd) + stats.norm.sf(x, mu, sd)
 
 
+_SUP = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
+
+
+def _years(y):
+    """Waiting time in years, readable in German even when astronomically large."""
+    if y < 1:
+        return f"{_de(y * 252, 0)} Handelstage"
+    if y < 1e5:
+        return f"{y:,.0f} Jahre".replace(",", ".") if y >= 10 else f"{_de(y, 1)} Jahre"
+    exp = int(np.floor(np.log10(y)))
+    return f"{_de(y / 10 ** exp, 1)}·10{str(exp).translate(_SUP)} Jahre"
+
+
 def _existing(tail_index):
     names = [name for k, name in MOMENTS if tail_index > k]
     return ", ".join(names) if names else "keines"
@@ -116,12 +129,13 @@ def run(params, data, out):
                status="warning" if p_val < 0.1 else None)
     out.metric("Existierende Momente", _existing(tail_index), "text", hint="Moment k existiert, wenn α − 1 > k")
 
-    # Log-log CCDF: unconditional P(X >= x) for the chosen side
+    # Log-log CCDF: unconditional P(X >= x) for the chosen side, from a tenth of x_min upwards
     xs = np.sort(values[values > 0])[::-1]
-    ranks = np.arange(1, len(xs) + 1)
-    keep = np.unique(np.round(np.logspace(0, np.log10(len(xs)), 700)).astype(int)) - 1
-    ccdf = ranks / n
-    grid = np.logspace(np.log10(xs[-1]), np.log10(xs[0] * 1.5), 200)
+    x_lo = max(float(xs[-1]), x_min / 10)
+    ccdf = np.arange(1, len(xs) + 1) / n
+    m = int(np.sum(xs >= x_lo))
+    keep = np.unique(np.round(np.logspace(0, np.log10(m), 700)).astype(int)) - 1
+    grid = np.logspace(np.log10(x_lo), np.log10(xs[0] * 1.5), 200)
     floor = 0.3 / n
     fit_line = np.where(grid >= x_min, (n_tail / n) * (grid / x_min) ** (-tail_index), np.nan)
     gauss = _gauss_tail(grid, side, mu, sd)
@@ -130,10 +144,11 @@ def run(params, data, out):
         f"Wahrscheinlichkeit eines Tages jenseits von x – {SIDES[side]}",
         [C.trace("Beobachtet", xs[keep], ccdf[keep], type="scatter", color=1, size=5, decimate_to=None),
          C.trace(f"Potenzgesetz (α − 1 = {_de(tail_index)})", grid, fit_line, color=2, width=2.5),
-         C.trace("Normalverteilung", grid, gauss, color="muted", dash=True)],
-        x=C.axis("Tagesbewegung x", type="log", fmt="pct", digits=1),
-        y=C.axis("P(X ≥ x)", type="log", range=(floor, 1.2)),
-        vlines=[C.vline(x_min, "x_min")], height=420,
+         C.trace("Normalverteilung", grid, gauss, color="muted", dash=True),
+         C.trace(f"x_min = {_de(100 * x_min)} %", [x_min, x_min], [floor, 1.0], color=3, dash=True, width=1.5,
+                 decimate_to=None)],
+        x=C.axis("Tagesbewegung x", type="log", fmt="pct", digits=1, range=(x_lo, xs[0] * 1.6)),
+        y=C.axis("P(X ≥ x)", type="log", range=(floor, 1.2)), height=420,
         subtitle="Doppelt-logarithmisch wird ein Potenzgesetz zur Geraden. Die Gauß-Kurve stürzt dagegen ab.",
     ))
 
@@ -154,7 +169,7 @@ def run(params, data, out):
 
     sample = [_de(100 * mu, 3) + " %", _de(100 * sd, 2) + " % (Volatilität)",
               _de(stats.skew(r)), _de(stats.kurtosis(r), 1) + " (Exzess)"]
-    out.table("Welche Momente existieren?", ["Moment", "Bedingung", "existiert?", "Stichprobenwert"],
+    out.table("Welche Momente existieren?", ["Moment", "Bedingung", "existiert?", "Stichprobe (Tagesrenditen)"],
               [[name, f"α − 1 > {k}", "ja" if tail_index > k else "nein – unendlich", s]
                for (k, name), s in zip(MOMENTS, sample)],
               formats=["text", "text", "text", "text"],
@@ -165,16 +180,16 @@ def run(params, data, out):
     for lvl in LEVELS:
         if lvl > xs[0] * 2:
             break
-        emp = float(np.sum(values >= lvl)) / n
         pl = (n_tail / n) * (lvl / x_min) ** (-tail_index) if lvl >= x_min else None
         g = float(_gauss_tail(lvl, side, mu, sd))
-        rows.append([lvl, int(np.sum(values >= lvl)), emp, pl, g,
-                     1 / (pl * 252) if pl else None, 1 / (g * 252) if g > 0 else None])
+        rows.append([lvl, int(np.sum(values >= lvl)), pl, _years(1 / (pl * 252)) if pl else "–",
+                     _years(1 / (g * 252)) if g > 0 else "nie (numerisch 0)"])
     out.table("Wie oft kommt ein Tag jenseits von x vor?",
-              ["Schwelle x", "Tage beobachtet", "Häufigkeit beobachtet", "Potenzgesetz", "Normalverteilung",
-               "Potenzgesetz: einmal alle … Jahre", "Gauß: einmal alle … Jahre"], rows,
-              formats=["pct", "int", "pct", "pct", "pct", "num", "num"],
-              note="Häufigkeiten je Handelstag. Das Potenzgesetz gilt erst ab x_min, darunter bleibt es leer.")
+              ["Schwelle x", "Tage beobachtet", "Potenzgesetz: Häufigkeit je Tag", "Potenzgesetz: einmal alle …",
+               "Normalverteilung: einmal alle …"], rows,
+              formats=["pct", "int", "pct", "text", "text"],
+              note=f"Beobachtet in {n} Handelstagen ({_de(n / 252, 1)} Jahre). Das Potenzgesetz gilt erst ab x_min, "
+                   "darunter bleibt es leer.")
 
     if p_val < 0.1:
         out.note(f"Der Bootstrap lehnt ein reines Potenzgesetz ab (p = {_de(p_val)}). Der Exponent ist dann nur "
