@@ -59,7 +59,8 @@ def generate_synthetic_returns(n: int = 2520, model: str = 'levy_jump',
 
         returns = np.zeros(n)
         sigma2 = np.zeros(n)
-        sigma2[0] = daily_vol**2
+        if n > 0:
+            sigma2[0] = daily_vol**2
 
         for t in range(1, n):
             sigma2[t] = omega + alpha * returns[t-1]**2 + beta * sigma2[t-1]
@@ -136,16 +137,22 @@ def generate_crisis_scenario(n_pre: int = 500, n_crisis: int = 100,
     pre_crisis = np.random.normal(0.0005, 0.006, n_pre)
     returns.extend(pre_crisis)
 
-    # Crisis: Sharp selloff with volatility spike
+    # Crisis: Sharp selloff with volatility spike. The three phases keep the
+    # proportions 10% / 40% / 50% of n_crisis (= 10 / 40 / 50 days for the default 100).
+    n_crisis = max(int(n_crisis), 0)
+    n_shock = min(n_crisis, max(1, int(round(0.1 * n_crisis)))) if n_crisis > 0 else 0
+    n_main = min(n_crisis - n_shock, int(round(0.4 * n_crisis)))
+    n_late = n_crisis - n_shock - n_main
+
     # Day 1-10: Initial shock
-    crisis_start = np.random.normal(-0.02, 0.03, 10)
+    crisis_start = np.random.normal(-0.02, 0.03, n_shock)
 
     # Day 11-50: Main crisis (very high vol, negative skew)
     from scipy import stats
-    crisis_main = stats.t.rvs(df=3, loc=-0.005, scale=0.04, size=40)
+    crisis_main = stats.t.rvs(df=3, loc=-0.005, scale=0.04, size=n_main)
 
     # Day 51-100: Volatility remains high but mean recovers
-    crisis_late = np.random.normal(0.001, 0.025, 50)
+    crisis_late = np.random.normal(0.001, 0.025, n_late)
 
     crisis = np.concatenate([crisis_start, crisis_main, crisis_late])
     returns.extend(crisis)
@@ -160,7 +167,7 @@ def generate_crisis_scenario(n_pre: int = 500, n_crisis: int = 100,
     metadata = {
         'crisis_start': n_pre,
         'crisis_end': n_pre + n_crisis,
-        'crisis_peak': n_pre + 25,  # Maximum drawdown point
+        'crisis_peak': n_pre + int(round(0.25 * n_crisis)),  # Maximum drawdown point (day 25 of 100)
         'total_length': len(returns)
     }
 

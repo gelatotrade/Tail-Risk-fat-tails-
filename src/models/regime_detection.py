@@ -85,6 +85,7 @@ class MarkovRegimeSwitching:
         # EM algorithm (Baum-Welch / Hamilton-Kim)
         log_likelihood_old = -np.inf
         filtered, predicted, log_likelihood = self._forward(returns)
+        iteration = -1
 
         for iteration in range(max_iter):
             # E-step: filtered/smoothed probabilities with current parameters

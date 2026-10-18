@@ -87,15 +87,19 @@ class VIXAnalyzer:
         """
         Detect VIX spikes (sudden fear increases).
 
-        A spike is defined as VIX move > threshold * rolling std.
+        A spike is defined as VIX move > threshold * rolling std, where the
+        rolling std is that of the daily VIX moves over the previous 19 days
+        (not of the VIX levels: a level std grows with any trend and hides
+        large jumps in a crisis).
         """
         if len(self.vix) < 20:
             return {'spike_detected': False}
 
-        # Rolling statistics
+        # Rolling statistics (excluding today's move)
         window = 20
-        rolling_mean = np.mean(self.vix[-window:-1])
-        rolling_std = np.std(self.vix[-window:-1])
+        prior = self.vix[-window:-1]
+        rolling_mean = np.mean(prior)
+        rolling_std = np.std(np.diff(prior))
 
         current_change = self.vix[-1] - self.vix[-2]
         z_score = current_change / (rolling_std + 1e-10)
@@ -105,7 +109,8 @@ class VIXAnalyzer:
             'z_score': z_score,
             'current_change': current_change,
             'current_vix': self.vix[-1],
-            'rolling_mean': rolling_mean
+            'rolling_mean': rolling_mean,
+            'rolling_std': rolling_std
         }
 
     def mean_reversion_signal(self, window: int = 20) -> Dict:
@@ -274,7 +279,7 @@ class MarketBreadthAnalyzer:
             return {'thrust_detected': False}
 
         current = self.percent_above_50ma[-1]
-        prior = self.percent_above_50ma[-10]
+        prior = self.percent_above_50ma[-11]  # 10 trading days earlier
 
         thrust = current - prior
 
@@ -333,16 +338,22 @@ class CompositeSentimentIndicator:
                          breadth: Optional[float] = None,
                          momentum: Optional[float] = None) -> Dict:
         """
-        Compute composite sentiment score.
+        Compute composite sentiment score in [-100, 100].
 
-        All inputs should be normalized to [-100, 100] scale.
+        Inputs are raw market readings, each mapped to a sub-score in [-100, 100]:
+        - vix: VIX level. Neutral at 20 (middle of the VIXAnalyzer NORMAL band
+          15-25), 5 points per VIX point, so VIX 15 / 25 / 35 land exactly on the
+          GREED / FEAR / EXTREME_FEAR boundaries (+25 / -25 / -75).
+        - put_call: equity put/call ratio (via PutCallRatioAnalyzer.fear_greed_indicator)
+        - breadth: % of stocks above their 50-day MA (0-100), neutral at 50
+        - momentum: recent index return in %, 10 points per %
         """
         scores = {}
         total_weight = 0
 
         if vix is not None:
             # VIX: high = fear (-), low = greed (+)
-            scores['vix'] = 50 - vix  # Invert
+            scores['vix'] = float(np.clip(5.0 * (20.0 - vix), -100, 100))
             total_weight += self.weights['vix']
 
         if put_call is not None:
@@ -353,7 +364,7 @@ class CompositeSentimentIndicator:
 
         if breadth is not None:
             # Breadth: high = bullish (+), low = bearish (-)
-            scores['breadth'] = (breadth - 50) * 2
+            scores['breadth'] = float(np.clip((breadth - 50) * 2, -100, 100))
             total_weight += self.weights['breadth']
 
         if momentum is not None:
@@ -443,8 +454,10 @@ def compute_sentiment_coordinates(vix_series: np.ndarray,
     Low X, negative Y, positive Z = complacency, tail risk building
     """
     n = len(returns)
+    vix_series = np.asarray(vix_series, dtype=float)
+    # Resample a VIX series of different length onto the return index 0..n-1
     vix = vix_series if len(vix_series) == n else np.interp(
-        np.arange(n), np.linspace(0, n, len(vix_series)), vix_series
+        np.arange(n), np.linspace(0, n - 1, len(vix_series)), vix_series
     )
 
     X = np.zeros(n)  # VIX level
@@ -459,11 +472,24 @@ def compute_sentiment_coordinates(vix_series: np.ndarray,
         vix_changes = np.diff(vix[i-window:i+1])
         ret_window = returns[i-window+1:i+1]
         if len(vix_changes) == len(ret_window) and len(vix_changes) > 2:
-            Z[i] = np.corrcoef(ret_window, vix_changes)[0, 1]
+            # Undefined for a constant window (e.g. a VIX pinned at a bound): use 0
+            with np.errstate(invalid='ignore', divide='ignore'):
+                c = np.corrcoef(ret_window, vix_changes)[0, 1]
+            Z[i] = c if np.isfinite(c) else 0.0
 
-    # Normalize
-    X = (X - np.min(X)) / (np.max(X) - np.min(X) + 1e-10)
-    Y = (Y - np.min(Y)) / (np.max(Y) - np.min(Y) + 1e-10)
-    Z = (Z - np.min(Z)) / (np.max(Z) - np.min(Z) + 1e-10)
+    # Normalize to [0, 1] over the computed part; the first `window` entries
+    # are padding (left at 0) and must not set the minimum.
+    def _normalize(a):
+        out = np.zeros(n)
+        valid = a[window:]
+        if valid.size == 0 or not np.any(np.isfinite(valid)):
+            return out
+        lo, hi = np.nanmin(valid), np.nanmax(valid)
+        out[window:] = (valid - lo) / (hi - lo + 1e-10)
+        return out
+
+    X = _normalize(X)
+    Y = _normalize(Y)
+    Z = _normalize(Z)
 
     return X, Y, Z
