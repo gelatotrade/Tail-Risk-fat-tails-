@@ -292,6 +292,20 @@ function renderMethod() {
   <h2>Wie diese Seite rechnet</h2>
   <p>Die Seite ist rein statisch und wird über GitHub Pages ausgeliefert. Beim ersten Werkzeugstart lädt der Browser <a href="https://pyodide.org" rel="noopener">Pyodide</a> – CPython 3.14 als WebAssembly – mit NumPy, SciPy und Matplotlib. Anschließend wird das Paket <code>src/</code> dieses Repositorys unverändert importiert. Eine dünne Schicht (<code>webtools/</code>) übersetzt Formularwerte in Funktionsaufrufe und Ergebnisse in Diagramme. Alle Berechnungen laufen in einem Web Worker, die Oberfläche bleibt dabei bedienbar.</p>
   <p><b>Datenschutz:</b> Hochgeladene Excel- oder CSV-Dateien werden ausschließlich lokal im Browser verarbeitet und nie übertragen.</p>
+  <h2>Korrekturen beim Live-Schalten</h2>
+  <p>Bevor das Framework öffentlich rechnet, wurde jede Funktion ausgeführt und gegen Lehrbuchformeln, SciPy und numerische Integration geprüft. Dabei wurden <b>92 Fehler in 18 Modulen</b> behoben, jeder abgesichert durch einen Regressionstest (insgesamt 359 Tests, die vor der Korrektur fehlschlagen und danach bestehen). Modellierungsentscheidungen des Autors blieben unverändert. Die Abbildungen im README entstanden mit dem ursprünglichen Code, einzelne Werte können daher abweichen.</p>
+  ${tableHtml(['Bereich', 'Was korrigiert wurde'], [
+    ['Expected Shortfall', 'Historischer und Cornish-Fisher-ES mittelten über die Gewinne statt über die Verluste jenseits des VaR; der Student-t-ES ignorierte die Skalierung.'],
+    ['Drawdown', 'Log-Renditen wurden wie einfache Renditen aufgezinst.'],
+    ['Extremwerttheorie', 'Wiederkehrperioden zählten in 20-Tage-Blöcken: das „10-Jahres-Niveau“ war tatsächlich ein 200-Jahres-Niveau. GPD-Wahrscheinlichkeiten waren bedingt statt unbedingt, der GEV-VaR negativ.'],
+    ['Lévy-Verteilung', 'Tail-Wahrscheinlichkeit um Faktor 2 zu klein; der Quantil-Fit ist jetzt das echte McCulloch-Verfahren; Mehrtages-Risiko skaliert mit h^(1/α) statt √h.'],
+    ['Tsallis-Statistik', 'Varianz, Stichprobenbreite, Verteilungsfunktion und Tail-Asymptote korrigiert; der Momenten-Fit für q lief rückwärts.'],
+    ['Fokker-Planck', 'Die Rückwärts- statt der Vorwärtsgleichung wurde gelöst (Drift mit falschem Vorzeichen); der fraktionale Operator war anti-diffusiv und instabil.'],
+    ['Fat-Tail-Verteilungen', 'Gespiegelte Variance-Gamma-Dichte, falsche Normierung der Generalized Hyperbolic, falsche NIG-Stichproben und -Fits.'],
+    ['Markov-Regime', 'Falscher M-Schritt im EM-Algorithmus; jetzt Hamilton-Filter, Kim-Glätter und Baum-Welch – und rund 50-mal schneller, was die Dashboards im Browser erst möglich macht.'],
+    ['Frühwarnsystem', 'Contango und Backwardation waren vertauscht; DIX und SMFI wurden im Composite doppelt heruntergewichtet. Der simulierte DIX blickt 5 Tage in die Zukunft – diese Seite rechnet daher stets im neuen kausalen Modus ohne Look-ahead.'],
+    ['Kompatibilität', 'Abstürze unter NumPy 2 (np.trapz, np.math) und SciPy 1.18 (Kolmogorov-Smirnov-Test) behoben – Voraussetzung dafür, dass alles in Pyodide läuft.'],
+  ], ['text', 'text'])}
   <h2>Datenquellen</h2>
   <p>Marktdaten: ${escapeHtml(app.market.source)} – Reihen SP500, NASDAQCOM, VIXCLS, VXVCLS. Aktualisiert bei jedem Deployment und werktäglich automatisch (zuletzt ${fmtDate(app.market.updated)}). Die S&P-500-Reihe ist bei FRED lizenzbedingt auf die letzten zehn Jahre begrenzt.</p>
   <h2>Hinweis</h2>
