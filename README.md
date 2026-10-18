@@ -5,6 +5,35 @@
 
 ---
 
+## Live Web App — Tail Risk Lab
+
+**[gelatotrade.github.io/Tail-Risk-fat-tails-](https://gelatotrade.github.io/Tail-Risk-fat-tails-/)**
+
+Every feature of this repository runs as an interactive tool in the browser — no installation, no server.
+The unmodified `src/` package executes client-side via [Pyodide](https://pyodide.org) (CPython 3.14 compiled to
+WebAssembly, with NumPy, SciPy and Matplotlib) inside a Web Worker. The UI is in German.
+
+- **Data**: S&P 500, NASDAQ, VIX and VIX3M from FRED (refreshed daily by GitHub Actions), synthetic
+  generators from `src/utils/data_loader.py`, or your own Excel/CSV file — also pasted straight from Excel.
+  Uploaded data never leaves the browser.
+- **Tools**: distribution fitting, VaR/ES, extreme value theory, Lévy flights, Fokker-Planck, Tsallis,
+  Ising model, Ornstein-Uhlenbeck, regime detection, early-warning system, 3D risk surfaces, dashboards,
+  and every original script (`main.py`, `generate_*.py`) re-run live.
+- **Output**: interactive charts (each with a table view), the framework's own Matplotlib figures,
+  Excel export, shareable links and print/PDF.
+
+```bash
+pip install -r requirements.txt
+python -m pytest -q tests                    # every web tool on real S&P 500 data + feature coverage
+python scripts/build_site.py                 # -> _site/
+python -m http.server -d _site 8000          # http://localhost:8000
+```
+
+Architecture and the tool contract: [`webtools/README.md`](webtools/README.md). Deployment:
+[`.github/workflows/pages.yml`](.github/workflows/pages.yml) (one-time setup: *Settings → Pages → Source: GitHub Actions*).
+
+---
+
 ## Table of Contents
 
 1. [Why Normal Distributions Fail](#why-normal-distributions-fail)

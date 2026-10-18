@@ -16,14 +16,64 @@ This module provides:
 - Historical comparison with crash events
 """
 
+import zlib
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Rectangle, FancyBboxPatch
 from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.collections import LineCollection, PolyCollection
 import matplotlib.dates as mdates
 from typing import Dict, Optional, Tuple, List
 import warnings
+
+
+def _scoring_system() -> Tuple[Dict[str, float], Dict[str, float]]:
+    """
+    Indicator weights and composite level thresholds of the scoring system.
+
+    Read from CompositeEarlyWarningSystem (single source of truth), so the
+    dashboard and the summary table name the same level as compute_composite
+    and get_risk_assessment (NORMAL < 50 <= ELEVATED < 75 <= HIGH < 90 <= EXTREME).
+    """
+    from ..analysis.early_warning import CompositeEarlyWarningSystem
+
+    ews = CompositeEarlyWarningSystem()
+    return dict(ews.weights), dict(ews.thresholds)
+
+
+def _composite_level(score: float, thresholds: Dict[str, float]) -> str:
+    if score >= thresholds['extreme']:
+        return 'EXTREME'
+    if score >= thresholds['high']:
+        return 'HIGH'
+    if score >= thresholds['elevated']:
+        return 'ELEVATED'
+    return 'NORMAL'
+
+
+def _x_numeric(ax, x) -> np.ndarray:
+    """x in the axis' float units (datetime64 -> Matplotlib date numbers); registers the units."""
+    ax.xaxis.update_units(x)
+    return np.asarray(ax.xaxis.convert_units(x), dtype=float)
+
+
+def _bars(ax, x, heights, colors, alpha, width=1.0):
+    """
+    The picture of ``ax.bar(x, heights, width=width, color=colors, alpha=alpha)``
+    as ONE collection instead of one Rectangle per day (fast for daily series).
+    """
+    xn = _x_numeric(ax, x)
+    h = np.nan_to_num(np.asarray(heights, dtype=float), nan=0.0)
+    left, right, zero = xn - width / 2, xn + width / 2, np.zeros_like(h)
+    verts = np.stack([np.column_stack([left, zero]), np.column_stack([left, h]),
+                      np.column_stack([right, h]), np.column_stack([right, zero])], axis=1)
+    bars = PolyCollection(verts, facecolors=colors, edgecolors='none', alpha=alpha)
+    bars.sticky_edges.y.append(0)  # like bar(): no margin below a zero baseline
+    ax.add_collection(bars, autolim=True)
+    ax.autoscale_view()
+    return bars
 
 
 class EarlyWarningDashboard:
@@ -42,6 +92,9 @@ class EarlyWarningDashboard:
             figsize: Figure size (width, height)
         """
         self.figsize = figsize
+
+        # Weights and composite levels of the scoring system being displayed
+        self.weights, self.thresholds = _scoring_system()
 
         # Color schemes
         self.risk_colors = {
@@ -127,22 +180,33 @@ class EarlyWarningDashboard:
         ax_weights = fig.add_subplot(gs[3, 3])
         self._plot_indicator_weights(ax_weights, indicators)
 
-        plt.tight_layout(rect=[0, 0.02, 1, 0.96])
+        # plt.tight_layout skips a GridSpec with explicit hspace/wspace (it only
+        # warned and left twin-axis labels overlapping) and acts on the *current*
+        # figure; lay out this figure's grid directly.
+        gs.tight_layout(fig, rect=[0, 0.02, 1, 0.96])
         return fig
 
     def _plot_price_with_composite(self, ax, x, prices, composite):
         """Plot price with composite score background."""
         ax.set_facecolor('#16213e')
 
-        # Create background color based on composite score
+        # Background colour by composite score: the span x[i-1]..x[i] gets the
+        # colour of day i (one collection instead of one axvspan per day)
         n = len(prices)
-        for i in range(1, n):
-            color = self.risk_cmap(composite[i] / 100)
-            ax.axvspan(x[i-1], x[i], alpha=0.3, color=color)
+        if n > 1:
+            xn = _x_numeric(ax, x)
+            lo, hi = np.zeros(n - 1), np.ones(n - 1)
+            verts = np.stack([np.column_stack([xn[:-1], lo]), np.column_stack([xn[:-1], hi]),
+                              np.column_stack([xn[1:], hi]), np.column_stack([xn[1:], lo])], axis=1)
+            colors = self.risk_cmap(np.asarray(composite, dtype=float)[1:n] / 100)
+            ax.add_collection(PolyCollection(verts, facecolors=colors, edgecolors=colors, alpha=0.3,
+                                             transform=ax.get_xaxis_transform()),
+                              autolim=False)  # x range is set by the price line below
 
         # Plot price
         ax.plot(x, prices, color='white', linewidth=1.5, label='Price')
-        ax.fill_between(x, prices, alpha=0.1, color='white')
+        # fill down to the lowest price, not to 0 (which squashed the price line)
+        ax.fill_between(x, prices, np.nanmin(prices), alpha=0.1, color='white')
 
         ax.set_title('Price with Composite Risk Overlay', fontsize=12,
                      fontweight='bold', color='white')
@@ -156,11 +220,12 @@ class EarlyWarningDashboard:
 
         # Add legend for risk levels
         from matplotlib.patches import Patch
+        el, hi, ex = (self.thresholds[k] for k in ('elevated', 'high', 'extreme'))
         legend_elements = [
-            Patch(facecolor='#00ff00', alpha=0.5, label='Safe (<25)'),
-            Patch(facecolor='#ffff00', alpha=0.5, label='Elevated (25-50)'),
-            Patch(facecolor='#ff8000', alpha=0.5, label='High (50-75)'),
-            Patch(facecolor='#ff0000', alpha=0.5, label='Extreme (>75)')
+            Patch(facecolor='#00ff00', alpha=0.5, label=f'Normal (<{el:g})'),
+            Patch(facecolor='#ffff00', alpha=0.5, label=f'Elevated ({el:g}-{hi:g})'),
+            Patch(facecolor='#ff8000', alpha=0.5, label=f'High ({hi:g}-{ex:g})'),
+            Patch(facecolor='#ff0000', alpha=0.5, label=f'Extreme (\u2265{ex:g})')
         ]
         ax.legend(handles=legend_elements, loc='upper left', fontsize=8,
                   facecolor='#1a1a2e', edgecolor='white', labelcolor='white')
@@ -174,12 +239,13 @@ class EarlyWarningDashboard:
         theta = np.linspace(0.75 * np.pi, 0.25 * np.pi, 100)
         r = 1.0
 
-        # Background arc segments
+        # Background arc segments: the composite levels of the scoring system
+        el, hi, ex = (self.thresholds[k] for k in ('elevated', 'high', 'extreme'))
         segments = [
-            (0, 25, '#00ff00'),
-            (25, 50, '#ffff00'),
-            (50, 75, '#ff8000'),
-            (75, 100, '#ff0000')
+            (0, el, '#00ff00'),
+            (el, hi, '#ffff00'),
+            (hi, ex, '#ff8000'),
+            (ex, 100, '#ff0000')
         ]
 
         for start, end, color in segments:
@@ -209,19 +275,10 @@ class EarlyWarningDashboard:
         ax.text(0, -0.75, 'COMPOSITE SCORE', fontsize=10, color='white',
                 ha='center', va='center')
 
-        # Risk level
-        if current_score >= 75:
-            level = 'EXTREME'
-            color = '#ff0000'
-        elif current_score >= 50:
-            level = 'HIGH'
-            color = '#ff8000'
-        elif current_score >= 25:
-            level = 'ELEVATED'
-            color = '#ffff00'
-        else:
-            level = 'NORMAL'
-            color = '#00ff00'
+        # Risk level (same rule as CompositeEarlyWarningSystem.compute_composite)
+        level = _composite_level(current_score, self.thresholds)
+        color = {'EXTREME': '#ff0000', 'HIGH': '#ff8000',
+                 'ELEVATED': '#ffff00', 'NORMAL': '#00ff00'}[level]
 
         ax.text(0, -0.95, level, fontsize=14, fontweight='bold',
                 color=color, ha='center', va='center')
@@ -239,14 +296,14 @@ class EarlyWarningDashboard:
         # Color based on positive/negative
         colors = ['#ff4444' if g < 0 else '#44ff44' for g in gex]
 
-        ax.bar(x, gex, color=colors, alpha=0.7, width=1.0)
+        _bars(ax, x, gex, colors, alpha=0.7, width=1.0)
         ax.axhline(y=0, color='white', linestyle='--', linewidth=1, alpha=0.5)
 
         # Add danger zone
         ax.axhspan(-15, 0, alpha=0.1, color='red')
         ax.axhspan(0, 15, alpha=0.1, color='green')
 
-        ax.set_title('1. Net Gamma Exposure (GEX) - 35% Weight', fontsize=11,
+        ax.set_title(f'1. Net Gamma Exposure (GEX) - {self.weights["gex"]:.0%} Weight', fontsize=11,
                      fontweight='bold', color='#e74c3c')
         ax.set_ylabel('GEX (Billions $)', color='white')
         ax.tick_params(colors='white')
@@ -275,7 +332,7 @@ class EarlyWarningDashboard:
         ax.axhline(y=15, color='#ff8000', linestyle='--', linewidth=1, alpha=0.7, label='Elevated')
         ax.axhline(y=20, color='#ff0000', linestyle='--', linewidth=1, alpha=0.7, label='Extreme')
 
-        ax.set_title('2. TailDex (TDEX) - 25% Weight', fontsize=11,
+        ax.set_title(f'2. TailDex (TDEX) - {self.weights["tdex"]:.0%} Weight', fontsize=11,
                      fontweight='bold', color='#9b59b6')
         ax.set_ylabel('TDEX Level', color='white')
         ax.tick_params(colors='white')
@@ -287,7 +344,7 @@ class EarlyWarningDashboard:
 
         # Add annotation
         current = tdex[-1]
-        level = 'ELEVATED' if current > 15 else ('EXTREME' if current > 20 else 'NORMAL')
+        level = 'EXTREME' if current > 20 else ('ELEVATED' if current > 15 else 'NORMAL')
         ax.text(0.02, 0.98, f'Current: {current:.1f} - {level}',
                 transform=ax.transAxes, fontsize=9, color='white',
                 verticalalignment='top',
@@ -310,7 +367,7 @@ class EarlyWarningDashboard:
 
         ax.axhline(y=1.0, color='yellow', linestyle='--', linewidth=1.5, alpha=0.8)
 
-        ax.set_title('3. VIX Term Structure (M1/M2) - 20% Weight', fontsize=11,
+        ax.set_title(f'3. VIX Term Structure (M1/M2) - {self.weights["vix_term"]:.0%} Weight', fontsize=11,
                      fontweight='bold', color='#3498db')
         ax.set_ylabel('M1/M2 Ratio', color='white')
         ax.tick_params(colors='white')
@@ -347,7 +404,7 @@ class EarlyWarningDashboard:
         ax.axhline(y=43, color='#ff8000', linestyle='--', linewidth=1, alpha=0.7)
         ax.axhline(y=40, color='#ff0000', linestyle='--', linewidth=1, alpha=0.7)
 
-        ax.set_title('4. Dark Index (DIX) - 10% Weight', fontsize=11,
+        ax.set_title(f'4. Dark Index (DIX) - {self.weights["dix"]:.0%} Weight', fontsize=11,
                      fontweight='bold', color='#2ecc71')
         ax.set_ylabel('DIX %', color='#2ecc71')
         ax2.set_ylabel('Price', color='white', alpha=0.5)
@@ -378,13 +435,13 @@ class EarlyWarningDashboard:
 
         # SMFI
         colors = ['#ff4444' if s < 0 else '#f39c12' for s in smfi]
-        ax.bar(x, smfi, color=colors, alpha=0.5, width=1.0)
+        _bars(ax, x, smfi, colors, alpha=0.5, width=1.0)
         ax.axhline(y=0, color='white', linestyle='--', linewidth=1, alpha=0.5)
 
         # Price on secondary axis
         ax2.plot(x, prices, color='white', linewidth=1, alpha=0.5)
 
-        ax.set_title('5. Smart Money Flow Index (SMFI) - 10% Weight', fontsize=11,
+        ax.set_title(f'5. Smart Money Flow Index (SMFI) - {self.weights["smfi"]:.0%} Weight', fontsize=11,
                      fontweight='bold', color='#f39c12')
         ax.set_ylabel('SMFI', color='#f39c12')
         ax2.set_ylabel('Price', color='white', alpha=0.5)
@@ -411,21 +468,32 @@ class EarlyWarningDashboard:
         """Plot composite score history."""
         ax.set_facecolor('#16213e')
 
-        # Create color gradient
-        for i in range(1, len(x)):
-            color = self.risk_cmap(composite[i] / 100)
-            ax.plot([x[i-1], x[i]], [composite[i-1], composite[i]],
-                    color=color, linewidth=2)
+        # Colour gradient: segment i-1 -> i gets the colour of day i
+        # (one LineCollection instead of one Line2D per day)
+        c = np.asarray(composite, dtype=float)
+        pts = np.column_stack([_x_numeric(ax, x), c])
+        segments = np.stack([pts[:-1], pts[1:]], axis=1)
+        ax.add_collection(LineCollection(segments, colors=self.risk_cmap(c[1:] / 100),
+                                         linewidths=2, capstyle='projecting'), autolim=True)
+        ax.autoscale_view()
 
-        # Add threshold lines
-        ax.axhline(y=25, color='#00ff00', linestyle='--', linewidth=1, alpha=0.5)
-        ax.axhline(y=50, color='#ffff00', linestyle='--', linewidth=1, alpha=0.5)
-        ax.axhline(y=75, color='#ff8000', linestyle='--', linewidth=1, alpha=0.5)
+        # Add threshold lines (composite levels of the scoring system)
+        ax.axhline(y=self.thresholds['elevated'], color='#ffff00', linestyle='--', linewidth=1, alpha=0.5)
+        ax.axhline(y=self.thresholds['high'], color='#ff8000', linestyle='--', linewidth=1, alpha=0.5)
+        ax.axhline(y=self.thresholds['extreme'], color='#ff0000', linestyle='--', linewidth=1, alpha=0.5)
 
         ax.set_title('Composite Score History', fontsize=11,
                      fontweight='bold', color='white')
         ax.set_ylabel('Score', color='white')
         ax.set_ylim(0, 100)
+
+        # Narrow panel: at most 4 ticks, so date labels do not run into each other
+        if np.issubdtype(np.asarray(x).dtype, np.datetime64):
+            locator = mdates.AutoDateLocator(minticks=2, maxticks=4)
+            ax.xaxis.set_major_locator(locator)
+            ax.xaxis.set_major_formatter(mdates.AutoDateFormatter(locator))
+        else:
+            ax.xaxis.set_major_locator(plt.MaxNLocator(4))
         ax.tick_params(colors='white')
         ax.grid(True, alpha=0.2, color='white')
 
@@ -438,12 +506,13 @@ class EarlyWarningDashboard:
         ax.set_facecolor('#16213e')
 
         # Get latest scores
+        w = self.weights
         scores = {
-            'GEX': indicators['gex_score'][-1] * 0.35,
-            'TDEX': indicators['tdex_score'][-1] * 0.25,
-            'VIX Term': indicators['vix_term_score'][-1] * 0.20,
-            'DIX': indicators['dix_score'][-1] * 0.10,
-            'SMFI': indicators['smfi_score'][-1] * 0.10
+            'GEX': indicators['gex_score'][-1] * w['gex'],
+            'TDEX': indicators['tdex_score'][-1] * w['tdex'],
+            'VIX Term': indicators['vix_term_score'][-1] * w['vix_term'],
+            'DIX': indicators['dix_score'][-1] * w['dix'],
+            'SMFI': indicators['smfi_score'][-1] * w['smfi']
         }
 
         colors = ['#e74c3c', '#9b59b6', '#3498db', '#2ecc71', '#f39c12']
@@ -456,7 +525,7 @@ class EarlyWarningDashboard:
                      fontweight='bold', color='white')
         ax.set_xlabel('Contribution to Score', color='white')
         ax.tick_params(colors='white')
-        ax.set_xlim(0, 40)
+        ax.set_xlim(0, max(40.0, 115 * max(w.values())))
 
         for spine in ax.spines.values():
             spine.set_color('white')
@@ -491,13 +560,17 @@ class CrashComparisonChart:
             '2022 Bear Market': {
                 'date': 'Oct 12, 2022',
                 'drop': -25.4,
-                'vix_spike': 35.0,  # Max VIX
+                'vix_spike': 36.5,  # Max VIX close (Mar 7, 2022)
                 'trigger': 'Inflation/Rate Shock'
             },
             '2025 Tariff Crash': {
                 'date': 'Apr 7, 2025',
-                'drop': -23.0,
-                'vix_spike': 60.0,
+                # S&P 500 close 6144.15 (Feb 19) -> 4982.77 (Apr 8): -18.9 %
+                # (the former -23.0 matched no S&P 500 close or intraday low)
+                'drop': -18.9,
+                # max VIX close (Apr 8); intraday the VIX touched 60.1 on Apr 7.
+                # Closes like the other crashes (2020: 82.7 is the close of Mar 16)
+                'vix_spike': 52.3,
                 'trigger': 'Liberation Day Tariffs'
             }
         }
@@ -524,7 +597,9 @@ class CrashComparisonChart:
         fig.suptitle('Early Warning Indicators: Historical Crash Comparison',
                      fontsize=16, fontweight='bold', color='white', y=0.98)
 
-        plt.tight_layout(rect=[0, 0.02, 1, 0.95])
+        # see create_dashboard; also keeps the outward third y-axis of the left
+        # panels from overlapping the right panels
+        gs.tight_layout(fig, rect=[0, 0.02, 1, 0.95])
         return fig
 
     def _plot_crash_indicators(self, ax, crash_name, crash_info):
@@ -557,11 +632,12 @@ class CrashComparisonChart:
                            np.where(days < 0, 14 + 0.3 * np.abs(days), 28 - 0.35 * days))
             vix_ratio = np.where(days < 0, 0.94 - 0.001 * np.abs(days), 1.25 - 0.01 * days)
 
-        # Add noise
-        np.random.seed(hash(crash_name) % 2**32)
-        gex += np.random.normal(0, 0.5, len(days))
-        tdex += np.random.normal(0, 1, len(days))
-        vix_ratio += np.random.normal(0, 0.02, len(days))
+        # Add noise. The seed must be stable across processes (str hash() is salted
+        # per interpreter) and must not reset the caller's global NumPy RNG.
+        rng = np.random.default_rng(zlib.crc32(crash_name.encode('utf-8')))
+        gex += rng.normal(0, 0.5, len(days))
+        tdex += rng.normal(0, 1, len(days))
+        vix_ratio += rng.normal(0, 0.02, len(days))
 
         # Normalize for plotting
         ax2 = ax.twinx()
@@ -674,6 +750,7 @@ def create_indicator_summary_table(indicators: Dict[str, np.ndarray]) -> str:
 
     Returns formatted string for terminal/report output.
     """
+    w, th = _scoring_system()
     latest = {
         'GEX': indicators['gex'][-1],
         'TDEX': indicators['tdex'][-1],
@@ -693,35 +770,32 @@ def create_indicator_summary_table(indicators: Dict[str, np.ndarray]) -> str:
 
     # GEX
     gex_signal = 'NEGATIVE' if latest['GEX'] < 0 else 'POSITIVE'
-    table += f"║  1. GEX (B$)        │ {latest['GEX']:>10.2f} │  35%   │ {gex_signal:<20} ║\n"
+    table += f"║  1. GEX (B$)        │ {latest['GEX']:>10.2f} │ {w['gex']:>4.0%}   │ {gex_signal:<20} ║\n"
 
     # TDEX
-    tdex_signal = 'ELEVATED' if latest['TDEX'] > 15 else 'NORMAL'
-    table += f"║  2. TDEX            │ {latest['TDEX']:>10.1f} │  25%   │ {tdex_signal:<20} ║\n"
+    # same thresholds as the dashboard panels (TDEX 15/20, DIX 43/40)
+    tdex_signal = ('EXTREME' if latest['TDEX'] > 20 else
+                   'ELEVATED' if latest['TDEX'] > 15 else 'NORMAL')
+    table += f"║  2. TDEX            │ {latest['TDEX']:>10.1f} │ {w['tdex']:>4.0%}   │ {tdex_signal:<20} ║\n"
 
     # VIX Ratio
     vix_signal = 'INVERTED' if latest['VIX Ratio'] > 1 else 'CONTANGO'
-    table += f"║  3. VIX M1/M2       │ {latest['VIX Ratio']:>10.3f} │  20%   │ {vix_signal:<20} ║\n"
+    table += f"║  3. VIX M1/M2       │ {latest['VIX Ratio']:>10.3f} │ {w['vix_term']:>4.0%}   │ {vix_signal:<20} ║\n"
 
     # DIX
-    dix_signal = 'DISTRIBUTION' if latest['DIX'] < 43 else 'NORMAL'
-    table += f"║  4. DIX (%)         │ {latest['DIX']:>10.1f} │  10%   │ {dix_signal:<20} ║\n"
+    dix_signal = ('DISTRIBUTION' if latest['DIX'] < 40 else
+                  'WEAK' if latest['DIX'] < 43 else 'NORMAL')
+    table += f"║  4. DIX (%)         │ {latest['DIX']:>10.1f} │ {w['dix']:>4.0%}   │ {dix_signal:<20} ║\n"
 
     # SMFI
     smfi_signal = 'SELLING' if latest['SMFI'] < 0 else 'BUYING'
-    table += f"║  5. SMFI            │ {latest['SMFI']:>10.1f} │  10%   │ {smfi_signal:<20} ║\n"
+    table += f"║  5. SMFI            │ {latest['SMFI']:>10.1f} │ {w['smfi']:>4.0%}   │ {smfi_signal:<20} ║\n"
 
     table += "╠═════════════════════╪════════════╪════════╪══════════════════════╣\n"
 
-    # Composite
-    if latest['Composite'] >= 75:
-        comp_signal = 'EXTREME RISK'
-    elif latest['Composite'] >= 50:
-        comp_signal = 'HIGH RISK'
-    elif latest['Composite'] >= 25:
-        comp_signal = 'ELEVATED'
-    else:
-        comp_signal = 'NORMAL'
+    # Composite (levels of CompositeEarlyWarningSystem.compute_composite)
+    comp_signal = {'EXTREME': 'EXTREME RISK', 'HIGH': 'HIGH RISK', 'ELEVATED': 'ELEVATED',
+                   'NORMAL': 'NORMAL'}[_composite_level(latest['Composite'], th)]
 
     table += f"║  COMPOSITE SCORE    │ {latest['Composite']:>10.1f} │  100%  │ {comp_signal:<20} ║\n"
     table += "╚══════════════════════════════════════════════════════════════════╝\n"

@@ -29,7 +29,7 @@ Key Advantages:
 """
 
 import numpy as np
-from scipy import optimize, integrate
+from scipy import optimize, integrate, stats
 from scipy.special import gamma as gamma_func, beta as beta_func
 from typing import Tuple, Optional, Dict
 import warnings
@@ -48,6 +48,8 @@ class TsallisDistribution:
     - Distribution has power-law tails
     - Tail exponent: α = 2/(q-1)
     - Variance is infinite for q ≥ 5/3
+    - It is a scaled Student-t: X = μ + T / sqrt(β(3-q)) with
+      T ~ t(ν), ν = (3-q)/(q-1). cdf, ppf and sample use this exact identity.
     """
 
     def __init__(self, q: float = 1.4, beta: float = 1.0, mu: float = 0.0):
@@ -96,6 +98,7 @@ class TsallisDistribution:
         For q -> 1, this converges to the standard exponential.
         """
         q = self.q
+        x = np.asarray(x, dtype=float)
         if q == 1:
             return np.exp(x)
 
@@ -104,7 +107,7 @@ class TsallisDistribution:
         mask = arg > 0
         result[mask] = arg[mask] ** (1 / (1 - q))
 
-        return result
+        return result[()] if result.ndim == 0 else result
 
     def q_logarithm(self, x: np.ndarray) -> np.ndarray:
         """
@@ -134,32 +137,40 @@ class TsallisDistribution:
         """Log probability density (using q-logarithm for consistency)."""
         return np.log(self.pdf(x) + 1e-10)
 
+    def _scale_and_df(self) -> Tuple[float, float]:
+        """Scale s and Student-t degrees of freedom ν with X = μ + s·T, T ~ t(ν).
+
+        For q = 1 (Gaussian) ν = inf and s is the standard deviation 1/sqrt(2β).
+        """
+        q, beta = self.q, self.beta
+        if q == 1:
+            return 1 / np.sqrt(2 * beta), np.inf
+        return 1 / np.sqrt(beta * (3 - q)), (3 - q) / (q - 1)
+
     def cdf(self, x: np.ndarray) -> np.ndarray:
-        """Cumulative distribution function (numerical integration)."""
-        x = np.asarray(x)
-        result = np.zeros_like(x, dtype=float)
-
-        for i, xi in enumerate(x.flat):
-            result.flat[i], _ = integrate.quad(self.pdf, -50, xi)
-
-        return result
+        """Cumulative distribution function (closed form via Student-t)."""
+        x = np.asarray(x, dtype=float)
+        s, nu = self._scale_and_df()
+        z = (x - self.mu) / s
+        if np.isinf(nu):
+            result = stats.norm.cdf(z)
+        else:
+            result = stats.t.cdf(z, nu)
+        return np.asarray(result, dtype=float).reshape(x.shape)
 
     def ppf(self, p: np.ndarray) -> np.ndarray:
-        """Percent point function (inverse CDF)."""
-        p = np.asarray(p)
-        result = np.zeros_like(p, dtype=float)
+        """Percent point function (inverse CDF, closed form via Student-t).
 
-        for i, pi in enumerate(p.flat):
-            # Binary search for inverse
-            def objective(x):
-                return self.cdf(np.array([x]))[0] - pi
-
-            try:
-                result.flat[i] = optimize.brentq(objective, -50, 50)
-            except:
-                result.flat[i] = np.nan
-
-        return result
+        ppf(0) = -inf, ppf(1) = +inf, NaN outside [0, 1].
+        """
+        p = np.asarray(p, dtype=float)
+        s, nu = self._scale_and_df()
+        if np.isinf(nu):
+            z = stats.norm.ppf(p)
+        else:
+            z = stats.t.ppf(p, nu)
+        result = self.mu + s * np.asarray(z, dtype=float)
+        return result.reshape(p.shape)
 
     def sample(self, size: int = 1000, seed: Optional[int] = None) -> np.ndarray:
         """
@@ -182,9 +193,9 @@ class TsallisDistribution:
         nu = 2 / (q - 1) - 1  # Degrees of freedom
 
         if nu > 0:
-            # Use Student-t sampling
+            # Use Student-t sampling: X = T / sqrt(β(3-q)) with T ~ t(ν)
             samples = np.random.standard_t(nu, size)
-            samples = samples / np.sqrt(beta * (q - 1))
+            samples = samples / np.sqrt(beta * (3 - q))
         else:
             # Fallback to acceptance-rejection
             samples = self._sample_acceptance_rejection(size)
@@ -216,13 +227,14 @@ class TsallisDistribution:
         Compute variance (if finite).
 
         For q-Gaussian:
-        Var = 1 / (β(3-q)) if q < 5/3
+        Var = 1 / (β(5-3q)) if q < 5/3
         Var = ∞ if q ≥ 5/3
+        (q = 1 gives the Gaussian variance 1/(2β).)
         """
         if self.q >= 5/3:
             return np.inf
 
-        return 1 / (self.beta * (3 - self.q))
+        return 1 / (self.beta * (5 - 3 * self.q))
 
     def tail_exponent(self) -> float:
         """
@@ -235,35 +247,48 @@ class TsallisDistribution:
 
         return 2 / (self.q - 1)
 
-    def tail_probability(self, x: float, tail: str = 'both') -> float:
+    def tail_probability(self, x: float, tail: str = 'both',
+                         exact: bool = False) -> float:
         """
         Compute tail probability.
 
-        For large |x|, use the asymptotic formula:
-        P(X > x) ~ C * x^(1 - 2/(q-1)) / (2/(q-1) - 1)
+        The distance d = |x - μ| to the centre is used:
+        'right' = P(X > μ + d), 'left' = P(X < μ - d), 'both' = P(|X - μ| > d).
+        (For x above / below μ this is P(X > x) / P(X < x).)
+
+        For large d, use the asymptotic formula (α = 2/(q-1)):
+        P(X - μ > d) ~ C * d^(1 - α) / (α - 1),  C = A ((q-1)β)^(-1/(q-1))
+        which follows from pdf(x) ~ C |x - μ|^(-α). The asymptote is capped at 1.
+
+        Args:
+            x: Threshold (scalar or array)
+            tail: 'right', 'left' or 'both'
+            exact: True uses the exact Student-t tail instead of the asymptote
         """
+        if tail not in ('right', 'left', 'both'):
+            raise ValueError("tail must be 'right', 'left' or 'both'")
         q = self.q
-        if q == 1:
-            from scipy.stats import norm
-            if tail == 'right':
-                return 1 - norm.cdf(x)
-            elif tail == 'left':
-                return norm.cdf(x)
+        d = np.abs(np.asarray(x, dtype=float) - self.mu)
+        factor = 2.0 if tail == 'both' else 1.0
+
+        if q == 1 or exact:
+            # Exact tail (q = 1: Gaussian with variance 1/(2β))
+            s, nu = self._scale_and_df()
+            if np.isinf(nu):
+                one_tail = stats.norm.sf(d / s)
             else:
-                return 2 * (1 - norm.cdf(abs(x)))
-
-        # Power law asymptotic
-        alpha = 2 / (q - 1)
-        C = self.A / self.beta
-
-        prob = C * abs(x)**(1 - alpha) / (alpha - 1)
-
-        if tail == 'right':
-            return prob
-        elif tail == 'left':
-            return prob
+                one_tail = stats.t.sf(d / s, nu)
+            prob = factor * np.asarray(one_tail, dtype=float)
         else:
-            return 2 * prob
+            # Power law asymptotic
+            alpha = 2 / (q - 1)
+            C = self.A * ((q - 1) * self.beta) ** (-1 / (q - 1))
+
+            with np.errstate(divide='ignore', over='ignore'):
+                prob = factor * C * d**(1 - alpha) / (alpha - 1)
+            prob = np.minimum(prob, 1.0)
+
+        return float(prob) if np.ndim(prob) == 0 else prob
 
     @staticmethod
     def fit(data: np.ndarray, method: str = 'moments') -> 'TsallisDistribution':
@@ -286,24 +311,35 @@ class TsallisDistribution:
             var = np.var(data_centered)
             kurt = np.mean(data_centered**4) / var**2
 
-            # For q-Gaussian: kurtosis = 3(5-3q)/(7-5q) for q < 7/5
-            # Approximate: q ≈ 1 + 6/(kurt + 3)
-            q = np.clip(1 + 6 / (kurt + 3), 1.01, 2.5)
+            # For q-Gaussian: kurtosis = 3(5-3q)/(7-5q) for q < 7/5,
+            # i.e. excess kurtosis k = 6(q-1)/(7-5q)  =>  q = (7k+6)/(5k+6).
+            # (Moments can only identify q < 7/5; heavier tails -> q -> 7/5.)
+            excess = max(kurt - 3, 0.0)
+            q = np.clip((7 * excess + 6) / (5 * excess + 6), 1.01, 2.5)
 
-            # Estimate beta from variance
+            # Estimate beta from variance: Var = 1/(β(5-3q))
             if q < 5/3:
-                beta = 1 / (var * (3 - q))
+                beta = 1 / (var * (5 - 3 * q))
             else:
                 beta = 1 / var  # Fallback
 
         elif method == 'mle':
+            # Fit on standardised data z = (x - μ)/s and rescale afterwards:
+            # if Z ~ qG(q, β_z) then sZ ~ qG(q, β_z / s²). This keeps the
+            # optimiser bounds meaningful for any data scale (raw daily
+            # returns need β ~ 1e3-1e4).
+            scale = np.std(data_centered)
+            if not scale > 0:
+                raise ValueError("Tsallis MLE fit needs non-constant data")
+            z = data_centered / scale
+
             def neg_log_likelihood(params):
                 q, beta = params
                 if q <= 1 or q >= 3 or beta <= 0:
                     return np.inf
                 try:
-                    dist = TsallisDistribution(q, beta, mu)
-                    return -np.sum(dist.log_pdf(data))
+                    dist = TsallisDistribution(q, beta, 0.0)
+                    return -np.sum(dist.log_pdf(z))
                 except:
                     return np.inf
 
@@ -313,7 +349,8 @@ class TsallisDistribution:
                 x0=[1.5, 1.0],
                 bounds=[(1.01, 2.9), (0.01, 100)]
             )
-            q, beta = result.x
+            q, beta_z = result.x
+            beta = beta_z / scale**2
 
         else:
             raise ValueError(f"Unknown method: {method}")
@@ -364,15 +401,21 @@ class TsallisEntropyAnalyzer:
         Uses the relationship between tail exponent and q.
         """
         # Estimate tail exponent using Hill estimator
-        abs_returns = np.abs(returns)
+        returns = np.asarray(returns, dtype=float).ravel()
+        abs_returns = np.abs(returns[np.isfinite(returns)])
         sorted_returns = np.sort(abs_returns)[::-1]
+        n_pos = int(np.count_nonzero(sorted_returns > 0))
+        if n_pos < 2:
+            raise ValueError("estimate_optimal_q needs at least 2 non-zero returns")
 
-        k = max(10, len(returns) // 20)
+        k = max(10, len(sorted_returns) // 20)
+        k = min(k, n_pos - 1)  # threshold X_(k+1) must exist and be > 0
         log_ratios = np.log(sorted_returns[:k]) - np.log(sorted_returns[k])
         hill_estimate = 1 / np.mean(log_ratios)
 
-        # Convert to q: α = 2/(q-1) => q = 1 + 2/α
-        q = 1 + 2 / hill_estimate
+        # Convert to q: Hill estimates the CCDF exponent α_H; the density
+        # decays as |x|^-(α_H+1) = |x|^(-2/(q-1))  =>  q = 1 + 2/(α_H + 1)
+        q = 1 + 2 / (hill_estimate + 1)
 
         return np.clip(q, 1.01, 2.5)
 
@@ -477,8 +520,9 @@ class TsallisTailRiskModel:
         # Probability of extreme events
         thresholds = [3, 4, 5, 6]  # Standard deviations
         std = np.std(returns)
+        # P(|X - μ| > t·σ) of the fitted q-Gaussian (exact Student-t tail)
         extreme_probs = {
-            f'{t}sigma': dist.tail_probability(t * std, 'both')
+            f'{t}sigma': dist.tail_probability(dist.mu + t * std, 'both', exact=True)
             for t in thresholds
         }
 

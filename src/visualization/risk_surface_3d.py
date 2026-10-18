@@ -85,7 +85,8 @@ class TailRisk3DSurface:
             Matplotlib figure
         """
         X, Y = np.meshgrid(vol_range, tail_index_range)
-        Z = np.zeros_like(X)
+        # float, whatever the grid dtype (zeros_like on an integer grid truncated Z)
+        Z = np.zeros(X.shape, dtype=float)
 
         for i in range(len(tail_index_range)):
             for j in range(len(vol_range)):
@@ -114,7 +115,8 @@ class TailRisk3DSurface:
 
     def create_phase_space_trajectory(self, X: np.ndarray, Y: np.ndarray,
                                       Z: np.ndarray, time: Optional[np.ndarray] = None,
-                                      title: str = "Risk Phase Space Trajectory") -> plt.Figure:
+                                      title: str = "Risk Phase Space Trajectory",
+                                      axis_labels: Optional[Tuple[str, str, str]] = None) -> plt.Figure:
         """
         Visualize the trajectory through 3D phase space.
 
@@ -122,36 +124,52 @@ class TailRisk3DSurface:
             X, Y, Z: Coordinate arrays (same length)
             time: Optional time array for coloring
             title: Plot title
+            axis_labels: Optional (x, y, z) axis labels. Default:
+                ('X: Volatility', 'Y: Tail Heaviness', 'Z: Risk Level').
 
         Returns:
             Matplotlib figure
         """
+        from mpl_toolkits.mplot3d.art3d import Line3DCollection
+
+        X = np.asarray(X, dtype=float)
+        Y = np.asarray(Y, dtype=float)
+        Z = np.asarray(Z, dtype=float)
+
         fig = plt.figure(figsize=self.figsize)
         ax = fig.add_subplot(111, projection='3d')
 
         if time is None:
             time = np.arange(len(X))
+        time = np.asarray(time, dtype=float)
 
         # Normalize time for colormap
         norm = Normalize(vmin=time.min(), vmax=time.max())
 
-        # Plot trajectory with time-based coloring
-        for i in range(len(X) - 1):
-            ax.plot([X[i], X[i+1]], [Y[i], Y[i+1]], [Z[i], Z[i+1]],
-                   color=self.risk_cmap(norm(time[i])), linewidth=1.5, alpha=0.7)
+        # Plot trajectory with time-based coloring: one collection with n-1
+        # coloured segments (one ax.plot per segment took seconds for n ~ 2500)
+        if len(X) > 1:
+            points = np.column_stack([X, Y, Z])
+            segments = np.stack([points[:-1], points[1:]], axis=1)
+            trajectory = Line3DCollection(segments, colors=self.risk_cmap(norm(time[:-1])),
+                                          linewidths=1.5, alpha=0.7)
+            ax.add_collection3d(trajectory)
+            ax.auto_scale_xyz(X, Y, Z, had_data=False)
 
         # Mark start and end points
         ax.scatter([X[0]], [Y[0]], [Z[0]], c='green', s=100, marker='o', label='Start')
         ax.scatter([X[-1]], [Y[-1]], [Z[-1]], c='red', s=100, marker='s', label='Current')
 
-        # Mark extreme points
-        max_z_idx = np.argmax(Z)
+        # Mark extreme points (np.argmax would pick the first NaN)
+        max_z_idx = int(np.nanargmax(Z)) if np.any(np.isfinite(Z)) else 0
         ax.scatter([X[max_z_idx]], [Y[max_z_idx]], [Z[max_z_idx]],
                   c='purple', s=150, marker='*', label='Peak Risk')
 
-        ax.set_xlabel('X: Volatility', fontsize=12)
-        ax.set_ylabel('Y: Tail Heaviness', fontsize=12)
-        ax.set_zlabel('Z: Risk Level', fontsize=12)
+        if axis_labels is None:
+            axis_labels = ('X: Volatility', 'Y: Tail Heaviness', 'Z: Risk Level')
+        ax.set_xlabel(axis_labels[0], fontsize=12)
+        ax.set_ylabel(axis_labels[1], fontsize=12)
+        ax.set_zlabel(axis_labels[2], fontsize=12)
         ax.set_title(title, fontsize=14, fontweight='bold')
         ax.legend()
 
@@ -214,6 +232,9 @@ class TailRiskDensityPlot:
 
         Shows how tail events are correlated between assets.
         """
+        returns1 = np.asarray(returns1, dtype=float)
+        returns2 = np.asarray(returns2, dtype=float)
+
         fig = plt.figure(figsize=self.figsize)
         ax = fig.add_subplot(111, projection='3d')
 
@@ -223,8 +244,10 @@ class TailRiskDensityPlot:
 
         H, xedges, yedges = np.histogram2d(returns1, returns2, bins=[x_edges, y_edges], density=True)
 
-        # Create meshgrid for plotting
-        X, Y = np.meshgrid(xedges[:-1], yedges[:-1])
+        # Create meshgrid for plotting: each density value sits at its bin centre
+        x_centres = 0.5 * (xedges[:-1] + xedges[1:])
+        y_centres = 0.5 * (yedges[:-1] + yedges[1:])
+        X, Y = np.meshgrid(x_centres, y_centres)
 
         # Plot surface
         surf = ax.plot_surface(X, Y, H.T, cmap='viridis',
@@ -242,6 +265,7 @@ class TailRiskDensityPlot:
         ax.set_ylabel(f'{asset_names[1]} Returns', fontsize=12)
         ax.set_zlabel('Joint Density', fontsize=12)
         ax.set_title(title, fontsize=14, fontweight='bold')
+        ax.legend()
 
         fig.colorbar(surf, ax=ax, shrink=0.5, aspect=10)
 
@@ -263,14 +287,16 @@ class TailRiskDensityPlot:
         ax = fig.add_subplot(111, projection='3d')
 
         X, Y = np.meshgrid(horizon_range, confidence_range)
-        Z = np.zeros_like(X)
+        # float, whatever the grid dtype (zeros_like on integer horizons gave Z = 0)
+        Z = np.zeros(X.shape, dtype=float)
 
         metrics = TailRiskMetrics(returns)
 
         for i, conf in enumerate(confidence_range):
+            var_1d = metrics.var_historical(conf)
             for j, horizon in enumerate(horizon_range):
                 # Scale VaR by sqrt(horizon) for simplicity
-                Z[i, j] = metrics.var_historical(conf) * np.sqrt(horizon)
+                Z[i, j] = var_1d * np.sqrt(horizon)
 
         surf = ax.plot_surface(X, Y, Z, cmap='RdYlGn_r',
                                linewidth=0, antialiased=True, alpha=0.8)
@@ -297,7 +323,9 @@ class CriticalPointVisualizer:
         self.figsize = figsize
 
     def create_critical_surface(self, autocorr: np.ndarray, variance: np.ndarray,
-                               skewness: np.ndarray, time: np.ndarray) -> plt.Figure:
+                               skewness: np.ndarray, time: np.ndarray,
+                               ac_threshold: float = 0.7,
+                               variance_percentile: float = 80) -> plt.Figure:
         """
         3D visualization of Early Warning Signals approaching criticality.
 
@@ -305,7 +333,15 @@ class CriticalPointVisualizer:
         - Autocorrelation increases (X axis)
         - Variance increases (Y axis)
         - Skewness becomes more negative (Z axis)
+
+        Points with autocorr > ac_threshold and variance above its
+        variance_percentile-th percentile (NaN ignored) are marked 'Near Critical'.
         """
+        autocorr = np.asarray(autocorr, dtype=float)
+        variance = np.asarray(variance, dtype=float)
+        skewness = np.asarray(skewness, dtype=float)
+        time = np.asarray(time, dtype=float)
+
         fig = plt.figure(figsize=self.figsize)
         ax = fig.add_subplot(111, projection='3d')
 
@@ -319,8 +355,13 @@ class CriticalPointVisualizer:
         # Draw path
         ax.plot(autocorr, variance, skewness, 'b-', alpha=0.3, linewidth=0.5)
 
-        # Mark critical point region
-        crit_mask = (autocorr > 0.7) & (variance > np.percentile(variance, 80))
+        # Mark critical point region (rolling indicators start with NaN warm-up;
+        # np.percentile would return NaN and silently disable the marker)
+        crit_mask = np.zeros(len(autocorr), dtype=bool)
+        if np.any(np.isfinite(variance)):
+            var_cut = np.nanpercentile(variance, variance_percentile)
+            with np.errstate(invalid='ignore'):
+                crit_mask = (autocorr > ac_threshold) & (variance > var_cut)
         if np.any(crit_mask):
             ax.scatter(autocorr[crit_mask], variance[crit_mask], skewness[crit_mask],
                       c='red', s=100, marker='x', label='Near Critical')
@@ -331,7 +372,8 @@ class CriticalPointVisualizer:
         ax.set_title('Approach to Critical Point (Phase Transition)', fontsize=14, fontweight='bold')
 
         fig.colorbar(scatter, ax=ax, shrink=0.5, aspect=10, label='Time')
-        ax.legend()
+        if np.any(crit_mask):  # no empty legend box (and no matplotlib warning)
+            ax.legend()
 
         return fig
 

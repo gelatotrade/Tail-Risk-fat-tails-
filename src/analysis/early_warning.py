@@ -104,6 +104,12 @@ class NetGammaExposure:
         Returns:
             Dict with GEX value, regime, and breakdown
         """
+        call_gamma = np.asarray(call_gamma, dtype=float)
+        put_gamma = np.asarray(put_gamma, dtype=float)
+        call_oi = np.asarray(call_oi, dtype=float)
+        put_oi = np.asarray(put_oi, dtype=float)
+        strikes = np.asarray(strikes, dtype=float)
+
         # Call GEX: Dealers short calls → positive gamma when hedging
         call_gex = np.sum(
             call_gamma * call_oi * self.spot_price**2 * 0.01 * contract_multiplier
@@ -118,12 +124,10 @@ class NetGammaExposure:
         net_gex = (call_gex + put_gex) / 1e9  # Convert to billions
 
         # Find gamma flip level (where cumulative gamma = 0)
-        cumulative_gex = np.cumsum(
+        gex_by_strike = (
             call_gamma * call_oi - put_gamma * put_oi
         ) * self.spot_price**2 * 0.01 * contract_multiplier / 1e9
-
-        flip_idx = np.argmin(np.abs(cumulative_gex))
-        flip_level = strikes[flip_idx] if len(strikes) > 0 else self.spot_price
+        flip_level = self._find_gamma_flip(strikes, gex_by_strike, net_gex)
 
         # Classify regime
         if net_gex < self.thresholds['extreme_negative']:
@@ -155,6 +159,39 @@ class NetGammaExposure:
             'distance_to_flip': (self.spot_price - flip_level) / self.spot_price * 100,
             'warning_score': self._compute_warning_score(net_gex, flip_level)
         }
+
+    def _find_gamma_flip(self, strikes: np.ndarray, gex_by_strike: np.ndarray,
+                         net_gex: float) -> float:
+        """
+        Strike at which the cumulative GEX profile (summed from the lowest
+        strike upwards) changes sign, linearly interpolated between strikes.
+
+        The profile starts at ~0 at the deep-OTM end, so "closest to zero" is
+        not the flip; a sign change is. With several crossings the one closest
+        to spot is returned. Without a crossing the flip lies outside the
+        chain: below the lowest strike when net GEX >= 0, above the highest
+        strike otherwise (spot if the profile is identically zero).
+        """
+        if len(strikes) == 0:
+            return self.spot_price
+
+        order = np.argsort(strikes, kind='stable')
+        k = strikes[order]
+        cum = np.cumsum(gex_by_strike[order])
+        sign = np.sign(cum)
+        nonzero = np.flatnonzero(sign)
+        if nonzero.size == 0:
+            return self.spot_price
+
+        crossings = []
+        for a, b in zip(nonzero[:-1], nonzero[1:]):
+            if sign[a] != sign[b]:
+                c0, c1 = cum[b - 1], cum[b]  # c0 is cum[a] or an exact zero
+                crossings.append(k[b - 1] + (k[b] - k[b - 1]) * c0 / (c0 - c1))
+
+        if crossings:
+            return float(min(crossings, key=lambda x: abs(x - self.spot_price)))
+        return float(k[0] if net_gex >= 0 else k[-1])
 
     def simulate_gex(self, returns: np.ndarray,
                      base_gex: float = 3.0,
@@ -497,21 +534,24 @@ class VIXTermStructure:
 
         # Long-term ratio if available
         if vix_m4 is not None:
-            ratio_m1_m4 = vix_m1 / vix_m4
+            ratio_m1_m4 = vix_m1 / vix_m4 if vix_m4 > 0 else 1.0
         else:
             ratio_m1_m4 = None
 
-        # Classify structure
-        if ratio_m1_m2 < self.thresholds['severe_backwardation']:
+        # Classify structure. The thresholds are contango ratios M2/M1
+        # ("front is 5% cheaper" = 1.05): > 1 = contango, < 1 = backwardation.
+        # (Comparing M1/M2 against them inverts every label.)
+        contango_ratio = 1.0 / ratio_m1_m2 if ratio_m1_m2 > 0 else np.inf
+        if contango_ratio < self.thresholds['severe_backwardation']:
             structure = 'SEVERE_BACKWARDATION'
             signal = 'CRITICAL_PANIC'
-        elif ratio_m1_m2 < self.thresholds['backwardation']:
+        elif contango_ratio < self.thresholds['backwardation']:
             structure = 'BACKWARDATION'
             signal = 'HIGH_FEAR'
-        elif ratio_m1_m2 < self.thresholds['flat']:
+        elif contango_ratio < self.thresholds['flat']:
             structure = 'FLAT'
             signal = 'ELEVATED_CAUTION'
-        elif ratio_m1_m2 < self.thresholds['normal_contango']:
+        elif contango_ratio < self.thresholds['normal_contango']:
             structure = 'MILD_CONTANGO'
             signal = 'NORMAL'
         else:
@@ -519,7 +559,7 @@ class VIXTermStructure:
             signal = 'COMPLACENT'
 
         # Compute roll yield (carry)
-        roll_yield = (vix_m2 - vix_m1) / vix_m1 * 12  # Annualized
+        roll_yield = (vix_m2 - vix_m1) / vix_m1 * 12 if vix_m1 > 0 else 0.0  # Annualized
 
         result = {
             'ratio_m1_m2': ratio_m1_m2,
@@ -607,13 +647,17 @@ class VIXTermStructure:
 
     def _compute_warning_score(self, ratio: float, vix: float) -> float:
         """Compute warning score from term structure."""
-        # Ratio component (0-60 points)
+        # Ratio component (0-60 points), non-decreasing in M1/M2: 0 up to
+        # 0.95, 0-25 while the curve flattens (0.95-1.0), 30-60 once it is
+        # inverted (1.0-1.1); the inversion itself adds a 5-point step.
+        # (The flattening ramp used to run backwards: 30 at 0.95 falling to
+        # 0 at 1.0, then jumping back to 30.)
         if ratio > 1.1:
             ratio_score = 60
         elif ratio > 1.0:
             ratio_score = 30 + (ratio - 1.0) * 300
         elif ratio > 0.95:
-            ratio_score = (1.0 - ratio) / 0.05 * 30
+            ratio_score = (ratio - 0.95) / 0.05 * 25
         else:
             ratio_score = 0
 
@@ -717,7 +761,7 @@ class DarkIndex:
         }
 
     def simulate_dix(self, returns: np.ndarray,
-                     base_dix: float = 45.0) -> np.ndarray:
+                     base_dix: float = 45.0, lookahead: int = 5) -> np.ndarray:
         """
         Simulate DIX time series from returns.
 
@@ -729,6 +773,11 @@ class DarkIndex:
         Args:
             returns: Daily returns
             base_dix: Normal DIX level
+            lookahead: Number of FUTURE returns that drive the leading component
+                (the original model uses 5). Any value > 0 gives the series
+                look-ahead bias: it illustrates a leading indicator, but must not
+                be used to evaluate warnings on real data. Use 0 for a causal
+                series that only uses information available at each day.
 
         Returns:
             Simulated DIX time series
@@ -738,9 +787,9 @@ class DarkIndex:
         dix[0] = base_dix
 
         for i in range(1, n):
-            # DIX leads returns - use future return if available
-            if i < n - 5:
-                future_return = np.mean(returns[i:i+5])
+            # DIX leads returns - use future return if available (lookahead > 0 only)
+            if lookahead > 0 and i < n - lookahead:
+                future_return = np.mean(returns[i:i+lookahead])
                 leading_effect = future_return * 200  # Strong effect
             else:
                 leading_effect = 0
@@ -781,12 +830,15 @@ class DarkIndex:
         recent_dix = dix[-window:]
 
         # Trends
-        price_slope = np.polyfit(np.arange(window), recent_price, 1)[0]
-        dix_slope = np.polyfit(np.arange(window), recent_dix, 1)[0]
+        t = np.arange(window)
+        price_slope = np.polyfit(t, recent_price, 1)[0]
+        dix_slope = np.polyfit(t, recent_dix, 1)[0]
 
-        # Normalize slopes
-        price_trend = price_slope / np.std(recent_price) if np.std(recent_price) > 0 else 0
-        dix_trend = dix_slope / np.std(recent_dix) if np.std(recent_dix) > 0 else 0
+        # Standardised slopes: slope * std(t) / std(y) = correlation with time,
+        # in [-1, 1]. (slope / std(y) alone is capped at 1/std(t) = 0.17 for
+        # window 20, so the ±0.5 thresholds could never be reached.)
+        price_trend = price_slope * np.std(t) / np.std(recent_price) if np.std(recent_price) > 0 else 0
+        dix_trend = dix_slope * np.std(t) / np.std(recent_dix) if np.std(recent_dix) > 0 else 0
 
         bearish = price_trend > 0.5 and dix_trend < -0.5
         bullish = price_trend < -0.5 and dix_trend > 0.5
@@ -800,22 +852,26 @@ class DarkIndex:
         }
 
     def _compute_warning_score(self, dix: float, percentile: float) -> float:
-        """Compute warning score from DIX."""
-        # Low DIX = higher warning
+        """
+        Compute warning score from DIX on the 0-100 scale that
+        CompositeEarlyWarningSystem.compute_composite expects (the 10% weight
+        is applied there, not here).
+        """
+        # Low DIX = higher warning (0-50, continuous and monotone)
         if dix < 40:
-            dix_score = 10 * (40 - dix) / 5  # 0-10 for DIX 35-40
+            dix_score = 35 + 15 * min(40 - dix, 5) / 5  # 35-50 for DIX 40-35
         elif dix < 43:
-            dix_score = 7 * (43 - dix) / 3   # 0-7 for DIX 40-43
+            dix_score = 35 * (43 - dix) / 3   # 0-35 for DIX 43-40
         else:
             dix_score = 0
 
-        # Low percentile = higher warning
+        # Low percentile = higher warning (0-50)
         if percentile < 20:
-            percentile_score = 10 * (20 - percentile) / 20
+            percentile_score = 50 * (20 - percentile) / 20
         else:
             percentile_score = 0
 
-        return min(dix_score + percentile_score, 20)  # Max 20 due to 10% weight
+        return min(dix_score + percentile_score, 100)
 
 
 class SmartMoneyFlowIndex:
@@ -984,10 +1040,14 @@ class SmartMoneyFlowIndex:
         }
 
     def _compute_warning_score(self, smfi: float, intraday_diff: float) -> float:
-        """Compute warning score from SMFI."""
+        """
+        Compute warning score from SMFI on the 0-100 scale that
+        CompositeEarlyWarningSystem.compute_composite expects (the 10% weight
+        is applied there, not here).
+        """
         # Negative SMFI with negative intraday diff = warning
         if smfi < -5 and intraday_diff < -0.005:
-            return 10 * min(abs(smfi) / 10, 1) * min(abs(intraday_diff) / 0.01, 1)
+            return 100 * min(abs(smfi) / 10, 1) * min(abs(intraday_diff) / 0.01, 1)
         return 0
 
 
@@ -1097,7 +1157,9 @@ class CompositeEarlyWarningSystem:
     def simulate_all_indicators(self,
                                  returns: np.ndarray,
                                  prices: np.ndarray,
-                                 vix: np.ndarray) -> Dict[str, np.ndarray]:
+                                 vix: np.ndarray,
+                                 causal: bool = False,
+                                 vix3m: Optional[np.ndarray] = None) -> Dict[str, np.ndarray]:
         """
         Simulate all 5 indicators from basic market data.
 
@@ -1105,6 +1167,16 @@ class CompositeEarlyWarningSystem:
             returns: Daily returns
             prices: Daily prices
             vix: VIX time series
+            causal: If True, every indicator value at day t uses only data up
+                to day t (no look-ahead; required for backtests on real data).
+                The default keeps the original illustrative model, whose
+                simulated DIX peeks 5 days ahead.
+            vix3m: Optional observed 3-month VIX (CBOE VIX3M), aligned with
+                ``vix``. If given, the term structure is the OBSERVED curve
+                (``vix_m1`` = VIX, ``vix_m2`` = VIX3M, so ``vix_m1/vix_m2`` is
+                the real VIX/VIX3M ratio) instead of the futures curve
+                simulated from VIX. The random stream - and therefore every
+                other indicator - is the same as without ``vix3m``.
 
         Returns:
             Dict with all simulated indicator time series
@@ -1115,7 +1187,13 @@ class CompositeEarlyWarningSystem:
         gex = self.gex.simulate_gex(returns)
         tdex = self.tdex.simulate_tdex(returns, vix)
         vix_m1, vix_m2 = self.vix_term.simulate_term_structure(vix)
-        dix = self.dix.simulate_dix(returns)
+        if vix3m is not None:
+            vix3m = np.asarray(vix3m, dtype=float)
+            if vix3m.shape != np.shape(vix):
+                raise ValueError("vix3m must have the same length as vix")
+            # simulated curve above is still drawn so the RNG stream is unchanged
+            vix_m1, vix_m2 = np.asarray(vix, dtype=float).copy(), vix3m.copy()
+        dix = self.dix.simulate_dix(returns, lookahead=0 if causal else 5)
         smfi = self.smfi.simulate_smfi(returns, prices)
 
         # Compute warning scores for each
@@ -1147,28 +1225,23 @@ class CompositeEarlyWarningSystem:
             else:
                 tdex_scores[i] = 0
 
-            # VIX term structure score
+            # VIX term structure score: the same rule as the snapshot
+            # (calculate_term_structure), 0-100 and non-decreasing in M1/M2.
+            # (The former branch max(0, (1 - ratio) * 100) scored a deep,
+            # calm contango higher than a flat curve, i.e. backwards.)
             ratio = vix_m1[i] / vix_m2[i] if vix_m2[i] > 0 else 1.0
-            if ratio > 1.1:
-                vix_term_scores[i] = 100
-            elif ratio > 1.0:
-                vix_term_scores[i] = (ratio - 1.0) * 1000
-            else:
-                vix_term_scores[i] = max(0, (1.0 - ratio) * 100)
+            vix_term_scores[i] = self.vix_term._compute_warning_score(ratio, vix[i])
 
-            # DIX score (low DIX = warning)
-            if dix[i] < 40:
-                dix_scores[i] = (40 - dix[i]) * 5
-            elif dix[i] < 43:
-                dix_scores[i] = (43 - dix[i]) * 3
-            else:
-                dix_scores[i] = 0
+            # DIX score (low DIX = warning): 0 at DIX 43 rising linearly to
+            # 100 at the simulated floor of 35 (all scores are 0-100; the
+            # weights are applied once, in the composite below)
+            dix_scores[i] = min(max((43 - dix[i]) * 12.5, 0), 100)
 
-            # SMFI score (negative trend = warning)
+            # SMFI score (negative 20-day trend = warning), 0-100
             if i > 20:
                 smfi_trend = smfi[i] - smfi[i-20]
                 if smfi_trend < -5:
-                    smfi_scores[i] = min((-smfi_trend - 5) * 5, 50)
+                    smfi_scores[i] = min((-smfi_trend - 5) * 10, 100)
 
             # Composite
             composite_scores[i] = (
@@ -1244,7 +1317,9 @@ ACTION: Maintain standard risk management.
 
 def compute_early_warning_coordinates(returns: np.ndarray,
                                        vix: np.ndarray,
-                                       window: int = 60) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+                                       window: int = 60,
+                                       causal: bool = False,
+                                       vix3m: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Transform early warning indicators into 3D phase space.
 
@@ -1263,7 +1338,7 @@ def compute_early_warning_coordinates(returns: np.ndarray,
     prices = 100 * np.exp(np.cumsum(returns))
 
     # Simulate all indicators
-    indicators = ews.simulate_all_indicators(returns, prices, vix)
+    indicators = ews.simulate_all_indicators(returns, prices, vix, causal=causal, vix3m=vix3m)
 
     # Extract coordinates
     X = indicators['gex_score'] / 100  # Normalize to [0, 1]
@@ -1276,7 +1351,9 @@ def compute_early_warning_coordinates(returns: np.ndarray,
 # Convenience function for quick analysis
 def analyze_crash_risk(returns: np.ndarray,
                        vix: np.ndarray,
-                       verbose: bool = True) -> Dict:
+                       verbose: bool = True,
+                       causal: bool = False,
+                       vix3m: Optional[np.ndarray] = None) -> Dict:
     """
     Comprehensive crash risk analysis using all 5 indicators.
 
@@ -1284,6 +1361,10 @@ def analyze_crash_risk(returns: np.ndarray,
         returns: Daily returns
         vix: VIX time series
         verbose: Print detailed analysis
+        causal: Use only past data for every indicator (no look-ahead);
+            see CompositeEarlyWarningSystem.simulate_all_indicators
+        vix3m: Optional observed VIX3M; the term structure is then the real
+            VIX/VIX3M curve instead of the simulated futures curve
 
     Returns:
         Dict with all indicator values and composite assessment
@@ -1291,7 +1372,7 @@ def analyze_crash_risk(returns: np.ndarray,
     ews = CompositeEarlyWarningSystem()
     prices = 100 * np.exp(np.cumsum(returns))
 
-    indicators = ews.simulate_all_indicators(returns, prices, vix)
+    indicators = ews.simulate_all_indicators(returns, prices, vix, causal=causal, vix3m=vix3m)
 
     # Get latest values
     latest = {

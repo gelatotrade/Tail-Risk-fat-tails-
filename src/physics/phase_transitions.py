@@ -36,8 +36,12 @@ increases, and variance rises. This is a precursor signal!
 import numpy as np
 from scipy import stats, optimize
 from scipy.ndimage import gaussian_filter1d
+from numpy.lib.stride_tricks import sliding_window_view
 from typing import Tuple, Optional, Dict, List
 import warnings
+
+# Max. cells per block of rolling windows in CriticalSlowingDownDetector
+_EWS_BLOCK_CELLS = 1_000_000
 
 
 class IsingMarketModel:
@@ -56,6 +60,10 @@ class IsingMarketModel:
     Phase transition occurs at critical temperature T_c = 2J/k
     Below T_c: Ordered phase (trending market, herding)
     Above T_c: Disordered phase (random walk, efficient market)
+
+    Note: the agents sit on a 1D ring (periodic boundaries).  ``T_c`` is the
+    2D Onsager value 2J/ln(1+√2), kept as a reference scale; a 1D chain has
+    no finite-temperature transition, only a smooth order/disorder crossover.
     """
 
     def __init__(self, n_agents: int = 100, J: float = 1.0,
@@ -96,23 +104,32 @@ class IsingMarketModel:
         Compute Hamiltonian (energy).
 
         H = -J Σ σ_i σ_{i+1} - h Σ σ_i
+
+        Periodic boundaries (σ_N = σ_0), the same ring that
+        monte_carlo_step uses, so a single flip changes H by exactly the dE
+        of the Metropolis step.
         """
-        # Nearest neighbor interaction (1D chain)
-        interaction = -self.J * np.sum(self.spins[:-1] * self.spins[1:])
+        # Nearest neighbor interaction (1D ring)
+        interaction = -self.J * np.sum(self.spins * np.roll(self.spins, -1))
         field = -self.h * np.sum(self.spins)
         return interaction + field
 
     def susceptibility(self) -> float:
         """
-        Compute magnetic susceptibility.
+        Instantaneous susceptibility proxy of the current configuration.
 
-        χ = dM/dh = <M²> - <M>² / T
+        χ ≈ (1 - M²) / T  (= Var_i(σ_i)/T, the Curie law dM/dh of
+        independent spins at magnetization M), per agent - the same
+        normalisation as the fluctuation estimator χ = N·Var(|M|)/T over
+        Monte Carlo samples that phase_diagram reports (M is the mean spin,
+        so N·Var(M) is the per-agent variance).  A single snapshot has no
+        ensemble fluctuations and ignores the coupling J: it is the
+        susceptibility the market would have without herding.
 
         High χ indicates sensitivity to perturbations (unstable market).
-        This diverges at the critical point.
         """
         M = self.magnetization()
-        return (1 - M**2) * self.n_agents / self.T
+        return (1 - M**2) / self.T
 
     def monte_carlo_step(self):
         """
@@ -178,8 +195,11 @@ class IsingMarketModel:
         """
         Compute phase diagram (magnetization vs temperature).
 
-        Shows the phase transition at T_c.
+        Shows the phase transition at T_c.  The model's own temperature and
+        spin configuration are restored afterwards.
         """
+        T_range = np.array(T_range, dtype=float)
+        T_orig, spins_orig = self.T, self.spins.copy()
         magnetizations = []
         susceptibilities = []
 
@@ -199,6 +219,8 @@ class IsingMarketModel:
 
             magnetizations.append(np.mean(M_samples))
             susceptibilities.append(np.var(M_samples) * self.n_agents / T)
+
+        self.T, self.spins = T_orig, spins_orig
 
         return {
             'temperature': T_range,
@@ -236,21 +258,63 @@ class CriticalSlowingDownDetector:
         trend = gaussian_filter1d(data, self.detrend_window)
         return data - trend
 
+    def _windows(self, data: np.ndarray):
+        """
+        Yield ``(offset, block)`` with the rolling windows data[i-window:i]
+        for i = window + offset, ... (one window per row, read-only view).
+
+        Blocks hold at most ~1M cells so memory stays bounded (WebAssembly).
+        """
+        data = np.asarray(data)
+        n = len(data)
+        if n <= self.window:
+            return
+        windows = sliding_window_view(data, self.window)[:n - self.window]
+        rows = max(1, _EWS_BLOCK_CELLS // self.window)
+        for start in range(0, len(windows), rows):
+            yield start, windows[start:start + rows]
+
+    def _detrended_windows(self, data: np.ndarray):
+        """
+        Like _windows, but each window is detrended exactly as detrend().
+
+        gaussian_filter1d is linear, so the trend of a window x is K @ x with
+        the (window x window) matrix K whose column j is the filtered unit
+        vector e_j.  One matrix product per block replaces a convolution with
+        the full kernel (8·σ + 1 taps) per window - the same numbers, much
+        cheaper when σ is large compared to the window.
+        """
+        kernel = None
+        for start, block in self._windows(data):
+            if kernel is None:
+                kernel = gaussian_filter1d(np.eye(self.window), self.detrend_window, axis=0)
+            yield start, block - block @ kernel.T
+
     def autocorrelation_lag1(self, data: np.ndarray) -> np.ndarray:
         """
         Compute rolling lag-1 autocorrelation.
 
         AC(1) → 1 near critical point (critical slowing down)
+
+        Vectorised over windows; entry i is np.corrcoef of the detrended
+        window data[i-window:i] (0 for the first ``window`` entries and for
+        windows whose detrended values have zero spread).
         """
         n = len(data)
         ac = np.zeros(n)
 
-        for i in range(self.window, n):
-            window_data = data[i-self.window:i]
-            detrended = self.detrend(window_data)
-
-            if np.std(detrended) > 0:
-                ac[i] = np.corrcoef(detrended[:-1], detrended[1:])[0, 1]
+        for start, detrended in self._detrended_windows(data):
+            ok = np.std(detrended, axis=1) > 0
+            x = detrended[:, :-1]
+            y = detrended[:, 1:]
+            xm = x - x.mean(axis=1, keepdims=True)
+            ym = y - y.mean(axis=1, keepdims=True)
+            with np.errstate(invalid='ignore', divide='ignore'):
+                r = np.sum(xm * ym, axis=1) / np.sqrt(
+                    np.sum(xm * xm, axis=1) * np.sum(ym * ym, axis=1))
+            r = np.clip(r, -1, 1)  # like np.corrcoef
+            idx = self.window + start + np.flatnonzero(ok)
+            ac[idx] = r[ok]
 
         return ac
 
@@ -263,10 +327,8 @@ class CriticalSlowingDownDetector:
         n = len(data)
         var = np.zeros(n)
 
-        for i in range(self.window, n):
-            window_data = data[i-self.window:i]
-            detrended = self.detrend(window_data)
-            var[i] = np.var(detrended)
+        for start, detrended in self._detrended_windows(data):
+            var[self.window + start:self.window + start + len(detrended)] = np.var(detrended, axis=1)
 
         return var
 
@@ -279,9 +341,8 @@ class CriticalSlowingDownDetector:
         n = len(data)
         skew = np.zeros(n)
 
-        for i in range(self.window, n):
-            window_data = data[i-self.window:i]
-            skew[i] = stats.skew(window_data)
+        for start, block in self._windows(data):
+            skew[self.window + start:self.window + start + len(block)] = stats.skew(block, axis=1)
 
         return skew
 
@@ -321,9 +382,15 @@ class CriticalSlowingDownDetector:
         var_trend = self.kendall_tau(var)
 
         # Composite indicator
-        # Normalize and combine
-        ac1_norm = (ac1 - np.nanmean(ac1)) / (np.nanstd(ac1) + 1e-10)
-        var_norm = (var - np.nanmean(var)) / (np.nanstd(var) + 1e-10)
+        # Normalize and combine.  The first ``window`` entries are padding
+        # (no full window yet): they stay 0 and do not enter the z-scores.
+        w = self.window
+        ac1_norm = np.zeros(len(ac1))
+        var_norm = np.zeros(len(var))
+        if len(ac1) > w:
+            ac1_v, var_v = ac1[w:], var[w:]
+            ac1_norm[w:] = (ac1_v - np.nanmean(ac1_v)) / (np.nanstd(ac1_v) + 1e-10)
+            var_norm[w:] = (var_v - np.nanmean(var_v)) / (np.nanstd(var_v) + 1e-10)
         composite = 0.5 * ac1_norm + 0.5 * var_norm
 
         return {
@@ -369,18 +436,32 @@ class PowerLawAnalyzer:
         self.x_min = None
 
     def fit_power_law(self, data: np.ndarray,
-                      x_min_method: str = 'clauset') -> Dict:
+                      x_min_method: str = 'clauset',
+                      n_bootstrap: int = 100,
+                      seed: Optional[int] = None) -> Dict:
         """
         Fit power-law distribution using MLE.
 
-        Uses Clauset et al. (2009) methodology for rigorous fitting.
+        Uses Clauset et al. (2009) methodology for rigorous fitting: x_min is
+        the candidate (every distinct |x| from the 5th percentile up to the
+        point where 10 observations remain) that minimises the KS distance
+        between the empirical tail and the fitted power law.
+
+        Args:
+            data: Sample (absolute values are used; zeros and non-finite values are dropped)
+            x_min_method: 'clauset' (KS-optimal x_min) or anything else for x_min = 90th percentile
+            n_bootstrap: Synthetic samples for the bootstrap p-value
+            seed: Seed for the bootstrap (None = global NumPy random state)
 
         Returns:
             Dictionary with alpha, x_min, and goodness-of-fit
         """
-        data = np.abs(data)
-        data = data[data > 0]
+        data = np.abs(np.asarray(data, dtype=float).ravel())
+        data = data[np.isfinite(data) & (data > 0)]
         data = np.sort(data)
+        if len(data) < 10:
+            raise ValueError(
+                f"fit_power_law needs at least 10 non-zero values, got {len(data)}")
 
         if x_min_method == 'clauset':
             # Find optimal x_min via KS minimization
@@ -388,17 +469,25 @@ class PowerLawAnalyzer:
             best_xmin = data[0]
             best_alpha = 2.0
 
-            for xmin in data[len(data)//20:len(data)//2]:
-                tail = data[data >= xmin]
-                if len(tail) < 10:
+            n = len(data)
+            log_data = np.log(data)
+            ranks = np.arange(1, n + 1)
+            # first index of each candidate value (ties belong to the tail)
+            starts = np.unique(np.searchsorted(data, data[n // 20:], side='left'))
+            for k in starts[n - starts >= 10]:
+                xmin = data[k]
+                m = n - k
+                log_ratio = log_data[k:] - log_data[k]  # ln(x / x_min)
+                total = np.sum(log_ratio)
+                if not total > 0:
                     continue
 
                 # MLE for alpha
-                alpha = 1 + len(tail) / np.sum(np.log(tail / xmin))
+                alpha = 1 + m / total
 
                 # KS statistic
-                cdf_empirical = np.arange(1, len(tail) + 1) / len(tail)
-                cdf_theoretical = 1 - (xmin / tail)**(alpha - 1)
+                cdf_empirical = ranks[:m] / m
+                cdf_theoretical = 1 - np.exp(-(alpha - 1) * log_ratio)  # 1 - (x_min/x)^(α-1)
                 ks = np.max(np.abs(cdf_empirical - cdf_theoretical))
 
                 if ks < best_ks:
@@ -418,7 +507,7 @@ class PowerLawAnalyzer:
             self.x_min = x_min
 
         # Compute p-value via bootstrap
-        p_value = self._bootstrap_pvalue(data)
+        p_value = self._bootstrap_pvalue(data, n_bootstrap=n_bootstrap, seed=seed)
 
         return {
             'alpha': self.fitted_alpha,
@@ -428,9 +517,15 @@ class PowerLawAnalyzer:
             'n_tail': len(data[data >= self.x_min])
         }
 
-    def _bootstrap_pvalue(self, data: np.ndarray, n_bootstrap: int = 100) -> float:
-        """Estimate p-value via bootstrap."""
-        # Simplified bootstrap
+    def _bootstrap_pvalue(self, data: np.ndarray, n_bootstrap: int = 100,
+                          seed: Optional[int] = None) -> float:
+        """
+        Estimate p-value via bootstrap.
+
+        Simplified: synthetic samples are drawn above the fitted x_min and
+        only alpha is refitted (x_min is not re-optimised per sample).
+        """
+        rng = np.random if seed is None else np.random.RandomState(seed)
         tail = data[data >= self.x_min]
         n_tail = len(tail)
 
@@ -438,7 +533,7 @@ class PowerLawAnalyzer:
         ks_synthetic = []
         for _ in range(n_bootstrap):
             # Sample from fitted power law
-            u = np.random.uniform(0, 1, n_tail)
+            u = rng.uniform(0, 1, n_tail)
             synthetic = self.x_min * (1 - u)**(1 / (1 - self.fitted_alpha))
 
             # Fit to synthetic
@@ -468,28 +563,42 @@ def compute_phase_space_coordinates(returns: np.ndarray,
     - Z: Distance from criticality (T - T_c proxy)
 
     Near crashes, the system moves toward critical point (X→∞, Y→0, Z→0).
+
+    For i >= 2·window, entry i uses the window returns[i-window:i]; the
+    first 2·window entries are 0.  Vectorised over the windows (blocks of
+    at most ~1M cells, bounded memory in WebAssembly); the values equal the
+    per-window loop (np.var / np.corrcoef) up to rounding.
     """
+    returns = np.asarray(returns, dtype=float)
     n = len(returns)
-    detector = CriticalSlowingDownDetector(window)
 
     X = np.zeros(n)  # Susceptibility
     Y = np.zeros(n)  # Order parameter
     Z = np.zeros(n)  # Distance from criticality
 
-    for i in range(2 * window, n):
-        window_returns = returns[i-window:i]
+    if n > 2 * window:
+        # row k is returns[window + k : 2*window + k], the window that ends before i = 2*window + k
+        windows = sliding_window_view(returns, window)[window:n - window]
+        rows = max(1, _EWS_BLOCK_CELLS // window)
+        for start in range(0, len(windows), rows):
+            block = windows[start:start + rows]
+            idx = slice(2 * window + start, 2 * window + start + len(block))
 
-        # Susceptibility: variance of cumulative returns
-        cum_returns = np.cumsum(window_returns)
-        X[i] = np.var(cum_returns) / (np.var(window_returns) + 1e-10)
+            # Susceptibility: variance of cumulative returns
+            x = np.var(np.cumsum(block, axis=1), axis=1) / (np.var(block, axis=1) + 1e-10)
+            X[idx] = x
 
-        # Order parameter: autocorrelation (herding)
-        if np.std(window_returns) > 0:
-            Y[i] = np.abs(np.corrcoef(window_returns[:-1], window_returns[1:])[0, 1])
+            # Order parameter: |lag-1 autocorrelation| (herding), like np.corrcoef
+            a, b = block[:, :-1], block[:, 1:]
+            am = a - a.mean(axis=1, keepdims=True)
+            bm = b - b.mean(axis=1, keepdims=True)
+            with np.errstate(invalid='ignore', divide='ignore'):
+                r = np.sum(am * bm, axis=1) / np.sqrt(np.sum(am * am, axis=1) * np.sum(bm * bm, axis=1))
+            Y[idx] = np.where(np.std(block, axis=1) > 0, np.abs(np.clip(r, -1, 1)), 0.0)
 
-        # Distance from criticality: inverse of variance ratio
-        # High variance ratio = near critical point = small Z
-        Z[i] = 1 / (X[i] + 0.1)
+            # Distance from criticality: inverse of variance ratio
+            # High variance ratio = near critical point = small Z
+            Z[idx] = 1 / (x + 0.1)
 
     # Normalize
     X = X / (np.max(X) + 1e-10)
@@ -522,6 +631,7 @@ class MarketPhaseClassifier:
         Returns:
             Phase classification and supporting metrics
         """
+        returns = np.asarray(returns, dtype=float)
         if len(returns) < 2 * window:
             return {'phase': 'UNKNOWN', 'confidence': 0}
 
@@ -534,11 +644,10 @@ class MarketPhaseClassifier:
         recent_return = np.mean(recent_returns)
         recent_ac1 = ews['autocorrelation'][-1] if len(ews['autocorrelation']) > 0 else 0
 
-        # Classification logic
-        vol_percentile = stats.percentileofscore(
-            [np.std(returns[i:i+window]) for i in range(len(returns) - window)],
-            recent_vol
-        )
+        # Classification logic: recent volatility against every earlier
+        # window returns[i:i+window], i = 0 .. n-window-1 (vectorised)
+        past_vols = np.std(sliding_window_view(returns, window)[:len(returns) - window], axis=1)
+        vol_percentile = stats.percentileofscore(past_vols, recent_vol)
 
         if vol_percentile > 95 and recent_return < -0.02:
             phase = 'CRASH'

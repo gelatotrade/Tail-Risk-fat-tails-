@@ -5,17 +5,37 @@ Statistical Utilities for Tail Risk Analysis
 
 import numpy as np
 from scipy import stats
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Optional
 
 
 def compute_moments(data: np.ndarray) -> Dict[str, float]:
-    """Compute all moments of a distribution."""
+    """
+    Compute all moments of a distribution.
+
+    Skewness and (excess) kurtosis are the biased sample estimators of
+    ``scipy.stats.skew`` / ``scipy.stats.kurtosis`` (same values, same NaN for
+    constant data), computed with NumPy directly: SciPy's generic array-API
+    path costs milliseconds per call, which matters inside bootstraps and in
+    the browser.
+    """
+    x = np.asarray(data, dtype=float)
+    mean = np.mean(x)
+    d = x - mean
+    d2 = d * d
+    m2 = np.mean(d2)
+    with np.errstate(all='ignore'):
+        m3 = np.mean(d2 * d)
+        m4 = np.mean(d2 * d2)
+        # scipy's guard: a variance at round-off level of the mean = constant data
+        degenerate = not m2 > (np.finfo(float).eps * mean) ** 2
+        skewness = np.float64(np.nan) if degenerate else np.float64(m3 / m2 ** 1.5)
+        kurtosis = np.float64(np.nan) if degenerate else np.float64(m4 / m2 ** 2 - 3.0)
     return {
-        'mean': np.mean(data),
-        'variance': np.var(data),
-        'std': np.std(data),
-        'skewness': stats.skew(data),
-        'kurtosis': stats.kurtosis(data)
+        'mean': mean,
+        'variance': np.var(x),
+        'std': np.std(x),
+        'skewness': skewness,
+        'kurtosis': kurtosis
     }
 
 
@@ -29,12 +49,37 @@ def jarque_bera_test(data: np.ndarray) -> Dict[str, float]:
     }
 
 
-def kolmogorov_smirnov_test(data: np.ndarray, distribution: str = 'norm') -> Dict[str, float]:
-    """Kolmogorov-Smirnov test against a distribution."""
-    if distribution == 'norm':
-        stat, p_value = stats.kstest(data, 'norm', args=(np.mean(data), np.std(data)))
-    else:
-        stat, p_value = stats.kstest(data, distribution)
+def kolmogorov_smirnov_test(data: np.ndarray, distribution: str = 'norm',
+                            params: Optional[tuple] = None) -> Dict[str, float]:
+    """
+    Kolmogorov-Smirnov test against a distribution family.
+
+    By default the parameters are estimated from the data, so the test asks
+    "does the data look like *some* member of this family?":
+    - 'norm': loc = mean, scale = std
+    - any other scipy.stats continuous distribution name ('t', 'laplace',
+      'cauchy', 'logistic', ...): maximum-likelihood fit (``dist.fit(data)``)
+
+    Pass ``params`` (the distribution's shape/loc/scale arguments, e.g.
+    ``params=()`` for the standard form) to test against fixed parameters.
+    Note: with estimated parameters the classical KS p-value is conservative
+    (too large); treat it as an indication, not an exact test.
+    """
+    data = np.asarray(data, dtype=float)
+    dist = getattr(stats, distribution, None)
+    if not isinstance(dist, stats.rv_continuous):
+        raise ValueError(f"Unknown continuous distribution: {distribution!r}")
+
+    if params is None:
+        if distribution == 'norm':
+            params = (np.mean(data), np.std(data))
+        else:
+            params = dist.fit(data)
+
+    # A frozen distribution keeps loc/scale working across SciPy versions
+    # (SciPy >= 1.18 maps the string 'norm' to a fast path without loc/scale).
+    fitted = dist(*params)
+    stat, p_value = stats.kstest(data, fitted.cdf)
 
     return {
         'statistic': stat,
