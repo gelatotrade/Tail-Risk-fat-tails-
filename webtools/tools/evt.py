@@ -84,8 +84,13 @@ def run(params, data, out):
     q, m, conf = float(params["threshold_quantile"]), int(params["block_size"]), float(params["confidence"])
     lvl = next(o["label"] for o in LEVELS if o["value"] == params["confidence"])
     if n * (1 - q) < 10:
+        lo = next(p["min"] for p in SPEC["params"] if p["name"] == "threshold_quantile")
+        if n * (1 - lo) < 10:
+            raise ToolError(f"Für die Extremwerttheorie ist die Reihe zu kurz ({n} Tage): Selbst beim "
+                            f"{_de(100 * lo, 0)}-%-Quantil blieben weniger als 10 Verluste über der Schwelle. "
+                            f"Nimm eine Reihe mit mindestens {int(np.ceil(10 / (1 - lo)))} Tagen.")
         raise ToolError(f"Bei {n} Tagen bleiben über dem {_de(100 * q, 1)}-%-Quantil weniger als 10 Verluste. "
-                        "Senke die Schwelle oder nimm eine längere Reihe.")
+                        f"Senke die Schwelle auf höchstens {_de(1 - 10 / n, 3)}.")
     if n // m < 10:
         raise ToolError(f"Mit Blöcken à {m} Tagen gibt es nur {n // m} Blockmaxima (mindestens 10 nötig). "
                         "Verkleinere die Blockgröße.")
@@ -151,7 +156,8 @@ def run(params, data, out):
     gev_rl = -np.asarray(evt.return_level(t_days, "left"), dtype=float)
     gpd_rl = np.array([evt.gpd_left.var(1 - 1 / T, p_u) if 1 / T < p_u else np.nan for T in t_days], dtype=float)
     g_rl = -(mu + sd * stats.norm.ppf(1 / t_days))
-    ranks = np.unique(np.geomspace(1, min(n, 2000), 45).round().astype(int))  # even on the log axis
+    k_max = max(2, min(n, int((n + 1) / (years[0] * DAYS))))  # observed points inside the 0.1-200-year axis
+    ranks = np.unique(np.geomspace(1, k_max, 40).round().astype(int))  # evenly spread on the log axis
     emp_years = (n + 1) / ranks / DAYS
     out.chart(C.xy(
         "Wiederkehrniveaus: Welcher Tagesverlust kommt einmal in T Jahren?",
