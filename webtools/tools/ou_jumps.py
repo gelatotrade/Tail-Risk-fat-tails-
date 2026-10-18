@@ -48,7 +48,7 @@ SPEC = {
         {"name": "jump_mean", "type": "float", "default": -0.02, "min": -0.2, "max": 0.2, "step": 0.005,
          "label": "Mean jump size", "help": "−0.02 = −2% per jump on average."},
         {"name": "jump_std", "type": "float", "default": 0.05, "min": 0.005, "max": 0.5, "step": 0.005,
-         "label": "Jump dispersion", "help": "Std (normal) or scale (Kou, Lévy)."},
+         "label": "Jump dispersion", "help": "Standard deviation (normal) or scale (Kou, Lévy)."},
         {"name": "horizon_days", "type": "int", "default": 1, "min": 1, "max": 21, "step": 1,
          "label": "VaR horizon", "unit": "trading days"},
         {"name": "confidence", "type": "float", "default": 0.99, "min": 0.9, "max": 0.999, "step": 0.001,
@@ -78,7 +78,7 @@ N_EXAMPLES = 3
 
 
 def _fmt(x, digits=2):
-    return f"{x:.{digits}f}"
+    return f"{x:.{digits}f}".replace("-", "−")
 
 
 def _level(conf):
@@ -135,10 +135,10 @@ def run(params, data, out):
 
     hz = f"{params['horizon_days']} day" + ("" if params["horizon_days"] == 1 else "s")
     lvl = _level(conf)
-    out.metric(f"VaR {lvl} with jumps", var_j, "pct",
+    out.metric(f"{lvl} VaR with jumps", var_j, "pct",
                hint=f"loss over {hz} · Monte Carlo band (95%): {_fmt(100 * band_lo)}–{_fmt(100 * band_hi)}%",
                status="serious" if var_j > 1.5 * var_0 else None)
-    out.metric(f"Expected Shortfall {lvl} with jumps", es_j, "pct", hint="average loss beyond the VaR",
+    out.metric(f"{lvl} Expected Shortfall with jumps", es_j, "pct", hint="average loss beyond the VaR",
                status="critical" if es_j > 2 * es_0 else "serious" if es_j > 1.3 * es_0 else None)
     out.metric("VaR without jumps", var_0, "pct",
                hint=f"pure OU, same random numbers · exact (normal): {_fmt(100 * var_0_exact)}%")
@@ -151,8 +151,8 @@ def run(params, data, out):
                hint=f"without jumps: {_fmt(stats.kurtosis(change_0), 1)}")
 
     out.table("Risk with and without jumps", ["Metric", "With jumps", "Without jumps", "Add-on", "Factor"],
-              [["VaR " + lvl, var_j, var_0, var_j - var_0, var_j / var_0 if var_0 > 0 else None],
-               ["Expected Shortfall " + lvl, es_j, es_0, es_j - es_0, es_j / es_0 if es_0 > 0 else None]],
+              [[lvl + " VaR", var_j, var_0, var_j - var_0, var_j / var_0 if var_0 > 0 else None],
+               [lvl + " Expected Shortfall", es_j, es_0, es_j - es_0, es_j / es_0 if es_0 > 0 else None]],
               formats=["text", "pct", "pct", "pct", "x"],
               note=f"{n_sim:,}" + f" Monte Carlo scenarios over {hz}, starting at the mean "
                    "(x₀ = μ = 0). "
@@ -194,7 +194,7 @@ def run(params, data, out):
          C.trace("Without jumps", c0, np.where(h0 > 0, h0, np.nan), color="muted", width=2),
          C.trace(f"−VaR with jumps ({_fmt(100 * var_j)}%)", [-var_j] * 2, [floor, top], color="critical",
                  dash=True, width=1.5, decimate_to=None),
-         C.trace(f"−VaR without ({_fmt(100 * var_0)}%)", [-var_0] * 2, [floor, top], color="muted", dash=True,
+         C.trace(f"−VaR without jumps ({_fmt(100 * var_0)}%)", [-var_0] * 2, [floor, top], color="muted", dash=True,
                  width=1.5, decimate_to=None)],
         x=C.axis("Change in x", fmt="pct", digits=1), y=C.axis("Density (log)", type="log", range=(floor, top)),
         height=340, subtitle="Log scale: the jumps lift the tail, while the centre stays almost unchanged.",

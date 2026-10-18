@@ -29,7 +29,7 @@ SERIES = {
     "SP500": "S&P 500",
     "NASDAQCOM": "NASDAQ Composite",
     "VIXCLS": "CBOE VIX",
-    "VXVCLS": "CBOE VIX 3 Monate",
+    "VXVCLS": "CBOE 3-month VIX",
 }
 # Datasets offered on the site: an index plus the volatility series aligned to it.
 DATASETS = [

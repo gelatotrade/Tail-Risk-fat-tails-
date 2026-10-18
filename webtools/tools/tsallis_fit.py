@@ -95,7 +95,7 @@ def run(params, data, out):
     ratio4 = float(u["fat_tail_ratio"]["4sigma"])
     out.metric("4σ days relative to Gaussian", ratio4, "x", hint="probability from the moment fit ÷ Gaussian value",
                status="serious" if ratio4 > 5 else None,
-               badge="Gaussian understates" if ratio4 > 5 else "")
+               badge="Gaussian understates risk" if ratio4 > 5 else "")
 
     # --- table: the estimators side by side
     def ll(d):
@@ -120,7 +120,7 @@ def run(params, data, out):
         obs = int(np.sum(np.abs(r - med) > k * sd))
         p_mle = float(mle.tail_probability(mle.mu + k * sd, "both", exact=True))
         ratio = float(u["fat_tail_ratio"][key])
-        trows.append([f"{k} σ", obs, _days(p_mle * n), _days(float(u["extreme_probabilities"][key]) * n),
+        trows.append([f"{k}σ", obs, _days(p_mle * n), _days(float(u["extreme_probabilities"][key]) * n),
                       _days(float(2 * stats.norm.sf(k)) * n), "> 10⁵" if ratio > 1e5 else ratio])
     out.table("Extreme days: model vs data",
               ["Threshold", "Observed", "q-Gaussian (MLE)", "q-Gaussian (moments)", "Gaussian",
@@ -181,7 +181,7 @@ def run(params, data, out):
         subtitle="If the ends bend away from the diagonal, the real tails are heavier (or lighter) than in the model.",
     ))
 
-    thresholds = "Elevated from q > 1.3 and S_q > 1 · High from q > 1.5 and S_q > 1.5 · Extreme from q > 1.8 and S_q > 2"
+    thresholds = "Elevated if q > 1.3 and S_q > 1 · High if q > 1.5 and S_q > 1.5 · Extreme if q > 1.8 and S_q > 2"
     out.set_verdict(level, f"Tsallis risk level: {label}",
                     f"q = {_fmt(u['q'])} (moments) and S_q = {_fmt(u['tsallis_entropy'])}. According to the model, "
                     f"4σ days are {ratio4:,.0f} times as frequent as under a Gaussian. Thresholds: {thresholds}.")

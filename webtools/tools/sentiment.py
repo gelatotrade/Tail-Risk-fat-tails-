@@ -61,7 +61,7 @@ REGIME = {  # code -> (label, status colour)
     "HIGH_FEAR": ("High fear", "serious"),
     "PANIC": ("Panic", "critical"),
 }
-SIGNAL = {"HIGH_FEAR_REVERSAL_LIKELY": "Fear reversal likely", "COMPLACENCY_WARNING": "Warning: complacency",
+SIGNAL = {"HIGH_FEAR_REVERSAL_LIKELY": "Fear reversal likely", "COMPLACENCY_WARNING": "Complacency warning",
           "NEUTRAL": "Neutral"}
 H = 20  # forward window of the outcome tables (trading days)
 
@@ -140,8 +140,8 @@ def run(params, data, out):
          C.trace("Spike", [x[i] for i in spikes], vix[spikes], type="scatter", color="critical", size=5,
                  decimate_to=None)],
         x=xa, y=C.axis("VIX points"),
-        hlines=[C.hline(th["complacent"], "complacent < 15"), C.hline(th["normal"], "elevated from 25", "warning"),
-                C.hline(th["elevated"], "high fear from 35", "serious"), C.hline(th["panic"], "panic from 50", "critical")],
+        hlines=[C.hline(th["complacent"], "Complacent < 15"), C.hline(th["normal"], "Elevated from 25", "warning"),
+                C.hline(th["elevated"], "High fear from 35", "serious"), C.hline(th["panic"], "Panic from 50", "critical")],
         subtitle="Red dots: days on which the VIX rose by more than the spike threshold allows.",
     ))
     out.chart(C.xy(

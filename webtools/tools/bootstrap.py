@@ -40,7 +40,7 @@ SPEC = {
         {"name": "confidence", "type": "float", "default": 0.95, "min": 0.80, "max": 0.99, "step": 0.01,
          "label": "Interval confidence level"},
         {"name": "level", "type": "float", "default": 0.99, "min": 0.90, "max": 0.995, "step": 0.005,
-         "label": "VaR/ES level"},
+         "label": "VaR/ES confidence level"},
         {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 99999, "step": 1, "label": "Random seed"},
     ],
     "covers": [
@@ -152,7 +152,7 @@ def run(params, data, out):
     sub = {"var": "Largest one-day loss that is not exceeded on {lv} of days.",
            "es": "Average loss on the worst days beyond VaR.",
            "kurt": "A handful of extreme days drive the kurtosis – hence its wide interval.",
-           "hill": "Below 2: infinite variance (Lévy regime). Typical for equities: 3 to 4."}
+           "hill": "Below 2: infinite variance (Lévy-stable range). Typical for equities: 3 to 4."}
     for key, name, _, is_pct in stats_def:
         point, lo, hi, reps = results[key]
         centers, counts = C.histogram(reps, bins=40, density=False)
@@ -189,6 +189,6 @@ def run(params, data, out):
     if tail_obs < 10:
         out.note(f"Only {tail_obs} day{'s' if tail_obs != 1 else ''} beyond VaR: Expected Shortfall rests on so few "
                  "losses that even the bootstrap interval understates the uncertainty – the bootstrap cannot invent "
-                 "losses worse than the worst observed day. Use a longer series or a lower level.", "warning")
+                 "losses worse than the worst observed day. Use a longer series or a lower VaR/ES confidence level.", "warning")
     out.note("The bootstrap draws days independently. Volatility clusters (calm and turbulent phases) are lost in the "
              "process – in real markets the intervals tend to be wider than shown here.", "warning")

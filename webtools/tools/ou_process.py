@@ -95,7 +95,7 @@ def run(params, data, out):
     mc_mean, mc_sd = paths.mean(axis=0), paths.std(axis=0)
     half_days = ou.half_life() * 252
 
-    out.metric("Half-life", half_days, "num", digits=0 if half_days >= 10 else 1, unit="trading days",
+    out.metric("Half-life (trading days)", half_days, "num", digits=0 if half_days >= 10 else 1,
                hint=f"ln 2/θ = {_fmt(ou.half_life(), 3)} years")
     out.metric("Stationary std σ/√(2θ)", ou.stationary_std(), "num",
                hint=f"stationary variance {_fmt(ou.stationary_variance(), 1)}")
@@ -188,7 +188,7 @@ def _fit(params, data, out, true_ou):
         out.table(f"OU fit: {label} · {data.name} · {len(series):,} days", ["Parameter", "Estimated", "Your simulation"],
                   [r + [tv] for r, tv in zip(rows, truth)], formats=["text", "num", "num"],
                   note="On the right, for comparison: the parameters you are simulating with above.")
-    out.metric("Fit: half-life", fit.half_life() * 252, "num", digits=0, unit="trading days",
+    out.metric("Fit: half-life (trading days)", fit.half_life() * 252, "num", digits=0,
                hint=f"estimated from {source}")
     out.metric("Fit: μ", fit.mu, "num", hint=f"θ = {_fmt(fit.theta, 1)} per year, σ = {_fmt(fit.sigma, 1)}")
 

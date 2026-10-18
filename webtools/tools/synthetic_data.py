@@ -22,7 +22,7 @@ SPEC = {
                "switching and Lévy jumps – plus the crisis scenario with a derived VIX.",
     "description": (
         "The framework generates artificial daily returns with `generate_synthetic_returns` in six models: the "
-        "**normal distribution** (the benchmark), **Student-t** with ν = 4, **Lévy stable** with α = 1.7 "
+        "**normal distribution** (the benchmark), **Student-t** with ν = 4, **Lévy-stable** with α = 1.7 "
         "(infinite variance), **GARCH(1,1)** (volatility clustering), **regime switching** between calm and stress, "
         "and **Gaussian + Lévy jumps** (the most realistic). All use the same seed and the same length.\n\n"
         "How to read the charts: the price paths show how different paths can look at a similar daily "
@@ -56,7 +56,7 @@ SPEC = {
     "cost": "fast",
 }
 ORDER = ["gaussian", "student_t", "levy", "garch", "regime_switching", "levy_jump"]
-SHORT = {"gaussian": "Normal distribution", "student_t": "Student-t (ν = 4)", "levy": "Lévy stable (α = 1.7)",
+SHORT = {"gaussian": "Normal distribution", "student_t": "Student-t (ν = 4)", "levy": "Lévy-stable (α = 1.7)",
          "garch": "GARCH(1,1)", "regime_switching": "Regime switching", "levy_jump": "Gaussian + Lévy jumps"}
 
 
@@ -95,7 +95,7 @@ def run(params, data, out):
          for i, m in enumerate(ORDER)],
         x=C.axis("Trading day", fmt="int"),
         y=C.axis("Price (start = 100)", type="log" if hi_p > 10 * lo_p else "linear"),
-        subtitle="Same length, same seed. The Lévy and jump models jump; GARCH and regime switching show "
+        subtitle="Same length, same seed. The Lévy and jump models show sudden jumps; GARCH and regime switching show "
                  "turbulent phases.",
     ))
 
@@ -148,7 +148,7 @@ def run(params, data, out):
         [C.trace("VIX from returns", cdays, vix, color=2, width=1.4)],
         x=C.axis("Trading day", fmt="int"), y=C.axis("VIX points"), bands=band,
         subtitle="generate_vix_from_returns: 15 + 100 × rolling annualised volatility, with a jump on one-day "
-                 "losses above 2%, capped at 10–80.",
+                 "losses above 2%, limited to the range 10–80.",
     ))
     phases = [("Pre-crisis", cr[:a]), ("Crisis", cr[a:b]), ("Post-crisis", cr[b:])]
     prow = [[name, len(r), float(np.expm1(r.sum())) if r.size else None, float(np.std(r) * np.sqrt(252)) if r.size else None,
@@ -165,13 +165,13 @@ def run(params, data, out):
     sm = sample["crisis_metadata"]
     srows = []
     for key, model, seed_s in (("normal", "GARCH(1,1)", 42), ("crisis", "Crisis scenario", 43),
-                               ("fat_tails", "Lévy stable", 44), ("regime_switching", "Regime switching", 45)):
+                               ("fat_tails", "Lévy-stable", 44), ("regime_switching", "Regime switching", 45)):
         r = np.asarray(sample[key], dtype=float)
         mom = compute_moments(r)
         hint = ""
         if key == "crisis":
             cret = float(np.expm1(r[sm["crisis_start"]:sm["crisis_end"]].sum()))
-            hint = f"Crisis window days {sm['crisis_start']}–{sm['crisis_end']}: {cret * 100:+.0f}%"
+            hint = f"Crisis window (days {sm['crisis_start']}–{sm['crisis_end']}): {cret * 100:+.0f}%".replace("-", "−")
         srows.append([key, f"{model} · seed {seed_s}", len(r), float(mom["std"]) * np.sqrt(252), float(mom["kurtosis"]),
                       float(np.expm1(r.sum())), hint])
     for key, src in (("vix_normal", "from ‘normal’"), ("vix_crisis", "from ‘crisis’")):
@@ -183,7 +183,7 @@ def run(params, data, out):
         out.note(f"The sample series ‘crisis’ (seed 43) rises by {sample_crisis * 100:.0f}% within its crisis "
                  "window. The main crisis draws from a symmetric t-distribution (ν = 3) with a very large scale, "
                  "whose fluctuations swamp the negative drift – for roughly one seed in five the crisis turns into "
-                 "a rally. Seed 43 is also the default of the **Crisis scenario** dataset; choose a different seed "
+                 "a rally. Seed 43 is also the default for the **Crisis scenario** dataset; choose a different seed "
                  "there (e.g. 42) for a genuine crash.",
                  "warning")
     out.table("Framework sample data (load_sample_data)",

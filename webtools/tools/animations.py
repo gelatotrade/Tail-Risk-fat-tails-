@@ -33,7 +33,7 @@ SPEC = {
         "animations: the **Lévy phase space** traces the market's path through volatility, tail heaviness (2/α) "
         "and jump intensity (|r|/σ) – calm phases circle tightly, crises swing far out. **Distribution morphing** "
         "shows the return distribution in a rolling 60-day window against the Gaussian curve; on the log scale "
-        "you can see when fat tails emerge. The **risk gauge** moves its needle across the composite score of the "
+        "you can see when fat tails emerge. The needle of the **risk gauge** tracks the composite score of the "
         "early-warning system. The **dashboard** synchronises phase space, distribution, jump risk and the "
         "rolling 99% VaR.\n\n"
         "Rendering uses Matplotlib in the browser, frame by frame. The original animation would have hundreds of "
@@ -191,15 +191,15 @@ def run(params, data, out):
         out.metric("Tail heaviness 2/α", Y[-1], "num", hint="Hill estimator over 20 days; higher = fatter tails")
         big_txt = f"{Z.max():.1f}"
         out.metric("Jump intensity |r|/σ", Z[-1], "num",
-                   hint=f"largest jump {big_txt} σ on {label(int(np.argmax(Z)))}; σ of the period")
-        out.metric("Days with jump > 3 σ", len(jumps), "int",
+                   hint=f"largest jump {big_txt}σ on {label(int(np.argmax(Z)))}; σ of the period")
+        out.metric("Days with jump > 3σ", len(jumps), "int",
                    hint=f"{100 * len(jumps) / m:.1f}% of days")
         s = slice(COORD_WINDOW, None)  # the tail index needs a full window first (2/α is 0 before)
         idx = np.arange(m)[s]
         traces = [C.path3d("Path", X[s], Y[s], Z[s], color=1, mode="lines", text=[label(i) for i in idx])]
         big = jumps[jumps >= COORD_WINDOW]
         if big.size:
-            traces.append(C.path3d("Jump > 3 σ", X[big], Y[big], Z[big], color="critical", mode="markers", size=4,
+            traces.append(C.path3d("Jump > 3σ", X[big], Y[big], Z[big], color="critical", mode="markers", size=4,
                                    text=[label(i) for i in big]))
         shown = [f for f in frames if f >= COORD_WINDOW]
         traces.append(C.path3d("Frames in the GIF", X[shown], Y[shown], Z[shown], color=3, mode="markers", size=3,
@@ -223,8 +223,8 @@ def run(params, data, out):
                    status="critical" if last > 6 else "serious" if last > 3 else None,
                    badge="Fat tails" if last > 3 else "",
                    hint=f"60 days to {label(m - 1)}; normal distribution = 0")
-        out.metric("Highest kurtosis", kurt[i_max], "num", digits=1, hint=f"window ending {label(i_max)}")
-        out.metric("Windows with kurtosis > 3", float(np.mean(kurt[ok] > 3)) if ok.any() else 0.0, "pct", digits=0,
+        out.metric("Highest excess kurtosis", kurt[i_max], "num", digits=1, hint=f"window ending {label(i_max)}")
+        out.metric("Windows with excess kurtosis > 3", float(np.mean(kurt[ok] > 3)) if ok.any() else 0.0, "pct", digits=0,
                    hint="share of 60-day windows with clearly fat tails")
         out.chart(C.xy(
             "Excess kurtosis in the rolling 60-day window",
@@ -270,24 +270,24 @@ def run(params, data, out):
         p90 = float(np.percentile(Z, 90))
         i_max = int(np.nanargmax(var))
         rate = float(np.mean(breach[ok]))
-        out.metric("VaR 99% (60 days)", var[-1], "pct", digits=2,
+        out.metric("99% VaR (60 days)", var[-1], "pct", digits=2,
                    hint=f"historical, for {label(m - 1)} from the preceding 60 days")
         out.metric("VaR breaches", rate, "pct", digits=1,
-                   hint=f"{int(breach.sum())} of {int(ok.sum())} days · target 1%",
+                   hint=f"{int(breach.sum())} of {int(ok.sum())} days · expected 1%",
                    status="critical" if rate > 0.025 else "serious" if rate > 0.015 else "good")
-        out.metric("Highest VaR 99%", var[i_max], "pct", digits=2, hint=f"on {label(i_max)}")
+        out.metric("Highest 99% VaR", var[i_max], "pct", digits=2, hint=f"on {label(i_max)}")
         n_jump = int(np.sum(Z > 3))
-        out.metric("Days with jump > 3 σ", n_jump, "int",
+        out.metric("Days with jump > 3σ", n_jump, "int",
                    hint=f"{100 * n_jump / m:.1f}% of days; σ of the period")
         out.chart(C.xy(
-            "One-day loss and rolling VaR 99%",
+            "One-day loss and rolling 99% VaR",
             [C.trace("One-day loss", x, np.where(loss > 0, loss, np.nan), type="bar", color="muted"),
-             C.trace("VaR 99% (60 days)", x, var, color=1, width=1.5),
+             C.trace("99% VaR (60 days)", x, var, color=1, width=1.5),
              C.trace("Loss above VaR", [x[i] for i in np.flatnonzero(breach)], loss[breach], type="scatter",
                      color="critical", size=6, decimate_to=None)],
             x=xa, y=C.axis("Loss", fmt="pct", digits=1),
             subtitle="As in panel 4 of the animation: VaR on day t from the preceding 60 days. With only 60 values "
-                     "the 1% quantile can hardly be estimated – even with a stable distribution, a good 2% of days "
+                     "the 1% quantile can hardly be estimated – even if the distribution does not change, just over 2% of days "
                      "lie above it.",
         ))
         out.chart(C.xy(

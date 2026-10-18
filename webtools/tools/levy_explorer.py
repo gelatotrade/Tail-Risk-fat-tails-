@@ -38,7 +38,7 @@ SPEC = {
         {"name": "x_range", "type": "int", "default": 12, "min": 4, "max": 50, "step": 1,
          "label": "Density range ± (in γ)", "help": "Wider ranges need more nodes in the Fourier inversion."},
         {"name": "n_samples", "type": "int", "default": 20000, "min": 1000, "max": 200000, "step": 1000,
-         "label": "Number of samples"},
+         "label": "Sample size"},
         {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 9999, "step": 1, "label": "Random seed"},
     ],
     "covers": [

@@ -16,7 +16,7 @@ SPEC = {
     "title": "Rolling risk and VaR backtest",
     "group": "risk",
     "order": 50,
-    "summary": "VaR, Expected Shortfall, skewness, kurtosis and tail index in a rolling window – with an honest "
+    "summary": "VaR, Expected Shortfall, skewness, kurtosis and tail index in a rolling window – with an out-of-sample "
                "backtest and the market's path through the 3D risk space.",
     "description": (
         "`RollingRiskMetrics` estimates each metric only from the last N trading days **before** the day in "
@@ -121,7 +121,7 @@ def run(params, data, out):
     out.metric("Excess kurtosis today", kurt[-1], "num", digits=1)
     out.metric("Skewness today", skew[-1], "num")
     out.metric(f"Tail index α today ({'Hill' if method == 'hill' else 'Pickands'})", last_alpha, "num",
-               hint="< 2: infinite variance · < 4: infinite kurtosis",
+               hint="Infinite variance below 2, infinite kurtosis below 4",
                status="critical" if last_alpha < 2 else "serious" if last_alpha < 3 else None)
 
     # --- chart 1: VaR / ES band against realised returns
@@ -207,8 +207,8 @@ def run(params, data, out):
 
     # --- compact table: calmest vs most stressed windows
     rows = []
-    for name, sel in (("Calmest quarter", var <= np.nanquantile(var, 0.25)),
-                      ("Most stressed quarter", var >= np.nanquantile(var, 0.75))):
+    for name, sel in (("Calmest 25% of days", var <= np.nanquantile(var, 0.25)),
+                      ("Most stressed 25% of days", var >= np.nanquantile(var, 0.75))):
         sel = sel & valid
         nxt = np.flatnonzero(sel)
         rows.append([name, np.nanmean(var[sel]), np.nanmean(es[sel]), np.nanmean(kurt[sel]), np.nanmean(skew[sel]),

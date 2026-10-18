@@ -13,7 +13,7 @@ SPEC = {
     "title": "Tsallis entropy over time",
     "group": "regime",
     "order": 50,
-    "summary": "Rolling Tsallis entropy and tail index q alongside realised volatility and the VIX – with an "
+    "summary": "Rolling Tsallis entropy and Tsallis index q alongside realised volatility and the VIX – with an "
                "honest test of whether entropy anticipates future turbulence.",
     "description": (
         "`TsallisEntropyAnalyzer.rolling_entropy` first estimates the index **q** in each window from the Hill "
@@ -21,7 +21,7 @@ SPEC = {
         "the histogram of the window's returns. The idea from physics: rising entropy signals growing disorder "
         "and is supposed to precede turbulence.\n\n"
         "The tool tests this claim on your data: it compares entropy (and q) with the **future** realised "
-        "volatility over the following days, against the simplest competitor – past volatility. Spearman's rank "
+        "volatility over the following days, against the simplest benchmark – past volatility. Spearman's rank "
         "correlation is robust to outliers. The quintile chart shows whether the days with the highest entropy "
         "really were followed by the most turbulent weeks.\n\n"
         "Worth knowing: the histogram has a fixed number of bins spanning the window's range. A single crash day "
@@ -51,7 +51,7 @@ SPEC = {
 
 def _num(x, digits=2):
     """Number inside text: decimal point, thousands comma."""
-    return f"{x:,.{digits}f}"
+    return f"{x:,.{digits}f}".replace("-", "−")
 
 
 def _rho(a, b):
@@ -129,7 +129,7 @@ def run(params, data, out):
         "Rolling Tsallis index q",
         [C.trace("q (Hill)", x, q, color=2, width=1.3)], x=xa, y=C.axis("q"),
         hlines=[C.hline(1.0, "Gaussian (q = 1)"), C.hline(5 / 3, "Variance → ∞ (q = 5/3)")],
-        subtitle="Hill on a single window is very noisy; jumps in q reflect individual extreme days in the window.",
+        subtitle="The Hill estimate from a single window is very noisy; jumps in q reflect individual extreme days in the window.",
     ))
     vol_traces = [C.trace(f"Realised volatility ({w} days)", x, past, color=1, width=1.5)]
     if vix is not None:
@@ -162,7 +162,7 @@ def run(params, data, out):
         cols.append("With VIX")
     out.table("Rank correlations (Spearman)", cols,
               rows, formats=["text"] + ["num"] * (len(cols) - 1),
-              note=f"{int(np.sum(np.isfinite(S) & np.isfinite(future))):,} days. The first column is the actual "
+              note=f"{int(np.sum(np.isfinite(S) & np.isfinite(future))):,} days. The first correlation column is the actual "
                    "lead test: only data up to t−1 enter the signal, and the volatility that follows lies genuinely "
                    "in the future.")
 
@@ -171,7 +171,7 @@ def run(params, data, out):
             out.note(f"Here entropy does anticipate turbulence: ρ = {_num(rho_s)}, as good as past volatility "
                      f"(ρ = {_num(rho_p)}).", "success")
         elif rho_p > 0.2:
-            out.note(f"On this dataset entropy has little lead: ρ = {_num(rho_s)} with future volatility, whereas "
+            out.note(f"On this dataset entropy gives little advance warning: ρ = {_num(rho_s)} with future volatility, whereas "
                      f"plain past volatility reaches ρ = {_num(rho_p)}.", "warning")
         else:
             out.note(f"Future volatility is hardly predictable here: neither entropy (ρ = {_num(rho_s)}) nor past "

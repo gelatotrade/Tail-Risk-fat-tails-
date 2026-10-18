@@ -12,8 +12,8 @@ SPEC = {
         "Runs `generate_tail_risk_surface.py` and produces the large 3D risk surface with a top view, contours of "
         "the crash probability, the crisis paths of COVID-19, 2022 and 2025, and the current market "
         "position.\n\n"
-        "For an interactive, rotatable version with your dataset's trajectory, use the *3D tail-risk surface with "
-        "market trajectory* tool."
+        "For an interactive, rotatable version with your dataset's trajectory, use the ‘3D tail-risk surface with "
+        "market trajectory’ tool."
     ),
     "needs": [],
     "params": [QUALITY_PARAM],

@@ -85,7 +85,7 @@ SPAN = 400.0  # integration range in sigma; exponential tails are negligible bey
 
 
 def _num(x, digits=2):
-    return f"{x:.{digits}f}"
+    return f"{x:.{digits}f}".replace("-", "−")
 
 
 def _thousands(x):
@@ -270,9 +270,10 @@ def run(params, data, out):
         "Distributions at a glance", ["Distribution", f"{lvl} VaR", f"{lvl} ES", "ES ÷ VaR",
                                       "P(< −3σ)", "P(< −5σ)", "5σ vs Gaussian", "Excess kurtosis", "σ (sample)"],
         rows, formats=["text", "pct", "pct", "num", "pct", "pct", "x", "num", "pct"],
-        note=(f"VaR/ES for the Gaussian and Student-t analytical, otherwise from {_thousands(n_s)} draws. "
-              + "Tail probabilities by integrating the densities; the excess kurtosis of the t-distribution is "
-              "infinite for ν ≤ 4 and is computed from the characteristic function for Variance Gamma."),
+        note=(f"VaR/ES are analytical for the Gaussian and Student-t and otherwise estimated from "
+              f"{_thousands(n_s)} draws. Tail probabilities are obtained by integrating the densities. "
+              "The excess kurtosis of the t-distribution is infinite for ν ≤ 4; for Variance Gamma it is "
+              "computed from the characteristic function."),
     )
     if p3_g > 0:
         out.note(f"Under the normal distribution a 3σ loss has a probability of {_num(100 * p3_g, 3)}% per day "

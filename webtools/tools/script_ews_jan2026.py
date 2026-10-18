@@ -4,7 +4,7 @@ from ..scriptrunner import QUALITY_PARAM, script_tool
 
 SPEC = {
     "id": "script-ews-jan2026",
-    "title": "Early-warning analysis January 2026",
+    "title": "Early-warning analysis, January 2026",
     "group": "scripts",
     "order": 43,
     "summary": "The early-warning analysis at the start of 2026 with all five indicators and the "

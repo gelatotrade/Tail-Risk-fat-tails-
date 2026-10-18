@@ -17,12 +17,12 @@ export const PRESETS = [
   { id: '1y', label: '1 year', years: 1 },
   { id: '3y', label: '3 years', years: 3 },
   { id: '5y', label: '5 years', years: 5 },
-  { id: 'volmageddon', label: 'Volmageddon 2018', from: '2017-07-01', to: '2018-06-30' },
-  { id: 'covid', label: 'COVID crash 2020', from: '2019-07-01', to: '2020-08-31' },
+  { id: 'volmageddon', label: '2018 Volmageddon', from: '2017-07-01', to: '2018-06-30' },
+  { id: 'covid', label: '2020 COVID crash', from: '2019-07-01', to: '2020-08-31' },
   { id: 'bear2022', label: '2022 bear market', from: '2021-07-01', to: '2023-03-31' },
   { id: 'tariff', label: '2025 tariff crash', from: '2024-10-01', to: '2025-08-31' },
-  { id: 'dotcom', label: 'Dot-com 2000–02', from: '1999-01-01', to: '2003-06-30' },
-  { id: 'gfc', label: 'Financial crisis 2008', from: '2007-01-01', to: '2009-12-31' },
+  { id: 'dotcom', label: '2000–02 dot-com crash', from: '1999-01-01', to: '2003-06-30' },
+  { id: 'gfc', label: '2008 financial crisis', from: '2007-01-01', to: '2009-12-31' },
 ];
 
 export const DEFAULT_CHOICE = { kind: 'market', id: 'sp500', preset: 'all' };
@@ -30,7 +30,7 @@ export const DEFAULT_CHOICE = { kind: 'market', id: 'sp500', preset: 'all' };
 let marketP = null;
 export function loadMarket(base) {
   marketP ??= fetch(new URL('data/market.json?v=__BUILD__', base)).then((r) => {
-    if (!r.ok) throw new Error(`Marktdaten: HTTP ${r.status}`);
+    if (!r.ok) throw new Error(`Market data: HTTP ${r.status}`);
     return r.json();
   });
   return marketP;

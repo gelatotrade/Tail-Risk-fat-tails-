@@ -102,7 +102,7 @@ SCAN = {
     "tdex": ("tdex", +1, 60.0, "", "TDEX"),
     "vix_term": ("ratio", +1, 1.5, "", "M1/M2"),
     "dix": ("dix", -1, 25.0, "%", "DIX"),
-    "smfi": ("last60", -1, -5.0, "%", "last hour"),
+    "smfi": ("last60", -1, -5.0, "%", "last-hour change"),
 }
 WHAT_IF = {"gex": ("gex", -15.0, 15.0, "Net GEX ($bn)"), "tdex": ("tdex", 2.0, 40.0, "TailDex"),
            "ratio": ("vix_term", 0.75, 1.3, "VIX curve M1/M2"), "dix": ("dix", 30.0, 56.0, "DIX (%)"),
@@ -292,7 +292,7 @@ def run(params, data, out):
             if hit_comp:
                 comp_txt = f"{LEVEL[hit_comp[1]][1]} at {qlabel} {fmt_v(hit_comp[0])}"
             else:
-                comp_txt = f"Not reachable alone (max. {num(vary(limit)[1]['composite_score'], 0)} points)"
+                comp_txt = f"Not reachable on its own (max. {num(vary(limit)[1]['composite_score'], 0)} points)"
         else:
             comp_txt = "Already at the highest level"
         trows.append([
@@ -303,10 +303,10 @@ def run(params, data, out):
             comp_txt,
         ])
     out.table("Distance to the next thresholds",
-              ["Indicator", "Today", "Next level (towards risk)", "From", "Distance",
+              ["Indicator", "Today", "Next level (towards risk)", "Threshold", "Distance",
                f"Composite moves to {LEVEL[next_level][1] if next_level else '–'} (this indicator only)"],
               trows, formats=["text"] * 6,
-              note="The search runs in the direction of higher risk: GEX, DIX and the SMFI last hour falling, TDEX "
+              note="The search runs in the direction of higher risk: GEX, DIX and the SMFI last-hour change falling, TDEX "
                    "and M1/M2 rising (M2 held fixed). For the SMFI, the last-hour price change is varied; all other "
                    "inputs stay fixed.")
 
@@ -320,7 +320,7 @@ def run(params, data, out):
         ["VIX spot / M1", v["ratio_spot_m1"], "num", "> 1: spot above the front-month future – acute panic"],
         ["M1 / M4", v["ratio_m1_m4"], "num", "Long end of the curve" if v["ratio_m1_m4"] is not None else "No M4 given"],
         ["Roll yield p.a.", v["roll_yield"], "pct", "(M2 − M1) / M1 × 12: return on a short-volatility carry trade"],
-        ["DIX percentile", d["percentile"] / 100, "pct", "Without history the framework sets 50%"],
+        ["DIX percentile", d["percentile"] / 100, "pct", "Without history, the framework assumes 50%"],
         ["SMFI: first 30 min / last hour", f"{num(s['first_30min'], 2, sign=True)}% / {num(s['last_60min'], 2, sign=True)}%",
          "text", "Warning only when SMFI < −5 and the final hour is weak"],
     ]

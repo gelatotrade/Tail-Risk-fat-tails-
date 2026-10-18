@@ -31,7 +31,7 @@ SPEC = {
         "**Important:** GEX, TDEX, DIX and SMFI rely on options and dark-pool data that are not available "
         "here. The framework *models* them from your returns and the VIX; the paths are illustrative, not "
         "actual measurements. If the VIX is missing, it is estimated from the returns. If the dataset contains "
-        "VIX3M (S&P 500), the VIX curve is real. The calculation is causal: each day uses only data up to that "
+        "VIX3M (S&P 500), the VIX curve is based on actual data. The calculation is causal: each day uses only data up to that "
         "day.\n\n"
         "How to read it: the gauge and contribution bars show the latest day. Each indicator has a sub-score "
         "from 0 (unremarkable) to 100 (maximum); the composite is their weighted sum. GEX reaches 50 when it "
@@ -178,7 +178,7 @@ def run(params, data, out):
                hint="weak below 43%, distribution below 40% · " + sub("dix"))
     out.metric("Smart Money Flow (SMFI), 20-day change", smfi_chg[-1], "num", digits=1,
                status=_sub_status(score["smfi"][-1]),
-               hint="warning from −5, sub-score 100 from −15 · " + sub("smfi"))
+               hint="warning below −5, sub-score 100 at −15 or below · " + sub("smfi"))
 
     i_max = int(np.argmax(comp))
     driver = max(KEYS, key=lambda k: last["components"][k]["contribution"])
@@ -186,9 +186,9 @@ def run(params, data, out):
     out.metric("Highest composite in period", comp[i_max], "num", digits=0, unit="/ 100",
                status=LEVEL[ews.compute_composite(*(float(score[k][i_max]) for k in KEYS))["level"]][0],
                hint=f"on {label(i_max)}")
-    out.metric("Days ≥ 50 (elevated)", float(np.mean(comp >= th["elevated"])), "pct", digits=1,
+    out.metric("Share of days ≥ 50 (Elevated)", float(np.mean(comp >= th["elevated"])), "pct", digits=1,
                hint=f"over the last {num(m, 0)} trading days")
-    out.metric("Days ≥ 75 (high)", float(np.mean(comp >= th["high"])), "pct", digits=1,
+    out.metric("Share of days ≥ 75 (High)", float(np.mean(comp >= th["high"])), "pct", digits=1,
                hint=f"over the last {num(m, 0)} trading days")
     out.metric("Main driver today", SHORT[driver] if d_pts > 0 else "–", "text",
                hint=(f"{num(d_pts, 1)} of {num(float(comp[-1]), 1)} points" if d_pts > 0
@@ -255,7 +255,7 @@ def run(params, data, out):
          C.trace("GEX < 0: amplifying", x, neg, type="bar", color="serious")],
         x=xa, y=C.axis("$bn"),
         hlines=[C.hline(-5, "Sub-score 100", "critical")],
-        subtitle="Below 0, dealers sell into falling prices. From −$5bn the sub-score is 100.",
+        subtitle="Below 0, dealers sell into falling prices. At −$5bn or below, the sub-score is 100.",
         height=300,
     ))
     out.chart(C.xy(
@@ -287,12 +287,12 @@ def run(params, data, out):
         x=xa, y=C.axis("Points over 20 days"),
         hlines=[C.hline(-5, "Warning", "warning"), C.hline(-15, "Sub-score 100", "critical")],
         subtitle="The change is scored, not the level: if the SMFI falls by more than 5 points within 20 days, "
-                 "the sub-score rises; from −15 it is 100.", height=300,
+                 "the sub-score rises; at −15 or below it is 100.", height=300,
     ))
     step = max(1, int(np.ceil(m / 260)))
     starts = np.arange(0, m, step)
     out.chart(C.xy(
-        "Composition of the composite",
+        "Composite score breakdown",
         [C.trace(f"{SHORT[k]} · {ews.weights[k]:.0%}", [x[a] for a in starts],
                  [float(np.mean(score[k][a:a + step])) * ews.weights[k] for a in starts], type="bar", color=i + 1)
          for i, k in enumerate(KEYS)],
@@ -318,7 +318,7 @@ def run(params, data, out):
     out.chart(C.scatter3d(
         "Early-warning phase space", traces,
         x=C.axis("GEX risk (sub-score)"), y=C.axis("TDEX risk (sub-score)"), z=C.axis("Composite"),
-        subtitle="Each point is one day. Above the red plane (75) lies the high warning level.",
+        subtitle="Each point is one day. Points above the red plane (75) are at the High or Extreme level.",
     ))
 
     # ---- the framework's status table ----------------------------------------------------------------
@@ -344,7 +344,7 @@ def run(params, data, out):
 
     assessment = assessment_text(ews.get_risk_assessment(float(comp[-1])))
     out.set_verdict(status, f"Latest reading: {level_txt} – {comp[-1]:.0f} out of 100",
-                    f"{assessment} Model value from returns and the VIX, not a live signal from options or "
+                    f"{assessment} Modelled from returns and the VIX, not a live signal from options or "
                     "dark-pool data.")
 
     # ---- the framework's figures --------------------------------------------------------------------------

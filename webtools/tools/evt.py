@@ -22,7 +22,7 @@ SPEC = {
     "description": (
         "Extreme value theory does not fit a model to every day, only to the extreme ones. **Peaks over "
         "threshold:** all losses above a threshold u approximately follow a **generalised Pareto distribution "
-        "(GPD)**. Its shape parameter ξ is the tail index: ξ > 0 means a fat tail (Fréchet domain; only moments "
+        "(GPD)**. Its shape parameter ξ is the inverse of the tail index α (ξ = 1/α): ξ > 0 means a fat tail (Fréchet domain; only moments "
         "below order 1/ξ exist), ξ = 0 an exponential tail as in the Gaussian case. **Block maxima:** the largest "
         "loss per block (e.g. 20 trading days) follows a **GEV distribution**.\n\n"
         "Choosing the threshold: in the **mean excess plot**, the mean exceedance above u should be roughly "
@@ -63,7 +63,7 @@ SPEC = {
 
 
 def _num(x, digits=2):
-    return f"{x:.{digits}f}"
+    return f"{x:.{digits}f}".replace("-", "−")
 
 
 SUP = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
@@ -122,9 +122,9 @@ def run(params, data, out):
         p = stats.norm.cdf((-loss - mu) / sd)
         return 1 / p / DAYS if p > 0 else np.inf
 
-    out.metric("Tail index ξ · losses", xi_l, "num", hint="GPD shape: > 0 fat tail, 0 as Gaussian",
+    out.metric("Shape parameter ξ · losses", xi_l, "num", hint="GPD shape: > 0 fat tail, 0 Gaussian-like",
                status="critical" if xi_l > 0.4 else "serious" if xi_l > 0.25 else "warning" if xi_l > 0.1 else "good")
-    out.metric("Tail index ξ · gains", xi_r, "num")
+    out.metric("Shape parameter ξ · gains", xi_r, "num")
     out.metric("Threshold u", u, "pct", hint=f"{st['n_exceedances']:,} losses above it ({_num(100 * p_u, 1)}%)")
     out.metric(f"{lvl} VaR · GPD", var_c, "pct", hint=f"Gaussian {_num(100 * gauss_var(conf))}%")
     out.metric(f"{lvl} Expected Shortfall · GPD", es_c, "pct")
@@ -169,7 +169,7 @@ def run(params, data, out):
          C.trace(f"GEV ({m}-day block maxima)", years, gev_rl, color=2, width=2.5),
          C.trace("GPD (peaks over threshold)", years, gpd_rl, color=1, width=2.5)],
         x=C.axis("Return period (years)", type="log"), y=C.axis("One-day loss", fmt="pct", digits=0),
-        subtitle="Dots: actual losses; the k-th largest loss occurs on average once in (n + 1)/k days.",
+        subtitle="Dots: observed losses; the k-th largest loss occurs on average once in (n + 1)/k days.",
         vlines=[C.vline(10, "10 years"), C.vline(100, "100 years")],
     ))
 
@@ -195,11 +195,11 @@ def run(params, data, out):
         half = 1.96 * hv / np.sqrt(kv)  # asymptotic standard error of Hill: alpha / sqrt(k)
         top = np.nanmax([np.nanmax(hv + half), inv_xi if np.isfinite(inv_xi) and inv_xi < 3 * np.nanmax(hv) else 0])
         out.chart(C.xy(
-            "Hill plot: tail index α of losses by number k of extremes",
+            "Hill plot: tail index α of losses vs number of extremes k",
             [C.envelope("95% band", kv, np.maximum(hv - half, 0), hv + half, color=1),
              C.trace("Hill estimator α(k)", kv, hv, color=1)],
             x=C.axis("k (largest losses)", fmt="int"), y=C.axis("Tail index α", range=(0, top * 1.1)),
-            subtitle="A stable plateau is the credible tail index; α = 1/ξ, and α < 4 means infinite kurtosis. "
+            subtitle="A stable plateau indicates a credible tail index; α = 1/ξ, and α < 4 means infinite kurtosis. "
                      "Hill and the GPD fit often differ markedly – both are uncertain, as the band shows.",
             hlines=hlines, vlines=[C.vline(st["n_exceedances"], f"k = {st['n_exceedances']}")],
         ))
@@ -224,11 +224,11 @@ def run(params, data, out):
     gc = report["gaussian_comparison"]
     out.table("How far the normal distribution understates extreme days",
               ["Threshold", "Gaussian", "Observed", "GPD", "Factor (observed)", "Factor (GPD)"],
-              [[f"{k} σ", v["gaussian_probability"], v["empirical_probability"], v["gpd_probability"],
+              [[f"{k}σ", v["gaussian_probability"], v["empirical_probability"], v["gpd_probability"],
                 v["underestimation_factor_empirical"], v["underestimation_factor_gpd"]]
                for k, v in zip((3, 4, 5), (gc["3sigma"], gc["4sigma"], gc["5sigma"]))],
               formats=["text", "pct", "pct", "pct", "x", "x"],
-              note="Probability per day of |return| > kσ (both tails). GPD: fits to both tails.")
+              note="Probability per day of |return| > kσ (both tails). GPD: fitted to both tails.")
 
     sr = evt.stats_right
     out.table("Fitted models", ["Tail", "Threshold u", "Exceedances", "ξ (GPD)", "σ (GPD)", "ξ (GEV)"],

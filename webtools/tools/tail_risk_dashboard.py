@@ -36,8 +36,8 @@ SPEC = {
     "needs": ["returns"],
     "params": [
         {"name": "last_n", "type": "int", "default": 2520, "min": 250, "max": 5000, "step": 250,
-         "label": "Period (most recent trading days)", "unit": "days",
-         "help": "2,520 days ≈ 10 years. Longer periods take considerably more computing time."},
+         "label": "Period", "unit": "days",
+         "help": "The most recent trading days of the dataset. 2,520 days ≈ 10 years. Longer periods take considerably more computing time."},
         {"name": "figure", "type": "bool", "default": False, "label": "Draw the original dashboard (Matplotlib)",
          "help": "The 14-panel figure from create_full_dashboard – adds about 6 seconds in the browser."},
     ],
@@ -63,7 +63,7 @@ REPORT_SECTIONS = {"BASIC STATISTICS": "Basic statistics", "TAIL RISK METRICS": 
                    "INTERPRETATION": "Report assessment"}
 REPORT_LABELS = {"Mean Return": "Mean daily return", "Standard Deviation": "Standard deviation (daily)",
                  "Skewness": "Skewness", "Excess Kurtosis": "Excess kurtosis", "Tail Index (α)": "Tail index α (Hill)",
-                 "VaR (99%)": "VaR 99% (historical)", "ES (99%)": "Expected Shortfall 99%",
+                 "VaR (99%)": "99% VaR (historical)", "ES (99%)": "99% Expected Shortfall",
                  "ES/VaR Ratio": "ES / VaR ratio", "Gaussian Probability": "Normal distribution: P(|r| > 3σ)",
                  "Empirical Probability": "Observed: P(|r| > 3σ)", "Fat Tail Ratio": "Factor observed / Gaussian"}
 REPORT_REMARKS = {"(Fat tails!)": "fat\u00a0tails", "(Normal)": "within\u00a0normal\u00a0range",
@@ -151,11 +151,11 @@ def run(params, data, out):
 
     # --- metrics ------------------------------------------------------------------------
     out.metric("Risk level (composite)", cls, "text", status=cls_status,
-               hint=f"index today {_num(comp_now, 0)} of 100 (percentile {_num(100 * comp_pct, 0)}%) · "
+               hint=f"index today {_num(comp_now, 0)} of 100 (percentile rank {_num(100 * comp_pct, 0)}%) · "
                     f"20-day average {_num(float(comp_avg[-1]), 0)}")
-    out.metric("VaR 99% (60 days)", var99, "pct", digits=2, hint="historical, one-day loss",
+    out.metric("99% VaR (60 days)", var99, "pct", digits=2, hint="historical, one-day loss",
                status="serious" if var99 > 0.03 else "warning" if var99 > 0.02 else None)
-    out.metric("Expected Shortfall 99%", es99, "pct", digits=2,
+    out.metric("99% Expected Shortfall", es99, "pct", digits=2,
                hint=(f"avg. loss beyond VaR (with 60 days: the largest one-day loss) · "
                      f"ES/VaR = {_num(es99 / var99)}") if var99 > 0 else "")
     out.metric("Tail index α (60 days)", alpha_now, "num", digits=2, hint="Hill · < 3: fat tails",
@@ -177,8 +177,8 @@ def run(params, data, out):
     out.chart(C.xy(
         "VaR and Expected Shortfall (99%, rolling 60 days)",
         [C.envelope("Gap ES – VaR", x, rm["var_99"], rm["es_99"], color=2),
-         C.trace("VaR 99%", x, rm["var_99"], color=1, width=1.5),
-         C.trace("Expected Shortfall 99%", x, rm["es_99"], color=2, width=1.5)],
+         C.trace("99% VaR", x, rm["var_99"], color=1, width=1.5),
+         C.trace("99% Expected Shortfall", x, rm["es_99"], color=2, width=1.5)],
         x=xa, y=C.axis("One-day loss", fmt="pct", digits=1),
         subtitle="ES is the average of the losses beyond VaR – the wider the gap, the fatter the tail. With 60 days "
                  "it is exactly the largest one-day loss in the window. The value on a given date comes from the "
@@ -209,8 +209,8 @@ def run(params, data, out):
     floor = min(g for g in gauss) / 3
     out.chart(C.xy(
         "Extreme days: normal distribution vs observed (both tails)",
-        [C.trace("Normal distribution", [f"{s} σ" for s in sig], gauss, type="bar", color="muted"),
-         C.trace("Observed", [f"{s} σ" for s in sig], [e if e > 0 else None for e in emp], type="bar", color=1)],
+        [C.trace("Normal distribution", [f"{s}σ" for s in sig], gauss, type="bar", color="muted"),
+         C.trace("Observed", [f"{s}σ" for s in sig], [e if e > 0 else None for e in emp], type="bar", color=1)],
         x=C.axis("Threshold", type="category"), y=C.axis("Frequency", type="log", fmt="pct", range=(floor, 0.2)),
         subtitle="Log scale: each tick is a factor of 10. A missing bar means the event never occurred.",
     ))
@@ -220,11 +220,11 @@ def run(params, data, out):
     if rows:
         out.table("Tail-risk report (create_summary_report)", ["Section", "Metric", "Value", "Assessment"], rows,
                   formats=["text", "text", "text", "text"],
-                  note=f"Across all {k:,} days shown. Thresholds of the original report: kurtosis > 3, "
+                  note=f"Across all {k:,} days shown. Thresholds of the original report: excess kurtosis > 3, "
                        "skewness < −0.5, factor > 2, α < 3, ES/VaR > 1.5.")
     rv = dash.regime_var or {}
     if rv:
-        out.table("VaR 99% by volatility regime", ["Regime", "VaR 99%", "Observations"],
+        out.table("99% VaR by volatility regime", ["Regime", "99% VaR", "Observations"],
                   [[REGIMES.get(key, key), v.get("var"), v.get("n_observations")] for key, v in rv.items()],
                   formats=["text", "pct", "int"],
                   note="Historical VaR, using only the days of the respective regime (RegimeAwareTailRisk).")

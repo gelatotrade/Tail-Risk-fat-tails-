@@ -68,7 +68,7 @@ SMFI_SIGNAL = {"SMART_MONEY_ACCUMULATING": "Smart money buying", "SMART_MONEY_DI
 DIVERGENCE = {"BEARISH": "Bearish", "BULLISH": "Bullish", "NONE": "None"}
 WARNING_LEVEL = {"HIGH": "High", "LOW": "Low", "OPPORTUNITY": "Opportunity", "NEUTRAL": "Neutral"}
 
-NAMES = {"gex": "Net Gamma (GEX)", "tdex": "TailDex (TDEX)", "vix_term": "VIX term structure",
+NAMES = {"gex": "Net Gamma (GEX)", "tdex": "TailDex (TDEX)", "vix_term": "VIX curve",
          "dix": "Dark Index (DIX)", "smfi": "Smart Money Flow (SMFI)"}
 KEYS = ("gex", "tdex", "vix_term", "dix", "smfi")
 

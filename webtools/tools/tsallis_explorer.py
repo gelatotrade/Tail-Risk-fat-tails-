@@ -36,7 +36,7 @@ SPEC = {
         {"name": "x_range", "type": "int", "default": 8, "min": 3, "max": 30, "step": 1,
          "label": "Density range ± (in 1/√β)"},
         {"name": "n_samples", "type": "int", "default": 20000, "min": 1000, "max": 200000, "step": 1000,
-         "label": "Number of samples"},
+         "label": "Sample size"},
         {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 9999, "step": 1, "label": "Random seed"},
     ],
     "covers": [
@@ -175,7 +175,7 @@ def run(params, data, out):
         asy = float(dist.tail_probability(dd, "both")) if q > 1 else None
         gg = float(2 * stats.norm.sf(k))
         ratio = ex / gg if gg > 1e-300 else None
-        trows.append([f"{k} σ", ex, asy, float(np.mean(np.abs(s) > dd)), _tiny(gg),
+        trows.append([f"{k}σ", ex, asy, float(np.mean(np.abs(s) > dd)), _tiny(gg),
                       "> 10⁵" if ratio is not None and ratio > 1e5 else ratio])
     out.table("Tail probability P(|X| > kσ)", ["Threshold", "Exact", "Asymptotic", "Sample", "Gaussian", "Ratio"],
               trows, formats=["text", "pct", "pct", "pct", "pct", "x"],

@@ -161,7 +161,7 @@ def run(params, data, out):
 
     out.metric("Best model (KS)", NAMES[best], "text", hint=f"KS distance {_num(models[best]['ks'], 3)}")
     out.metric("Best model (AIC)", NAMES[best_aic], "text")
-    out.metric("Student-t: degrees of freedom ν", tp["nu"], "num", hint="< 4: infinite kurtosis · < 2: infinite variance",
+    out.metric("Student-t: degrees of freedom ν", tp["nu"], "num", hint="< 4: infinite kurtosis · < 2: infinite variance",
                status="critical" if tp["nu"] < 2.5 else "serious" if tp["nu"] < 4 else "warning" if tp["nu"] < 8 else None)
     out.metric(f"{lvl} VaR · historical", var_h, "pct", hint=f"ES {_num(100 * es_h)}%")
     out.metric(f"{lvl} VaR · {NAMES[best]}", models[best]["var"], "pct", hint=f"ES {_num(100 * models[best]['es'])}%")

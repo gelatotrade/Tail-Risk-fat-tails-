@@ -64,7 +64,7 @@ SPEC = {
 
 
 def _num(x, digits=2):
-    return f"{x:.{digits}f}"
+    return f"{x:.{digits}f}".replace("-", "−")
 
 
 def _p(p):

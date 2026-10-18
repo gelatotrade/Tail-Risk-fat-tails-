@@ -13,14 +13,14 @@ SPEC = {
     "title": "Ising model: trader herding",
     "group": "regime",
     "order": 60,
-    "summary": "Shows how many buy and sell decisions driven by herding produce trends, price surges and a "
-               "transition from order to disorder.",
+    "summary": "Shows how trends, price surges and a transition from order to disorder emerge from many "
+               "buy and sell decisions driven by herding.",
     "description": (
         "Each trader is a spin: **+1 buys, −1 sells**. The coupling **J** rewards doing the same as both "
         "neighbours (herding), the field **h** is market-wide sentiment and the temperature **T** is noise – "
         "private information and chance. The Metropolis algorithm lets the traders change their minds one after "
         "another. The magnetisation **M** (share of buyers minus share of sellers) drives the model price: at "
-        "each recording it changes by M × 1%.\n\n"
+        "each recorded step it changes by M × 1%.\n\n"
         "How to read the charts: in the space-time picture, herds appear as single-coloured stripes. The smaller "
         "T is relative to J, the larger the herds (correlation length ξ) and the longer a trend persists in M "
         "and in the price. The phase diagram shows ⟨|M|⟩ and the susceptibility χ against temperature – both "
@@ -44,7 +44,7 @@ SPEC = {
         {"name": "n_steps", "type": "int", "default": 400, "min": 50, "max": 4000, "step": 50,
          "label": "Monte Carlo sweeps", "help": "One sweep = N individual decisions."},
         {"name": "record_interval", "type": "int", "default": 4, "min": 1, "max": 50, "step": 1,
-         "label": "Record every … sweeps", "help": "Each recording is one trading day of the model price."},
+         "label": "Record every … sweeps", "help": "Each recorded step is one trading day of the model price."},
         {"name": "phase", "type": "bool", "default": True, "label": "Compute phase diagram",
          "help": "Takes most of the computation time: 100 equilibration sweeps per temperature plus the "
                  "measurements."},
@@ -123,7 +123,7 @@ def run(params, data, out):
     flips = n * (n_steps + N_VIEW + (n_T * (EQUILIBRATION + params["n_samples"]) if params["phase"] else 0))
     if flips > MAX_FLIPS:
         raise ToolError(f"That would be {_num(flips / 1e6, 1)} million individual decisions – too many for the "
-                        f"browser (limit {_num(MAX_FLIPS / 1e6, 1)} million). Reduce the traders, sweeps, "
+                        f"browser (limit {_num(MAX_FLIPS / 1e6, 1)} million). Reduce the number of traders, sweeps, "
                         "temperatures or measurements, or switch off the phase diagram.")
 
     np.random.seed(params["seed"])
@@ -159,7 +159,7 @@ def run(params, data, out):
     else:
         out.metric("T / T_c (2D reference)", "–", "text", hint="J = 0: without herding there is no T_c")
     out.metric("Model price volatility", np.std(ret), "pct",
-               hint="standard deviation of the log return per recording")
+               hint="standard deviation of the log return per recorded step")
     out.metric("Total price change", price[-1] / 100.0 - 1.0, "pct", digits=1)
     if len(ret) > 3 and np.std(ret) > 0:
         out.metric("Excess kurtosis of model returns", stats.kurtosis(ret), "num", digits=1,
@@ -177,7 +177,7 @@ def run(params, data, out):
         [C.trace("Price", sweeps, price, color=2)],
         x=C.axis("Monte Carlo sweep", fmt="int"), y=C.axis("Price (start 100)"),
         hlines=[C.hline(100.0, "Start")],
-        subtitle="At each recording the price changes by M × 1% – herds create trends.",
+        subtitle="At each recorded step the price changes by M × 1% – herds create trends.",
     ))
     rows = min(n, N_ROWS)
     out.chart(C.heatmap(

@@ -36,7 +36,7 @@ SPEC = {
     "params": [
         {"name": "threshold", "type": "float", "default": 5.0, "min": 3.0, "max": 10.0, "step": 0.5,
          "label": "Crash threshold (one-day loss)", "unit": "%",
-         "help": "The one-day loss from which a day counts as a crash."},
+         "help": "The one-day loss above which a day counts as a crash."},
         {"name": "window", "type": "int", "default": 60, "min": 20, "max": 250, "step": 5,
          "label": "Window for volatility and α", "unit": "days"},
         {"name": "estimator", "type": "select", "default": "hill", "label": "Estimator for α",

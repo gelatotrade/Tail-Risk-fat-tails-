@@ -44,7 +44,7 @@ SPEC = {
                      {"value": "critical", "label": "Approach to the critical point"},
                      {"value": "physics", "label": "Physics dashboard (Lévy, Tsallis, phase)"}]},
         {"name": "last_n", "type": "int", "default": 2520, "min": 250, "max": 5000, "step": 250,
-         "label": "Period (most recent trading days)", "unit": "days"},
+         "label": "Period", "unit": "days", "help": "The most recent trading days of the dataset."},
         {"name": "max_horizon", "type": "int", "default": 20, "min": 2, "max": 250, "step": 1,
          "label": "Longest horizon", "unit": "days", "show_if": {"view": ["var"]}},
         {"name": "threshold", "type": "float", "default": 5.0, "min": 2.0, "max": 15.0, "step": 0.5,
@@ -133,9 +133,9 @@ def _var_view(params, data, out, r, k):
 
     v99_1, v99_10 = float(tm.var_historical(0.99)), float(tm.var_historical(0.99) * np.sqrt(min(10, hmax)))
     e99_10 = emp_var(min(10, hmax), 0.99)
-    out.metric("VaR 99%, 1 day", v99_1, "pct", digits=2, hint="historical, from the days shown")
-    out.metric(f"VaR 99%, {min(10, hmax)} days (√t)", v99_10, "pct", digits=1, hint="as the surface computes it")
-    out.metric(f"VaR 99%, {min(10, hmax)} days measured", e99_10, "pct", digits=1,
+    out.metric("99% VaR, 1 day", v99_1, "pct", digits=2, hint="historical, from the days shown")
+    out.metric(f"99% VaR, {min(10, hmax)} days (√t)", v99_10, "pct", digits=1, hint="as the surface computes it")
+    out.metric(f"99% VaR, {min(10, hmax)} days measured", e99_10, "pct", digits=1,
                hint="from overlapping multi-day returns",
                status="warning" if np.isfinite(e99_10) and e99_10 > 1.15 * v99_10 else None)
     if np.isfinite(e99_10) and v99_10 > 0:
@@ -144,7 +144,7 @@ def _var_view(params, data, out, r, k):
 
     out.chart(C.surface(
         "VaR surface: horizon × confidence (√t scaling)", horizons, confs, surface,
-        x=C.axis("Horizon (trading days)", fmt="int"), y=C.axis("Confidence", fmt="pct", digits=1),
+        x=C.axis("Horizon (trading days)", fmt="int"), y=C.axis("Confidence level", fmt="pct", digits=1),
         z=C.axis("VaR", fmt="pct", digits=0), scale="risk", height=540,
         subtitle="z = historical one-day VaR × √horizon – exactly the values of create_tail_probability_surface.",
     ))
@@ -152,8 +152,8 @@ def _var_view(params, data, out, r, k):
     traces = []
     for i, conf in enumerate((0.99, 0.95)):
         emp = [emp_var(h, conf) for h in hs]
-        traces.append(C.trace(f"measured {int(conf * 100)}%", hs, emp, color=1 + i, width=2))
-        traces.append(C.trace(f"√t rule {int(conf * 100)}%", hs, tm.var_historical(conf) * np.sqrt(hs),
+        traces.append(C.trace(f"{int(conf * 100)}% measured", hs, emp, color=1 + i, width=2))
+        traces.append(C.trace(f"{int(conf * 100)}% √t rule", hs, tm.var_historical(conf) * np.sqrt(hs),
                               color=1 + i, dash=True, width=1.5))
     out.chart(C.xy(
         "√t rule check: measured multi-day VaR vs scaling",
@@ -229,7 +229,7 @@ def _model_view(params, data, out, r, k):
                          mode="markers", size=8, text=[f"{_pct(p_now)}"])],
         scale="risk", height=560,
         camera={"eye": {"x": 1.2, "y": 1.7, "z": 1.0}},   # same view as the README surface (same axes)
-        subtitle="The same volatility (standard deviation) across the whole surface – ν only redistributes it: "
+        subtitle="The tail index ν does not change the volatility (standard deviation), only how it is distributed: "
                  "small ν = rarer but more violent moves.",
     ))
     rows = [[_pct(v, 0)] + [crash_prob(v, nu) for nu in (2.5, 3.0, 4.0, 6.0, 8.0)] for v in (0.10, 0.20, 0.30, 0.50)]
@@ -275,10 +275,10 @@ def _joint_view(params, data, out, r, k):
     joint_cross = (a < qa) & (b > qb_hi)       # crash today with a VIX spike / a rally the day before
     out.metric("Correlation", corr, "num", digits=2)
     if vix_mode:
-        out.metric("Crash & VIX spike (5%)", dep["lower_tail_dependence"], "pct", digits=1,
+        out.metric("Crash and VIX spike (5%)", dep["lower_tail_dependence"], "pct", digits=1,
                    hint="P(return below its 5% quantile and VIX change above its 95% quantile) ÷ 5% · "
                         "independent: 5%")
-        out.metric("Rally & VIX drop (5%)", dep["upper_tail_dependence"], "pct", digits=1,
+        out.metric("Rally and VIX drop (5%)", dep["upper_tail_dependence"], "pct", digits=1,
                    hint="P(return above its 95% quantile and VIX change below its 5% quantile) ÷ 5%")
         out.metric("Asymmetry (crash − rally)", dep["tail_asymmetry"], "pct", digits=1,
                    hint="> 0: crashes come with a VIX spike more often than rallies with a VIX drop")
@@ -293,10 +293,10 @@ def _joint_view(params, data, out, r, k):
     dates = data.dates[-k:][1:] if data.dates else None
     normal = ~(joint_low | joint_cross)
     text = (lambda m: [dates[i] for i in np.flatnonzero(m)]) if dates else (lambda m: None)
-    traces = [C.trace("all days", a[normal], b[normal], type="scatter", color=1, size=4, decimate_to=None,
+    traces = [C.trace("All days",a[normal], b[normal], type="scatter", color=1, size=4, decimate_to=None,
                       text=text(normal))]
     if joint_low.any():
-        traces.append(C.trace("both in the left 5% tail", a[joint_low], b[joint_low], type="scatter",
+        traces.append(C.trace("Both in the left 5% tail",a[joint_low], b[joint_low], type="scatter",
                               color="critical", size=7, decimate_to=None, text=text(joint_low)))
     if joint_cross.any():
         traces.append(C.trace(f"{names[0]} in the left, {low[1]} in the right tail", a[joint_cross],
@@ -321,7 +321,7 @@ def _joint_view(params, data, out, r, k):
         rows.append([_pct(q, 0), both, cross, q * q, key / (q * q) if q > 0 else None])
     out.table("Joint extreme days vs independence", [
         "Tail", "Both left", f"{names[0]} left, {low[1]} right", "Expected if independent",
-        "Factor (crash & VIX spike)" if vix_mode else "Factor (both left)"],
+        "Factor (crash and VIX spike)" if vix_mode else "Factor (both left)"],
         rows, formats=["text", "pct", "pct", "pct", "x"],
         note=("Factor = observed ÷ expected if independent. A crash and a VIX spike on the same day are the rule, "
               "not the exception – which is why the VIX works as a hedging signal." if vix_mode else
@@ -355,7 +355,7 @@ def _critical_view(params, data, out, r, k):
     crit_share = float(np.mean(crit[idx]))
     # AC(1) of a detrended price is above 0.7 almost always - only a high value *relative to its history* is a signal
     out.metric("AC(1) today", ac[-1], "num", digits=2,
-               hint=f"of the detrended log price · percentile {_num(100 * ac_pct_now, 0)}%",
+               hint=f"of the detrended log price · percentile rank {_num(100 * ac_pct_now, 0)}%",
                status="warning" if ac[-1] > thr and ac_pct_now >= 0.8 else None)
     out.metric("Variance percentile today", var_pct_now, "pct", digits=0, hint="relative to the period shown",
                status="warning" if var_pct_now > 0.8 else None)
@@ -364,18 +364,18 @@ def _critical_view(params, data, out, r, k):
                hint=f"AC(1) > {_num(thr)} and variance > 80th percentile · {_pct(crit_share, 1)} of days")
     if crit.any():
         last = x[int(np.flatnonzero(crit)[-1])]
-        out.metric("Last near critical", fmt_date(last) if isinstance(last, str) else f"Day {last}", "text")
+        out.metric("Last ‘near critical’ day",fmt_date(last) if isinstance(last, str) else f"Day {last}", "text")
 
     step = max(1, len(idx) // 900)
     keep = idx[::step]
     recent = idx[-min(60, len(idx)):]
     label = (lambda ii: [x[i] for i in ii]) if data.dates else (lambda ii: [f"Day {x[i]}" for i in ii])
     traces = [C.path3d("History", ac[keep], var[keep], skew[keep], color=1, mode="markers", size=2, text=label(keep)),
-              C.path3d("last 60 days", ac[recent], var[recent], skew[recent], color="ink", mode="lines+markers",
+              C.path3d("Last 60 days",ac[recent], var[recent], skew[recent], color="ink", mode="lines+markers",
                        size=2, text=label(recent))]
     if crit.any():
         ci = np.flatnonzero(crit)
-        traces.append(C.path3d("near critical", ac[ci], var[ci], skew[ci], color="critical", mode="markers", size=4,
+        traces.append(C.path3d("Near critical",ac[ci], var[ci], skew[ci], color="critical", mode="markers", size=4,
                                text=label(ci)))
     out.chart(C.scatter3d(
         "Approach to the critical point: AC(1) × variance × skewness", traces,
@@ -386,7 +386,7 @@ def _critical_view(params, data, out, r, k):
     tr = [C.trace("AC(1)", x, ac, color=1, width=1.2)]
     if crit.any():
         ci = np.flatnonzero(crit)
-        tr.append(C.trace("near critical", [x[i] for i in ci], ac[ci], type="scatter", color="critical", size=5,
+        tr.append(C.trace("Near critical",[x[i] for i in ci], ac[ci], type="scatter", color="critical", size=5,
                           decimate_to=None))
     out.chart(C.xy(f"AC(1) over time ({w}-day window)", tr, x=xa, y=C.axis("AC(1)"),
                    hlines=[C.hline(thr, f"Threshold {_num(thr)}", color="warning")],

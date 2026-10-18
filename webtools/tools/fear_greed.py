@@ -123,7 +123,7 @@ def run(params, data, out):
     out.metric("Put/call contrarian signal", CONTRA.get(contra["signal"], contra["signal"]), "text",
                hint=(TEXT.get(contra.get("reason", ""), "") + (f" · confidence {num(contra['confidence'] * 100, 0)}%"
                                                                if contra.get("confidence") else ""))
-               or ("requires at least 20 days of put/call history" if hist is None
+               or ("Requires at least 20 days of put/call history" if hist is None
                    else "Put/call within the normal range of its history"))
 
     # ---- sub-scores ---------------------------------------------------------------------------------
@@ -135,7 +135,7 @@ def run(params, data, out):
         [C.trace("Sub-score", cats[:-1], vals[:-1], type="bar", color=1),
          C.trace("Composite (weighted)", cats[-1:], vals[-1:], type="bar", color=2)],
         x=C.axis("", type="category"), y=C.axis("Score (−100 fear … +100 greed)", range=(-100, 100)),
-        hlines=[C.hline(75, "extreme greed"), C.hline(25, "greed"), C.hline(-25, "fear"), C.hline(-75, "extreme fear")],
+        hlines=[C.hline(75, "Extreme greed"), C.hline(25, "Greed"), C.hline(-25, "Fear"), C.hline(-75, "Extreme fear")],
         subtitle="Weights: VIX 30%, put/call 25%, breadth 25%, momentum 20%. Lines = sentiment levels.",
     ))
 
@@ -154,11 +154,11 @@ def run(params, data, out):
         f"What-if: {short}",
         [C.trace("Sentiment", grid, ys, color=1)],
         x=C.axis(xlabel, digits=2 if name == "put_call" else 1), y=C.axis("Sentiment", range=(-100, 100)),
-        hlines=[C.hline(75, "extreme greed"), C.hline(25, "greed"), C.hline(-25, "fear"),
-                C.hline(-75, "extreme fear")],
+        hlines=[C.hline(75, "Extreme greed"), C.hline(25, "Greed"), C.hline(-25, "Fear"),
+                C.hline(-75, "Extreme fear")],
         vlines=[C.vline(cur, "today", "ink")],
         subtitle="All other inputs stay fixed. Beyond ±50 the tail-risk signal reports more than ‘Normal’, "
-                 "beyond ±75 the extreme.",
+                 "beyond ±75 it rises by one more level.",
     ))
 
     # ---- how the framework reads the put/call ratio ------------------------------------------------
@@ -182,7 +182,7 @@ def run(params, data, out):
             "Simulated put/call history",
             [C.trace("Put/call (simulated)", days[:-1], hist, color=1, width=1.2),
              C.trace("Today (your input)", [0], [inputs["put_call"]], type="scatter", color="ink", size=10)],
-            x=C.axis("Trading days to today", fmt="int"), y=C.axis("Put/call ratio"),
+            x=C.axis("Trading days relative to today", fmt="int"), y=C.axis("Put/call ratio"),
             hlines=[C.hline(p90, "90th percentile: contrarian bullish", "serious"),
                     C.hline(p10, "10th percentile: contrarian bearish", "warning")],
             subtitle="If today's ratio lies beyond these lines, the analyser issues a contrarian signal.",

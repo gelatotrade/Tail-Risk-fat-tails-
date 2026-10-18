@@ -25,7 +25,7 @@ SPEC = {
         "the **realised** volatility of the following days – the value a forecast should have hit.\n\n"
         "How to read the results: the time series shows which estimator reacts faster to crises. The table "
         "measures the forecast error (RMSE) and counts **VaR breaches**: days on which the loss exceeded the "
-        "normal VaR based on the previous day's volatility. At 99% they should occur on 1% of days; markedly more "
+        "Gaussian VaR based on the previous day's volatility. At 99% they should occur on 1% of days; markedly more "
         "means the model underestimates the risk. Dividing returns by the previous day's volatility "
         "(`safe_divide`) usually reduces the kurtosis: part of the fat tails is volatility clustering – the rest "
         "remains.\n\n"
@@ -40,7 +40,7 @@ SPEC = {
          "label": "EWMA decay factor λ", "help": "RiskMetrics: 0.94 for daily data. Half-life ≈ ln 0.5 / ln λ days."},
         {"name": "horizon", "type": "int", "default": 21, "min": 5, "max": 63, "step": 1,
          "label": "Realised volatility horizon", "unit": "days"},
-        {"name": "level", "type": "select", "default": "0.99", "label": "Backtest VaR level",
+        {"name": "level", "type": "select", "default": "0.99", "label": "VaR confidence level (backtest)",
          "options": [{"value": "0.99", "label": "99%"}, {"value": "0.975", "label": "97.5%"},
                      {"value": "0.95", "label": "95%"}]},
     ],
@@ -120,12 +120,12 @@ def run(params, data, out):
     out.metric(f"Volatility today ({w} days)", roll[-1] * ANN, "pct", digits=1, hint="Annualised")
     out.metric("Long-run volatility", long_run * ANN, "pct", digits=1, hint=f"Over all {n:,} days")
     out.metric("EWMA ÷ long-run", ratio, "x", hint="Above 1: more turbulent than average")
-    out.metric(f"EWMA VaR breaches ({_lvl(level)})", rows[1][5], "pct", digits=2,
+    out.metric(f"{_lvl(level)} VaR breaches (EWMA)", rows[1][5], "pct", digits=2,
                hint=f"Target {_lvl(1 - level)}" + (" · binomial test: too many" if rows[1][6] < 0.05 and
                                                  rows[1][5] > 1 - level else ""),
                status="serious" if rows[1][6] < 0.05 and rows[1][5] > 1 - level else None)
     out.metric("Kurtosis after volatility scaling", z_kurt["ewma"], "num", digits=1,
-               hint=f"Before: {_num(raw_kurt, 1)} – the remainder is genuine jumps" if z_kurt["ewma"] < raw_kurt
+               hint=f"Before: {_num(raw_kurt, 1)} – the rest is due to genuine jumps" if z_kurt["ewma"] < raw_kurt
                else f"Before: {_num(raw_kurt, 1)} – volatility clusters do not explain the fat tails here")
 
     out.chart(C.xy(
@@ -135,7 +135,7 @@ def run(params, data, out):
          C.trace(f"EWMA (λ = {_num(lam, 3)})", x, ewma * ANN, color=2, width=1.3)],
         x=xa, y=C.axis("Volatility p.a.", fmt="pct", digits=0),
         hlines=[C.hline(long_run * ANN, "long-run")],
-        subtitle="Dashed: what actually happened next. The EWMA jumps immediately on a shock; the window only "
+        subtitle="Dashed: what actually happened next. The EWMA jumps immediately on a shock; the window does so only "
                  "once enough crisis days fall inside it – and it drops abruptly when they leave.",
     ))
 
@@ -182,7 +182,7 @@ def run(params, data, out):
     var_line = -q * prev(ewma)
     idx = np.flatnonzero(breaches_ewma)
     out.chart(C.xy(
-        f"EWMA VaR backtest ({_lvl(level)})",
+        f"{_lvl(level)} VaR backtest (EWMA)",
         [C.trace("Daily return", x, r, color=1, width=1),
          C.trace("−VaR from the previous day's EWMA volatility", x, var_line, color=2, width=1.2),
          C.trace("Breach", [x[i] for i in idx], r[idx], type="scatter", color="critical", size=6, decimate_to=None)],
@@ -193,7 +193,7 @@ def run(params, data, out):
 
     out.table(f"Forecast accuracy against realised volatility over the next {h} days",
               ["Estimator", "Mean volatility p.a.", "RMSE", "Bias", "Correlation", "VaR breaches", "p-value",
-               "Standardised kurtosis"], rows,
+               "Kurtosis after scaling"], rows,
               formats=["text", "pct", "pct", "pct", "num", "pct", "num", "num"],
               note=f"RMSE and bias in annualised volatility points. VaR = normal quantile {_num(q, 3)} × the previous "
                    "day's σ; p-value: binomial test against the target rate (below 0.05 = the model does not fit). The "

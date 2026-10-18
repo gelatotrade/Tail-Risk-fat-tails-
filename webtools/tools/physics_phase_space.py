@@ -25,7 +25,7 @@ SPEC = {
         "X = entropic index q, Y = Tsallis entropy S_q, Z = temperature 1/β (rises with the variance). "
         "**Fokker-Planck space** (`compute_fokker_planck_coordinates`): X = drift (mean daily return), "
         "Y = diffusion (variance of daily returns), Z = order α̂ = 6/kurtosis using ordinary kurtosis "
-        "(Gaussian: 3, so α̂ = 2), capped to [1, 2] (lower = fatter tails).\n\n"
+        "(Gaussian: 3, so α̂ = 2), clipped to [1, 2] (lower = fatter tails).\n\n"
         "How to read the charts: grey dots are the past, the coloured line covers the most recent days and the red "
         "dot is today. Calm phases form a dense cloud; crises stretch out in long excursions. Drag to rotate, "
         "scroll to zoom and hover to see the date. The table ranks each of today's coordinates as a percentile of "
@@ -151,12 +151,12 @@ def run(params, data, out):
     vol_pct = rows[0][4]
     out.metric("Today" if data.dates else "Last day", str(days[-1]), "text",
                hint=f"window {w} days, {len(days):,} points per space")
-    out.metric("Lévy volatility X", float(lev[0][-1]), "num", hint=f"percentile {_num(100 * vol_pct, 0)}%; 1 = average",
+    out.metric("Lévy volatility X", float(lev[0][-1]), "num", hint=f"percentile rank {_num(100 * vol_pct, 0)}%; 1 = average",
                status="serious" if vol_pct >= 0.95 else "warning" if vol_pct >= 0.8 else None)
-    out.metric("Tail heaviness 2/α (Lévy Y)", float(lev[1][-1]), "num", hint=f"percentile {_num(100 * rows[1][4], 0)}%")
-    out.metric("Tsallis q", float(tsa[0][-1]), "num", hint=f"percentile {_num(100 * rows[3][4], 0)}%")
+    out.metric("Tail heaviness 2/α (Lévy Y)", float(lev[1][-1]), "num", hint=f"percentile rank {_num(100 * rows[1][4], 0)}%")
+    out.metric("Tsallis q", float(tsa[0][-1]), "num", hint=f"percentile rank {_num(100 * rows[3][4], 0)}%")
     out.metric("Fokker-Planck α̂", float(fpc[2][-1]), "num",
-               hint=f"percentile {_num(100 * rows[8][4], 0)}% · 2 = Gaussian")
+               hint=f"percentile rank {_num(100 * rows[8][4], 0)}% · 2 = Gaussian")
     j = int(np.nanargmax(lev[2]))
     out.metric("Largest jump (Lévy Z)", float(lev[2][j]), "num", hint=f"{days[j]}: |return| in σ")
     if m < data.n:

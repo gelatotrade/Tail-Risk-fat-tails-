@@ -16,7 +16,7 @@ SPEC = {
     "summary": "Projects today's distribution h days ahead with the fractional Fokker-Planck equation and "
                "measures how much the tails grow relative to a Gaussian.",
     "description": (
-        "`FokkerPlanckTailRisk` starts with a Gaussian bell around today's position and lets it flow for h trading "
+        "`FokkerPlanckTailRisk` starts with a Gaussian bell centred on today's return and lets it flow for h trading "
         "days according to the fractional Fokker-Planck equation: mean reversion θ towards the centre, plus Lévy "
         "diffusion of order **α** whose strength grows with the square of the **volatility regime** "
         "(D_α = 0.01·regime² per year). At α = 2 ordinary diffusion is used instead. x is the daily return in units "
@@ -41,7 +41,7 @@ SPEC = {
         {"name": "vol_regime", "type": "float", "default": 1.0, "min": 0.5, "max": 4.0, "step": 0.1,
          "label": "Volatility regime", "help": "1 = normal, 2 = double volatility (four times the Lévy diffusion)."},
         {"name": "current_return", "type": "float", "default": 0.0, "min": -3.0, "max": 3.0, "step": 0.1,
-         "label": "Today's position (in σ)", "help": "Centre of the initial bell."},
+         "label": "Today's return (in σ)", "help": "Centre of the initial bell."},
         {"name": "current_vol", "type": "float", "default": 1.0, "min": 0.5, "max": 3.0, "step": 0.1,
          "label": "Today's width (in σ)"},
         {"name": "surface", "type": "bool", "default": True, "label": "Compute 3D risk surface"},
@@ -93,7 +93,7 @@ def run(params, data, out):
     mo, tp = m["moments"], m["tail_probabilities"]
     m0 = solver.compute_moments(P0)
 
-    out.metric(f"Standard deviation in {h} days", mo["std"], "num",
+    out.metric(f"Standard deviation in {h} day{'' if h == 1 else 's'}", mo["std"], "num",
                hint=f"in today's σ; start {_fmt(m0['std'])}. θ narrows the bell, Lévy diffusion widens it")
     out.metric("Excess kurtosis", mo["kurtosis"], "num", hint="normal distribution = 0",
                status="critical" if mo["kurtosis"] > 6 else "serious" if mo["kurtosis"] > 1 else None)
@@ -108,8 +108,8 @@ def run(params, data, out):
     floor = 1e-7
     keep = lambda y: np.where(y >= floor, y, np.nan)  # noqa: E731
     out.chart(C.xy(
-        f"Distribution today and in {h} days",
-        [C.trace(f"In {h} days (Fokker-Planck)", x, keep(P), color=1, width=2.5),
+        f"Distribution today and in {h} day{'' if h == 1 else 's'}",
+        [C.trace(f"In {h} day{'' if h == 1 else 's'} (Fokker-Planck)", x, keep(P), color=1, width=2.5),
          C.trace("Today (Gaussian)", x, keep(P0), color=2, width=1.5),
          C.trace("Gaussian with equal variance", x, keep(stats.norm.pdf(x, mo["mean"], mo["std"])), color="muted", dash=True)],
         x=C.axis("Return (in today's σ)"), y=C.axis("Density", type="log", range=(floor, 3 * float(max(P.max(), P0.max())))),
@@ -131,7 +131,7 @@ def run(params, data, out):
     rows = []
     for k in (2, 3, 4, 5):
         t = tp[f"{k}sigma"]
-        rows.append([f"{k} σ", t["left"], t["right"], t["total"], float(2 * stats.norm.sf(k)), t["ratio_to_gaussian"]])
+        rows.append([f"{k}σ", t["left"], t["right"], t["total"], float(2 * stats.norm.sf(k)), t["ratio_to_gaussian"]])
     out.table("Tail metrics of the forecast", ["Threshold", "Left", "Right", "Total", "Gaussian total", "Ratio"],
               rows, formats=["text", "pct", "pct", "pct", "pct", "x"],
               note="From compute_tail_risk_metrics: mass beyond mean ± k·σ of the forecast density.")

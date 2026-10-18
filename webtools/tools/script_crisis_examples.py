@@ -11,8 +11,8 @@ SPEC = {
     "description": (
         "Runs `generate_crisis_examples.py`: the 2020 COVID crash, the 2022 bear market and the 2025 tariff crash, "
         "with returns, volatility, tail index and complete dashboards, plus a crisis comparison.\n\n"
-        "The price paths are stored in the script; for an analysis on current FRED data, use the dataset "
-        "selection with the crisis windows in the other tools."
+        "The price paths are stored in the script; to analyse current FRED data, choose one of the crisis periods "
+        "in the dataset selection of the other tools."
     ),
     "needs": [],
     "params": [QUALITY_PARAM],

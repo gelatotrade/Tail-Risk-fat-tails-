@@ -45,7 +45,7 @@ CAPTIONS = {
     "crisis_comparison.png": "Crisis comparison",
     "crash_comparison_with_dates.png": "Crashes on a calendar axis",
     "volmageddon_2018_deep_dive.png": "Volmageddon 2018 in detail",
-    "covid_2020_deep_dive.png": "COVID crash 2020 in detail",
+    "covid_2020_deep_dive.png": "2020 COVID crash in detail",
     "bear_2022_deep_dive.png": "2022 bear market in detail",
     "tariff_2025_deep_dive.png": "2025 tariff crash in detail",
     "covid_crash_analysis.png": "COVID crash: analysis",
@@ -101,7 +101,7 @@ QUALITY_PARAM = {
     "options": [{"value": "preview", "label": "Preview (90 dpi, fast)"},
                 {"value": "standard", "label": "Standard (150 dpi)"},
                 {"value": "original", "label": "Original (as in the script, up to 300 dpi)"}],
-    "help": "The scripts save at up to 300 dpi. In the browser this costs a lot of computing time – the preview is sufficient for analysis.",
+    "help": "The scripts save at up to 300 dpi. In the browser this takes a lot of computing time – the preview is sufficient for analysis.",
 }
 
 

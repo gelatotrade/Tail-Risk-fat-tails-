@@ -27,15 +27,15 @@ SPEC = {
     "group": "warning",
     "order": 10,
     "summary": "The composite score of GEX, TailDex, VIX curve, DIX and SMFI over time, with warning levels, a "
-               "gauge for the latest day and an honest review of what followed each warning.",
+               "gauge for the latest day and a review of what followed each warning.",
     "description": (
         "The framework's early-warning system condenses five indicators into a score from 0 to 100: "
-        "**Net Gamma Exposure** (35%), **TailDex** (25%), **VIX term structure** (20%), **Dark Index** (10%) "
+        "**Net Gamma Exposure** (35%), **TailDex** (25%), **VIX curve** (20%), **Dark Index** (10%) "
         "and **Smart Money Flow** (10%). From 50 the situation counts as elevated, from 75 as high and from 90 "
         "as extreme.\n\n"
         "**Important:** GEX, TailDex, DIX and SMFI rely on proprietary options and dark-pool data that are not "
         "available here. The framework **models** them from your returns and the VIX (`simulate_*`), so the "
-        "paths are illustrative, not actual measurements. The VIX curve is real when the dataset contains VIX "
+        "paths are illustrative, not actual measurements. The VIX curve is based on actual data when the dataset contains VIX "
         "and VIX3M (S&P 500): the actual VIX/VIX3M ratio is then used (> 1 = inverted = stress); otherwise the "
         "framework simulates a futures curve from the VIX. The calculation is causal: each daily value uses "
         "only data up to that day, with no look-ahead.\n\n"
@@ -305,7 +305,7 @@ def run(params, data, out):
         status, f"Latest reading: {level_txt} – {comp[-1]:.0f} out of 100",
         f"Framework recommendation: {action_txt}. Divergence checks over the last {win} days: "
         + (f"{len(fired)} of 4 triggered ({', '.join(fired)})." if fired else "none triggered.")
-        + " Model value from returns and the VIX – not a live signal from options or dark-pool data.")
+        + " Modelled from returns and the VIX – not a live signal from options or dark-pool data.")
     out.table(f"Divergence checks over the last {win} days", ["Check", "Signal", "Type", "Warning level", "Meaning"],
               drows, formats=["text", "text", "text", "text", "text"],
               note="TDEX, DIX and SMFI are modelled, so a divergence here illustrates the framework's logic, "

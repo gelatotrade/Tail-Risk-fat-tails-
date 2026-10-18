@@ -121,7 +121,7 @@ export function renderResult(root, result) {
 export function renderError(root, err, { onRetry } = {}) {
   const user = err.kind === 'user';
   root.innerHTML = '';
-  const card = h(`<section class="card error-card" role="alert"><h3>${user ? 'This did not work' : 'Internal error in the Python code'}</h3>
+  const card = h(`<section class="card error-card" role="alert"><h3>${user ? 'The calculation could not be run' : 'Internal error in the Python code'}</h3>
     <p style="margin-top:6px">${escapeHtml(err.error || err.message || String(err))}</p>
     ${err.traceback ? `<details class="more"><summary>Technical details</summary><pre>${escapeHtml(err.traceback)}</pre></details>` : ''}
     ${onRetry ? '<button class="btn sm" data-act="retry">Try again</button>' : ''}</section>`);

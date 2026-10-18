@@ -228,7 +228,7 @@ async function renderHome() {
     <div class="section-head"><div><h2>How it works</h2><p>No server is involved in the calculations. The original Python code of this repository runs as WebAssembly in your browser.</p></div></div>
     <div class="steps">
       <div class="card"><div class="n">1</div><h3>Choose your data</h3><p>S&P 500, NASDAQ and VIX from FRED, synthetic scenarios – or your own Excel or CSV file, including copy and paste from Excel.</p></div>
-      <div class="card"><div class="n">2</div><h3>Run a tool</h3><p>On first use, Python loads with NumPy, SciPy and Matplotlib (about 30 MB once, then served from the cache).</p></div>
+      <div class="card"><div class="n">2</div><h3>Run a tool</h3><p>On first use, Python loads with NumPy, SciPy and Matplotlib (a one-off download of about 30 MB, then served from the cache).</p></div>
       <div class="card"><div class="n">3</div><h3>Understand and export</h3><p>Interactive charts, the framework's original figures and every number as an Excel file – or as a link to share.</p></div>
     </div>
   </section>
@@ -294,7 +294,7 @@ function renderMethod() {
   <p>The composite score weights five indicators that proved their worth in the 2018, 2020, 2022 and 2025 crashes:</p>
   <div class="formula">score = 0.35·GEX + 0.25·TDEX + 0.20·VIX term structure + 0.10·DIX + 0.10·SMFI</div>
   <p style="margin-top:12px">0–25 Normal · 25–50 Elevated · 50–75 High · 75–100 Extreme. GEX, TailDex, DIX and Smart Money Flow rely on options and dark-pool data that are not freely available. Like the framework itself, the tools derive them from returns and the VIX, or let you enter the readings directly.</p>
-  <h2>How this site computes</h2>
+  <h2>How the calculations run</h2>
   <p>The site is fully static and served by GitHub Pages. When you first open a tool, your browser loads <a href="https://pyodide.org" rel="noopener">Pyodide</a> – CPython 3.14 compiled to WebAssembly – with NumPy, SciPy and Matplotlib. The repository's <code>src/</code> package is then imported unmodified. A thin layer (<code>webtools/</code>) turns form values into function calls and results into charts. All calculations run in a Web Worker, so the page stays responsive.</p>
   <p><b>Data protection:</b> Excel or CSV files you upload are processed locally in your browser only and are never transmitted.</p>
   <h2>Corrections made before going live</h2>
@@ -302,9 +302,9 @@ function renderMethod() {
   ${tableHtml(['Area', 'What was corrected'], [
     ['Expected Shortfall', 'Historical and Cornish-Fisher ES averaged the gains instead of the losses beyond VaR; the Student\'s t ES ignored the scale.'],
     ['Drawdown', 'Log returns were compounded as if they were simple returns.'],
-    ['Extreme value theory', 'Return periods were counted in 20-day blocks: the "10-year level" was in fact a 200-year level. GPD probabilities were conditional instead of unconditional, and the GEV VaR was negative.'],
+    ['Extreme value theory', 'Return periods were counted in 20-day blocks: the ‘10-year return level’ was in fact a 200-year level. GPD probabilities were conditional instead of unconditional, and the GEV VaR was negative.'],
     ['Lévy distribution', 'Tail probability too small by a factor of 2; the quantile fit is now the genuine McCulloch method; multi-day risk scales with h^(1/α) instead of √h.'],
-    ['Tsallis statistics', 'Variance, sample width, distribution function and tail asymptote corrected; the moment fit for q ran backwards.'],
+    ['Tsallis statistics', 'Variance, spread of the random draws, distribution function and tail asymptote corrected; the moment fit for q ran backwards.'],
     ['Fokker-Planck', 'The backward instead of the forward equation was solved (drift with the wrong sign); the fractional operator was anti-diffusive and unstable.'],
     ['Fat-tailed distributions', 'Mirrored variance-gamma density, wrong normalisation of the generalised hyperbolic, wrong NIG samples and fits.'],
     ['Markov regimes', 'Incorrect M-step in the EM algorithm; now Hamilton filter, Kim smoother and Baum-Welch – and about 50 times faster, which is what makes the dashboards feasible in the browser.'],
@@ -721,7 +721,7 @@ async function renderTool(id, query, { autorun } = {}) {
     results.append(...body.childNodes);
     if (stdout?.length) {
       const text = stdout.map((m) => m.stream === 'stderr' ? `<span class="err">${escapeHtml(m.text)}</span>` : escapeHtml(m.text)).join('\n');
-      results.appendChild(h(`<section class="card table-card"><details ${spec.group === 'scripts' ? 'open' : ''}><summary><b>Python output</b> <span class="muted small">(stdout, ${stdout.length.toLocaleString('en-GB')} lines)</span></summary><div class="console">${text}</div></details></section>`));
+      results.appendChild(h(`<section class="card table-card"><details ${spec.group === 'scripts' ? 'open' : ''}><summary><b>Python output</b> <span class="muted small">(stdout, ${stdout.length.toLocaleString('en-GB')} ${stdout.length === 1 ? 'line' : 'lines'})</span></summary><div class="console">${text}</div></details></section>`));
     }
   };
 

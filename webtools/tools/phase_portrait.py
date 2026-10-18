@@ -21,7 +21,7 @@ SPEC = {
         "defined by **momentum** X (average daily return in the window), **volatility** Y (standard deviation in "
         "the window) and **skewness** Z (of the preceding returns). Calm periods form a dense cloud at low "
         "volatility; crises stretch out in long streaks upwards and towards negative momentum.\n\n"
-        "**Attractors** are regions in which the market keeps settling. `detect_attractor_regions` finds them by "
+        "**Attractors** are regions to which the market keeps returning. `detect_attractor_regions` finds them by "
         "Ward clustering and orders them by volatility (calm → stress). Standardise the axes for this: skewness "
         "is of the order of ±1, return and volatility of the order of 0.01 – unscaled, the clustering separates "
         "almost solely by skewness. The average stay shows how ‘sticky’ an attractor is.\n\n"
@@ -43,7 +43,7 @@ SPEC = {
         {"name": "recent", "type": "int", "default": 60, "min": 10, "max": 250, "step": 10,
          "label": "Highlighted recent days", "unit": "days"},
         {"name": "last_n", "type": "int", "default": 2520, "min": 250, "max": 5000, "step": 250,
-         "label": "Lookback period", "unit": "days",
+         "label": "Period (most recent trading days)", "unit": "days",
          "help": "Most recent trading days analysed. Clustering needs memory ∝ N²; 2,520 days ≈ 10 years."},
         {"name": "show_velocity", "type": "bool", "default": True,
          "label": "Velocity arrows in the original chart"},
@@ -161,7 +161,7 @@ def run(params, data, out):
     stay = _run_today(labels)
     out.metric("Attractor today", names.get(cur, "–"), "text", status=status,
                badge=f"Vol rank {cur_rank + 1}/{k_clusters}",
-               hint="in this attractor since today only" if stay == 1 else f"in this attractor for {stay:,} days")
+               hint="entered this attractor today" if stay == 1 else f"in this attractor for {stay:,} days")
     out.metric(f"Volatility ({w} days)", Y[-1], "pct", digits=2,
                hint=f"daily · ≈ {_num(100 * Y[-1] * np.sqrt(252), 0)}% p.a. · percentile rank "
                     f"{_num(100 * vol_pct, 0)}%")

@@ -121,15 +121,15 @@ def run(params, data, out):
     out.metric("Tail index (Hill)", hill, "num",
                hint=f"± {_fmt(hill_se)} (std. error), top 10% of |returns|; < 2 would mean infinite variance",
                status="critical" if hill < 2 else "serious" if hill < 3 else "warning" if hill < 4 else "good")
-    out.metric(f"VaR {lvl} · Lévy", var_l, "pct", hint=f"{days} · {nsim:,} draws")
+    out.metric(f"{lvl} VaR · Lévy", var_l, "pct", hint=f"{days} · {nsim:,} draws")
     if es_finite:
-        out.metric(f"Expected Shortfall {lvl} · Lévy", es_l, "pct",
+        out.metric(f"{lvl} Expected Shortfall · Lévy", es_l, "pct",
                    hint="Monte Carlo; very uncertain for α close to 1" if dist.alpha < 1.3 else "Monte Carlo")
     else:
-        out.metric(f"Expected Shortfall {lvl} · Lévy", "∞", "text", status="critical",
+        out.metric(f"{lvl} Expected Shortfall · Lévy", "∞", "text", status="critical",
                    hint="α ≤ 1: the loss has no finite expected value")
-    out.metric(f"VaR {lvl} · historical", var_h, "pct", hint=f"ES {_pct(es_h)}")
-    out.metric(f"VaR {lvl} · Gaussian", var_g, "pct", hint=f"ES {_pct(es_g)}")
+    out.metric(f"{lvl} VaR · historical", var_h, "pct", hint=f"ES {_pct(es_h)}")
+    out.metric(f"{lvl} VaR · Gaussian", var_g, "pct", hint=f"ES {_pct(es_g)}")
 
     # --- chart 1: distribution, log scale
     centers, heights = C.histogram(r, bins=90, density=True)

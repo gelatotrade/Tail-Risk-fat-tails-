@@ -48,7 +48,7 @@ SPEC = {
         {"name": "n_paths", "type": "int", "default": 2000, "min": 100, "max": 5000, "step": 100,
          "label": "Number of paths",
          "help": "For 99% VaR and Expected Shortfall only the worst 1% of paths count."},
-        {"name": "confidence", "type": "select", "default": 0.99, "label": "VaR level",
+        {"name": "confidence", "type": "select", "default": 0.99, "label": "Confidence level",
          "options": [{"value": 0.95, "label": "95%"}, {"value": 0.99, "label": "99%"},
                      {"value": 0.995, "label": "99.5%"}]},
         {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 9999, "step": 1, "label": "Random seed"},
@@ -110,9 +110,9 @@ def run(params, data, out):
 
     lvl = f"{_fmt(100 * c, 1 if c == 0.995 else 0)}%"
     horizon = f"{_fmt(years, 2).rstrip('0').rstrip('.')} year" + ("" if years == 1 else "s")
-    out.metric(f"VaR {lvl} ({horizon})", var, "pct", digits=1, hint=f"without jumps: {_fmt(100 * var0, 1)}%",
+    out.metric(f"{lvl} VaR ({horizon})", var, "pct", digits=1, hint=f"without jumps: {_fmt(100 * var0, 1)}%",
                status="critical" if var > 2 * var0 + 0.05 else "serious" if var > 1.25 * var0 else None)
-    out.metric(f"Expected Shortfall {lvl}", es, "pct", digits=1, hint=f"without jumps: {_fmt(100 * es0, 1)}%")
+    out.metric(f"{lvl} Expected Shortfall", es, "pct", digits=1, hint=f"without jumps: {_fmt(100 * es0, 1)}%")
     out.metric("Median max drawdown", -float(np.median(dd)), "pct", digits=1,
                hint=f"without jumps: {_fmt(-100 * np.median(dd0), 1)}%")
     out.metric(f"Max drawdown, worst {_fmt(100 * (1 - c), 1 if c == 0.995 else 0)}% of paths",
@@ -174,7 +174,7 @@ def run(params, data, out):
          C.trace("Without jumps", mid, np.where(h0 > 0, h0, np.nan), type="step", color="muted")],
         x=C.axis("Simple return", fmt="pct", digits=0),
         y=C.axis("Density", type="log", range=(floor, 3 * max(h1.max(), h0.max()))),
-        vlines=[C.vline(-var, f"VaR {lvl}", color="serious")],
+        vlines=[C.vline(-var, f"{lvl} VaR", color="serious")],
         subtitle="Log density: jumps fatten the left tail. Values beyond the 0.2% and 99.8% quantiles are "
                  "collected at the edges.",
     ))
@@ -198,7 +198,7 @@ def run(params, data, out):
     win = int(min(20, max(5, len(rets) // 4)))
     X, Y, Z = (np.asarray(v, dtype=float)[win:] for v in levy_flight_3d_coordinates(rets, window=win))
     days = np.arange(win + 1, len(rets) + 1)
-    txt = [f"Day {d}: {100 * np.expm1(v):+.1f}%" for d, v in zip(days, rets[win:])]
+    txt = [f"Day {d}: {100 * np.expm1(v):+.1f}%".replace("-", "−") for d, v in zip(days, rets[win:])]
     j = int(np.argmin(rets[win:]))
     out.chart(C.scatter3d(
         "The crash example in Lévy phase space",
@@ -213,8 +213,8 @@ def run(params, data, out):
     out.table(
         "With and without jumps",
         ["Metric", "With Lévy jumps", "Without jumps"],
-        [[f"VaR {lvl} over {horizon}", var, var0],
-         [f"Expected Shortfall {lvl}", es, es0],
+        [[f"{lvl} VaR over {horizon}", var, var0],
+         [f"{lvl} Expected Shortfall", es, es0],
          ["Median return", float(np.median(total)), float(np.median(total0))],
          ["Median max drawdown", -float(np.median(dd)), -float(np.median(dd0))],
          ["Worst day (median across paths)", float(np.expm1(np.median(worst_day))),

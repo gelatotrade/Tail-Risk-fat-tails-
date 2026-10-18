@@ -18,7 +18,7 @@ SPEC = {
     "description": (
         "Shortly before a tipping point, a system recovers from small disturbances ever more slowly. This shows up "
         "as **rising autocorrelation AC(1)** (the market ‘remembers’ yesterday for longer) and **rising "
-        "variance** (the swings become larger). To measure this, the detector cumulates the returns into a log "
+        "variance** (the swings become larger). To measure this, the detector sums the returns into a cumulative log "
         "price, subtracts a Gaussian-smoothed trend in each rolling window and measures AC(1) and variance of the "
         "residual. Skewness is taken from the returns themselves.\n\n"
         "How to read the charts: what matters is not the level but the **trend within the analysis window** "
@@ -70,7 +70,7 @@ N_REFERENCE = 1000  # windows of the random-walk reference for AC(1)
 
 def _num(x, digits=2):
     """Number inside text: decimal point, thousands comma."""
-    return f"{x:,.{digits}f}"
+    return f"{x:,.{digits}f}".replace("-", "−")
 
 
 def _p(p):
@@ -93,7 +93,7 @@ def run(params, data, out):
             raise ToolError(f"The dataset has only {n:,} days – with a window of {w} days too few data points remain "
                             f"for the trend test. Reduce the window to at most {n - 30:,} days.")
         raise ToolError(f"The analysis window ({look:,} days) is too short for a window of {w} days. "
-                        "Reduce the window or enlarge the analysis window.")
+                        "Reduce the window or lengthen the analysis window.")
     if (n + look + N_REFERENCE + w) * w * w > MAX_WORK:
         raise ToolError(f"A window of {w} days is too computationally expensive for {n:,} observations. "
                         "Reduce the window or the analysis window.")
@@ -111,9 +111,9 @@ def run(params, data, out):
 
     out.metric("Warning level", level_label, "text", status=status,
                hint="from the Kendall τ trends in the analysis window")
-    out.metric("AC(1) trend: Kendall τ", ac_tau, "num", hint=_p(ac_p),
+    out.metric("Kendall τ of AC(1)", ac_tau, "num", hint=_p(ac_p),
                status="warning" if ac_tau > 0.2 and ac_p < 0.1 else None)
-    out.metric("Variance trend: Kendall τ", var_tau, "num", hint=_p(var_p),
+    out.metric("Kendall τ of variance", var_tau, "num", hint=_p(var_p),
                status="warning" if var_tau > 0.2 and var_p < 0.1 else None)
     out.metric("Current AC(1)", full["autocorrelation"][-1], "num",
                hint=f"of the detrended log price · pure random walk: ≈ {_num(ac_walk)}")

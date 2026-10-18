@@ -32,7 +32,7 @@ SPEC = {
         "λ = ln 2 ≈ 0.69) shows the difference: its λ stays the same for every m, whereas for noise it falls "
         "with m.\n\n"
         "What the recurrence plot really shows for returns is **volatility clustering**: calm weeks form dark "
-        "blocks, stress phases bright bands. If DET or LAM lie above all surrogates, that is temporal structure "
+        "blocks, stress phases bright bands. If DET or LAM lies above all surrogates, that is temporal structure "
         "(volatility clusters) – but no evidence that the direction of prices is predictable."
     ),
     "needs": ["returns"],
@@ -57,7 +57,7 @@ SPEC = {
         {"name": "max_iter", "type": "int", "default": 200, "min": 50, "max": 1000, "step": 50,
          "label": "Starting points for λ", "help": "More starting points = smoother estimate, longer computation time."},
         {"name": "last_n", "type": "int", "default": 2520, "min": 250, "max": 10000, "step": 250,
-         "label": "Lookback period for λ", "unit": "days",
+         "label": "Period for λ (most recent trading days)", "unit": "days",
          "help": "Most recent trading days used to estimate the Lyapunov exponent."},
         {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 9999, "step": 1, "label": "Random seed",
          "help": "Controls starting points, surrogates and control series."},
@@ -214,12 +214,12 @@ def run(params, data, out):
     cls_name = CLASS_LABELS.get(cls["classification"], cls["classification"])
     lam_lo, lam_hi = float(np.nanmin(lam_sur)), float(np.nanmax(lam_sur))
     out.metric("Lyapunov exponent λ", lam, "num", digits=3,
-               hint=f"daily returns · m = {m}, τ = {tau}, {iters} starting points, {n:,} days")
+               hint=f"daily returns · m = {m}, τ = {tau} · {iters:,} starting points · {n:,} days")
     out.metric("Original classification", cls_name, "text",
                hint="classify_dynamics: λ > 0.1 ⇒ chaotic – but this also holds for pure noise")
     out.metric("λ of shuffled returns", float(np.nanmean(lam_sur)), "num", digits=3,
                hint=f"avg. of {n_sur} surrogates · range {_num(lam_lo, 3)} to {_num(lam_hi, 3)}")
-    out.metric("λ chaos control", lam_logistic, "num", digits=3,
+    out.metric("λ of a known chaotic series", lam_logistic, "num", digits=3,
                hint="logistic map, theoretically ln 2 ≈ 0.693")
     out.metric("Determinism DET", det, "pct", digits=1,
                hint=f"{len(x)} {units} · surrogates avg. {_num(100 * np.mean(det_s), 1)}% · {_rank_text(det, det_s)}")

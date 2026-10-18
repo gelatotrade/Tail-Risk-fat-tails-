@@ -55,7 +55,7 @@ SPEC = {
 }
 
 FIT_STATUS = {
-    "ok": "regular",
+    "ok": "OK",
     "theta_capped": "white noise (θ capped)",
     "no_mean_reversion": "no mean reversion",
     "too_few_points": "too few calm days",
@@ -65,7 +65,7 @@ SWEEP = [2.0, 2.5, 3.0, 3.5, 4.0, 5.0]
 
 
 def _num(x, digits=2):
-    return f"{x:.{digits}f}"
+    return f"{x:.{digits}f}".replace("-", "−")
 
 
 
@@ -122,7 +122,7 @@ def run(params, data, out):
         out.metric("Average jump", dec["jump_mean"], "pct",
                    hint=f"Std. dev. {_num(100 * dec['jump_std'])}%" if n_jumps > 1 else "too few jumps for a std. dev.")
     else:
-        out.metric("Average jump", "–", "text", hint=f"no day beyond {_num(thr, 1)} σ")
+        out.metric("Average jump", "–", "text", hint=f"no day beyond {_num(thr, 1)}σ")
     out.metric("Jump share of Σ|r|", dec["jump_contribution"], "pct", digits=1,
                hint="the share of total movement that falls on jump days")
     if has_model:
@@ -134,12 +134,12 @@ def run(params, data, out):
 
     x, xa = index_axis(data)
     out.chart(C.xy(
-        f"Daily returns with detected jumps (beyond {_num(thr, 1)} σ)",
+        f"Daily returns with detected jumps (beyond {_num(thr, 1)}σ)",
         [C.trace("Daily return", x, r, color=1, width=1),
          C.trace("Jump", [xi for xi, j in zip(x, is_jump) if j], r[is_jump], type="scatter", color="critical",
                  size=7, decimate_to=None)],
         x=xa, y=C.axis("Return", fmt="pct", digits=1),
-        hlines=[C.hline(mean + thr * std, f"+{_num(thr, 1)} σ"), C.hline(mean - thr * std, f"−{_num(thr, 1)} σ")],
+        hlines=[C.hline(mean + thr * std, f"+{_num(thr, 1)}σ"), C.hline(mean - thr * std, f"−{_num(thr, 1)}σ")],
         height=390,
     ))
 
@@ -174,7 +174,7 @@ def run(params, data, out):
     sw = [JumpDiffusionRiskAnalyzer().tail_risk_decomposition(r, confidence=conf, threshold=t,
                                                               n_simulations=min(n_sim, 20000), seed=seed)
           for t in sweep]
-    labels = [f"{_num(t, 1)} σ" + (" ◆" if abs(t - thr) < 1e-9 else "") for t in sweep]
+    labels = [f"{_num(t, 1)}σ" +(" ◆" if abs(t - thr) < 1e-9 else "") for t in sweep]
     out.chart(C.xy(
         "VaR decomposition by jump threshold",
         [C.trace("Diffusion", labels, [d["var_continuous"] for d in sw], type="bar", color=1),
@@ -243,7 +243,7 @@ def run(params, data, out):
                  "It has no volatility clustering: calm and turbulent phases are averaged into a single "
                  "diffusion, and jumps arrive evenly rather than in clusters.", "warning")
     if int(dec["n_jumps"]) == 0:
-        out.set_verdict("good", f"No jumps beyond {_num(thr, 1)} σ",
+        out.set_verdict("good", f"No jumps beyond {_num(thr, 1)}σ",
                         "Tail risk here comes entirely from diffusion.")
         return
     if share is None:
@@ -251,7 +251,7 @@ def run(params, data, out):
     if share > 0.25:
         out.set_verdict("serious", "A large part of the tail risk lies in jumps",
                         f"{_num(100 * share, 0)}% of the one-day VaR is attributable to jumps – a pure diffusion "
-                        "model significantly understates risk.")
+                        "model materially understates risk.")
     elif share > 0.1:
         out.set_verdict("warning", "Jumps raise the VaR noticeably",
                         f"{_num(100 * share, 0)}% of the one-day VaR is attributable to jumps.")

@@ -1,8 +1,11 @@
 """Every web tool runs with its default parameters on real and synthetic data, within budget."""
 
+import ast
+import io
 import json
 import re
 import time
+import tokenize
 from pathlib import Path
 
 import pytest
@@ -16,7 +19,7 @@ BUDGET = {"fast": 6.0, "medium": 25.0, "slow": 120.0}  # native seconds; Pyodide
 # number formats such as "2,5 %" or "99 %".
 GERMAN = re.compile(r"[äöüÄÖÜß]|\b(und|oder|nicht|mit|für|wird|werden|ist|sind|der|die|das|des|dem|den|ein|eine|"
                     r"einer|auf|bei|nach|über|zwischen|Tage|Jahre|Renditen?|Verlust|Schwelle|Datensatz|Werkzeug|"
-                    r"Kennzahl|Hinweis|Zeitraum|Mrd|Perzentil)\b|\d[\s\u00a0\u202f]%|\d,\d{1,2}\s?%")
+                    r"Kennzahl|Hinweis|Zeitraum|Mrd|Perzentil|Fehler|Kurse?|\w*[Dd]aten)\b|\d[\s\u00a0\u202f]%|\d,\d{1,2}\s?%")
 
 
 def visible_text(x):
@@ -40,6 +43,44 @@ def assert_english(obj, where):
 @pytest.mark.parametrize("spec", SPECS, ids=[s["id"] for s in SPECS])
 def test_spec_is_english(spec):
     assert_english(spec, spec["id"])
+
+
+def _string_pieces(source):
+    """(first line, last line, text at the start, text at the end) of every string literal."""
+    pieces, fstring = [], None
+    for t in tokenize.generate_tokens(io.StringIO(source).readline):
+        if t.type == tokenize.STRING:
+            try:
+                text = ast.literal_eval(t.string)
+            except ValueError:  # f-string on Python < 3.12
+                text = re.sub(r"^[^\"']*(\"\"\"|'\'\'|\"|')", "", t.string)[:-1]
+            text = text if isinstance(text, str) else ""
+            pieces.append((t.start[0], t.end[0], text, text))
+        elif t.type == getattr(tokenize, "FSTRING_START", None):
+            fstring = [t.start[0], None, None, ""]
+        elif t.type == getattr(tokenize, "FSTRING_MIDDLE", None) and fstring:
+            fstring[2] = t.string if fstring[2] is None else fstring[2]
+            fstring[3] = t.string
+        elif t.type == getattr(tokenize, "FSTRING_END", None) and fstring:
+            pieces.append((fstring[0], t.end[0], fstring[2] or "", fstring[3]))
+            fstring = None
+        elif t.type == tokenize.OP and fstring and t.string == "}":
+            fstring[3] = "}"  # an f-string ending in a replacement field
+        elif t.type not in (tokenize.NL, tokenize.NEWLINE, tokenize.COMMENT) and not fstring:
+            pieces.append(None)  # anything else breaks a run of adjacent literals
+    return pieces
+
+
+def test_no_words_glued_by_string_concatenation():
+    """Strings continued on the next line need a space: "... of days" "lie above" would read "dayslie"."""
+    glued = []
+    for f in sorted((Path(__file__).resolve().parents[1] / "webtools").rglob("*.py")):
+        pieces = _string_pieces(f.read_text(encoding="utf-8"))
+        for a, b in zip(pieces, pieces[1:]):
+            if a and b and b[0] > a[1] and re.search(r"[\w.,;:)%]$", a[3]) and not a[3].endswith("\\n") \
+                    and re.match(r"[\w(]", b[2]):
+                glued.append(f"{f.name}:{a[1]}: ...{a[3][-25:]}|{b[2][:25]}...")
+    assert not glued, "missing space between concatenated strings:\n" + "\n".join(glued)
 
 
 def test_site_shell_is_english(market):

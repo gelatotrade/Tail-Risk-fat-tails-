@@ -144,7 +144,7 @@ def run(params, data, out):
         x=C.axis("Exceedance probability 1 − c (per day)", type="log", fmt="pct", digits=1, range=(0.1, 0.001)),
         y=C.axis("VaR (one-day loss)", fmt="pct", digits=1,
                  range=(min(0.0, float(np.nanmin(curves["hist"] + curves["gauss"]))), y_top)),
-        subtitle="Left: frequent losses (90% VaR); right: rare ones (99.9%). The Gaussian falls behind for rare events.",
+        subtitle="Left: frequent losses (90% VaR); right: rare ones (99.9%). The Gaussian VaR falls short for rare events.",
         vlines=[C.vline(1 - conf, f"selected: {lvl}")],
     ))
 
@@ -201,7 +201,7 @@ def run(params, data, out):
     for k in (2, 3, 4, 5):
         t = trm.tail_ratio(k)
         asym = t["asymmetry"] if np.isfinite(t["asymmetry"]) else ("∞" if t["left_tail_prob"] > 0 else "–")
-        tr_rows.append([f"{k} σ", t["left_tail_prob"], t["right_tail_prob"], t["gaussian_tail_prob"],
+        tr_rows.append([f"{k}σ", t["left_tail_prob"], t["right_tail_prob"], t["gaussian_tail_prob"],
                         t["left_ratio"], t["right_ratio"], asym])
     out.table("Tail frequencies vs the normal distribution", ["Threshold", "P(loss > kσ)", "P(gain > kσ)",
                                                              "Gaussian (per tail)", "Left-tail factor",
@@ -253,7 +253,7 @@ def run(params, data, out):
         else:
             facts = (f"{lvl} VaR ({best_name}): {_num(100 * fat)}% vs Gaussian {_num(100 * v['gauss'])}% "
                      f"({'+' if r_var >= 1 else '−'}{_num(100 * abs(r_var - 1), 0)}%). Expected Shortfall: "
-                     f"{_num(100 * v['es_hist'])}% vs {_num(100 * v['es_gauss'])}% (+{_num(100 * (r_es - 1), 0)}%).")
+                     f"{_num(100 * v['es_hist'])}% vs {_num(100 * v['es_gauss'])}% ({'+' if r_es >= 1 else '−'}{_num(100 * abs(r_es - 1), 0)}%).")
             if r_var >= r_es:
                 out.set_verdict(level, f"The Gaussian VaR understates risk by {pct}%", facts)
             else:

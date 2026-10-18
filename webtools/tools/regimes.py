@@ -34,7 +34,7 @@ SPEC = {
         "that day only. The diagonal of the transition matrix measures persistence: p = 0.98 means that a regime "
         "lasts 1/(1 − p) = 50 days on average.\n\n"
         "Alongside this sits a simple classification based on realised 20-day volatility "
-        "(`detect_vol_regime`): above the chosen percentile is high, below the opposite percentile is low. "
+        "(`detect_vol_regime`): above the chosen percentile is high, below the complementary percentile (100 minus the chosen one) is low. "
         "`RegimeAwareTailRisk` uses it to compute VaR per regime – under stress it is often twice the average. "
         "The **Ljung-Box test** on squared returns checks whether volatility clusters at all.\n\n"
         "How to read the charts: the colour of the price line shows the most likely Markov regime; further charts "
@@ -172,7 +172,7 @@ def run(params, data, out):
     out.metric("Avg. duration of the stress regime", stay[-1], "num", digits=0,
                unit="day" if round(stay[-1]) == 1 else "days", hint=f"calm: {_days(stay[0])}")
     if var_by_state[-1][0] is not None and var_all[0]:
-        out.metric(f"VaR {lvl} under stress ÷ overall", var_by_state[-1][0] / var_all[0], "x",
+        out.metric(f"{lvl} VaR under stress ÷ overall", var_by_state[-1][0] / var_all[0], "x",
                    hint=f"{_num(100 * var_by_state[-1][0])}% vs {_num(100 * var_all[0])}% · from "
                         f"{int(np.sum(state == k - 1)):,} stress days")
     out.metric("Realised volatility today (20 days)", rv[-1], "pct", digits=1,
@@ -253,7 +253,7 @@ def run(params, data, out):
         rows.append([names[s], stds[s] * np.sqrt(DAYS), means[s], P[s, s], round(float(stay[s])), share, v_s, e_s,
                      cur_p[s]])
     out.table("Markov states", ["Regime", "Volatility p.a.", "Avg. daily return", "Persistence p",
-                                "Avg. duration (days)", "Share of days", f"VaR {lvl}", f"ES {lvl}", "P today"], rows,
+                                "Avg. duration (days)", "Share of days", f"{lvl} VaR", f"{lvl} ES", "P today"], rows,
               formats=["text", "pct", "pct", "pct", "int", "pct", "pct", "pct", "pct"],
               note="Historical VaR and ES from the days on which the regime was the most likely one "
                    "(– = fewer than 20 such days).")
@@ -263,8 +263,8 @@ def run(params, data, out):
         c = cond[key]
         sub = r if key == "UNCONDITIONAL" else r[ra.regimes == ["LOW_VOL", "MEDIUM_VOL", "HIGH_VOL"].index(key)]
         vrows.append([VOL_NAMES.get(key, "All days"), c["n_observations"], c["var"], _var_es(sub, conf)[1]])
-    out.table(f"VaR {lvl} by volatility regime (realised 20-day volatility)",
-              ["Volatility regime", "Days", f"VaR {lvl}", f"ES {lvl}"], vrows, formats=["text", "int", "pct", "pct"],
+    out.table(f"{lvl} VaR by volatility regime (realised 20-day volatility)",
+              ["Volatility regime", "Days", f"{lvl} VaR", f"{lvl} ES"], vrows, formats=["text", "int", "pct", "pct"],
               note=f"High = above the {_ordinal(params['vol_percentile'])} percentile, low = below the "
                    f"{_ordinal(100 - int(params['vol_percentile']))} percentile of realised volatility.")
 
@@ -296,14 +296,14 @@ def run(params, data, out):
 
     p_stress = float(cur_p[-1])
     v_s = var_by_state[-1][0]
-    stress_txt = (f" In the stress regime, VaR {lvl} is {_num(100 * v_s)}% compared with {_num(100 * var_all[0])}% "
+    stress_txt = (f" In the stress regime, the {lvl} VaR is {_num(100 * v_s)}%, compared with {_num(100 * var_all[0])}% "
                   "overall." if v_s is not None and var_all[0] else "")
     if p_stress > 0.5:
         out.set_verdict("serious", f"The market is in the stress regime (P = {_num(100 * p_stress, 0)}%)",
                         f"Volatility is around {_num(100 * stds[-1] * np.sqrt(DAYS), 0)}% p.a.; stress phases "
                         f"last {_days(stay[-1])} on average." + stress_txt)
     elif cur != 0:
-        out.set_verdict("warning", f"Elevated volatility ({names[cur].lower()} regime)",
+        out.set_verdict("warning", f"Elevated volatility (‘{names[cur]}’ regime)",
                         f"Stress probability {_pct0(p_stress)}." + stress_txt)
     else:
         out.set_verdict("good", f"Calm regime (P = {_num(100 * cur_p[0], 0)}%)",

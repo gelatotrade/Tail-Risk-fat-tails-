@@ -13,7 +13,7 @@ SPEC = {
     "title": "Market phase: stable, trending, critical, crash",
     "group": "regime",
     "order": 20,
-    "summary": "Identifies the market's current phase with five transparent rules and shows their timeline and "
+    "summary": "Identifies the market's current phase with five transparent rules and shows the phase timeline and "
                "the market's path through a 3D phase space.",
     "description": (
         "The classifier translates the physics of phase transitions into five simple rules, checked in order: "
@@ -65,7 +65,7 @@ EWS_LABELS = {"NORMAL": "Normal", "MODERATE": "Moderate", "ELEVATED": "Elevated"
 
 def _num(x, digits=2):
     """Number inside text: decimal point, thousands comma."""
-    return f"{x:,.{digits}f}"
+    return f"{x:,.{digits}f}".replace("-", "−")
 
 
 def _ordinal(k):

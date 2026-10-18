@@ -118,7 +118,7 @@ def run(params, data, out):
     end = moments[-1]
 
     drift0 = float(solver.drift_coefficient(np.array([x0]), 0, fp_params)[0])
-    out.metric("Mean at T", end["mean"], "num", hint=f"start {_fmt(x0, 1)} · equilibrium {_fmt(params['mu_inf'], 1)}")
+    out.metric("Mean at T", end["mean"], "num", hint=f"start {_fmt(x0, 1)} · equilibrium {_fmt(params['mu_inf'], 1)}".replace("-", "−"))
     out.metric("Standard deviation σ at T", end["std"], "num", hint=f"start {_fmt(s0, 1)}")
     out.metric("Excess kurtosis at T", end["kurtosis"], "num", digits=1, hint="normal distribution = 0",
                status="critical" if end["kurtosis"] > 6 else "serious" if end["kurtosis"] > 3 else None)

@@ -128,7 +128,7 @@ def run(params, data, out):
     out.metric("Max drawdown (median)", np.median(dd), "pct", digits=1)
     out.metric("Max drawdown (worst 5%)", np.percentile(dd, 5), "pct", digits=1,
                status="serious" if np.percentile(dd, 5) < -0.3 else None)
-    out.metric("VaR 99% (1 day)", -np.percentile(pooled, 1), "pct", hint="from all simulated days")
+    out.metric("99% VaR (1 day)", -np.percentile(pooled, 1), "pct", hint="from all simulated days")
 
     show = min(N_SHOW, n_paths)
     gx, gy = _gapped(t, prices[:show])

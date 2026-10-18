@@ -151,7 +151,7 @@ def run(params, data, out):
         spike = events[c]["vix_spike"]
         spike_txt = f"+{num(spike, 1)}% in one day" if "2018" in c else f"Closing high {num(spike, 1)}"
         rows.append([name, date, trigger, PATTERN.get(c, ""), drops[c], spike_txt, story])
-    out.table("The four crashes", ["Crash", "Crash day", "Trigger", "Signal according to the framework", "Decline",
+    out.table("The four crashes", ["Crash", "Crash day", "Trigger", "Framework signal", "Decline",
                                    "VIX", "What happened"], rows,
               formats=["text", "text", "text", "text", "pct", "text", "text"],
               note="Decline and VIX as stored in the framework, based on closing prices: for 2018 a single trading "

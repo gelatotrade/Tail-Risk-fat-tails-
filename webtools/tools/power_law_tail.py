@@ -57,7 +57,7 @@ LEVELS = [0.02, 0.03, 0.05, 0.07, 0.10, 0.15, 0.20]
 
 
 def _num(x, digits=2):
-    return f"{x:.{digits}f}"
+    return f"{x:.{digits}f}".replace("-", "−")
 
 
 def _side_values(r, side):
@@ -214,11 +214,11 @@ def run(params, data, out):
                         "estimated reliably here.")
     elif tail_index < 3:
         out.set_verdict("serious", "Fat tail: finite variance, infinite skewness and kurtosis",
-                        f"α − 1 = {_num(tail_index)}. Existing moments: {_existing(tail_index)}. Sample skewness "
+                        f"α − 1 = {_num(tail_index)}. Existing moments: {_existing(tail_index).lower()}. Sample skewness "
                         "and kurtosis are therefore not reliable measures.")
     elif tail_index < 4:
         out.set_verdict("warning", "Fat tail: finite variance and skewness, infinite kurtosis",
-                        f"α − 1 = {_num(tail_index)}. Existing moments: {_existing(tail_index)}. Sample kurtosis is "
+                        f"α − 1 = {_num(tail_index)}. Existing moments: {_existing(tail_index).lower()}. Sample kurtosis is "
                         "therefore not a reliable measure.")
     else:
         out.set_verdict("good", "Thin tail: all four moments finite",

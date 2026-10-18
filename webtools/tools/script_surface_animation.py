@@ -10,7 +10,7 @@ SPEC = {
     "summary": "Renders the risk-surface animation frame by frame as a GIF – directly in the browser.",
     "description": (
         "Runs `generate_tail_risk_surface_animation.py`: the crash threshold moves from 3% to 10%, a synthetic "
-        "market path runs from the calm regime into the crisis and back, and the camera rotates.\n\n"
+        "market path runs from a calm regime into a crisis and back, and the camera rotates.\n\n"
         "Very compute-intensive, because every single frame is rendered. In preview quality the frames are "
         "produced at a lower resolution and considerably faster."
     ),

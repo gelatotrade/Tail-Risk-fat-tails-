@@ -109,7 +109,7 @@ def from_arrays(name: str, *, prices=None, returns=None, dates=None, vix=None, v
         raise ToolError(f"Too few valid observations ({len(returns)}). At least {MIN_OBS} are required.")
     if np.nanmax(np.abs(returns)) > 1.5:
         raise ToolError("The returns look implausibly large (more than 150% in one day). "
-                        "Check whether the column holds prices rather than returns, or percentages.")
+                        "Check whether the column holds prices rather than returns, or whether the values are percentages.")
     return Dataset(
         name=name,
         returns=returns,
