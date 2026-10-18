@@ -46,7 +46,7 @@ SPEC = {
 
 def run(params, data, out):
     r = data.returns                    # np.ndarray, tägliche Log-Renditen (dezimal)
-    out.metric("VaR 99 %", 0.023, "pct", hint="…", status=None)
+    out.metric("VaR 99 %", 0.023, "pct", hint="…", status=None, badge="")  # badge: eigener Plakettentext
     out.table("Titel", ["Spalte", "Wert"], [["a", 0.1]], formats=["text", "pct"])
     out.chart(C.xy("Titel", [C.trace("Reihe", x, y)], x=C.axis("x"), y=C.axis("y", fmt="pct")))
     out.figure(fig, "Bildunterschrift")  # Matplotlib-Figur aus src/ → PNG

@@ -189,7 +189,9 @@ function heatmapFigure(spec, t) {
   const data = [{ type: 'heatmap', x: spec.xs, y: spec.ys, z: spec.zs, colorscale: riskScale(t, spec.scale), xgap: 2, ygap: 2,
     colorbar: { thickness: 12, tickfont: { color: t.muted, size: 11 }, tickformat: tickformat(spec.z), outlinewidth: 0 },
     hovertemplate: `%{y} · %{x}<br>${escapeHtml(spec.z.label || 'Wert')}: %{z:${hoverFmt(spec.z)}}<extra></extra>`,
-    zmid: spec.scale === 'diverging' ? 0 : undefined }];
+    zmid: spec.scale === 'diverging' ? 0 : undefined,
+    texttemplate: spec.annotate ? `%{z:${spec.z.fmt === 'pct' ? `.${spec.z.digits ?? 1}%` : `.${spec.z.digits ?? 2}f`}}` : undefined,
+    textfont: spec.annotate ? { size: 12 } : undefined }];
   const layout = baseLayout(spec, t);
   layout.xaxis = axisLayout(spec.x, t, { showgrid: false, showline: false });
   layout.yaxis = axisLayout(spec.y, t, { showgrid: false, showline: false, autorange: 'reversed' });

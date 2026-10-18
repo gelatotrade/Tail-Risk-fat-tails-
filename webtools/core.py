@@ -157,12 +157,16 @@ class Result:
 
     # -- content ----------------------------------------------------------- #
     def metric(self, label: str, value: Any, fmt: str = "num", *, digits: int = 2,
-               hint: str = "", status: Optional[str] = None, unit: str = "") -> "Result":
-        """A headline number.  ``fmt='pct'`` expects a fraction (0.0123 -> 1,23 %)."""
+               hint: str = "", status: Optional[str] = None, unit: str = "", badge: str = "") -> "Result":
+        """A headline number.  ``fmt='pct'`` expects a fraction (0.0123 -> 1,23 %).
+
+        ``status`` adds a coloured badge (default labels: Unauffällig / Erhöht / Hoch / Kritisch);
+        ``badge`` overrides its text, e.g. ``badge="Fette Ränder"``.
+        """
         assert fmt in FORMATS, fmt
         assert status in STATUSES, status
         self.metrics.append({"label": label, "value": to_json(value), "fmt": fmt, "digits": digits,
-                             "hint": hint, "status": status, "unit": unit})
+                             "hint": hint, "status": status, "unit": unit, "badge": badge})
         return self
 
     def set_verdict(self, level: str, title: str, text: str = "") -> "Result":
