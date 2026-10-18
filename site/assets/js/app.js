@@ -508,8 +508,27 @@ function bootCard() {
   return card;
 }
 
-function progressCard(text) {
-  return h(`<section class="card boot-card" aria-live="polite"><h3 data-slot="t">${escapeHtml(text)}</h3><div class="progress indet"><i></i></div></section>`);
+function progressCard(text, { console: withConsole = false } = {}) {
+  const card = h(`<section class="card boot-card" aria-live="polite"><h3 data-slot="t">${escapeHtml(text)}</h3><div class="progress indet"><i></i></div>
+    <p class="small muted" data-slot="clock" style="margin:0"></p>${withConsole ? '<div class="console" data-slot="log" hidden></div>' : ''}</section>`);
+  const t0 = performance.now(), clock = card.querySelector('[data-slot="clock"]');
+  const timer = setInterval(() => {
+    if (!card.isConnected) return clearInterval(timer);
+    const s = Math.round((performance.now() - t0) / 1000);
+    clock.textContent = s >= 3 ? `Läuft seit ${s} s im Browser …` : '';
+  }, 1000);
+  card.log = (m) => {
+    const log = card.querySelector('[data-slot="log"]');
+    if (!log) return;
+    log.hidden = false;
+    const line = document.createElement('div');
+    line.textContent = m.text;
+    if (m.stream === 'stderr') line.className = 'err';
+    log.appendChild(line);
+    if (log.childElementCount > 400) log.firstElementChild.remove();
+    log.scrollTop = log.scrollHeight;
+  };
+  return card;
 }
 
 async function renderTool(id, query, { autorun } = {}) {
@@ -582,13 +601,13 @@ async function renderTool(id, query, { autorun } = {}) {
         }
         fillDatasetStats(dsCard, app.datasetSummary);
       }
-      const prog = progressCard(`${spec.title} wird berechnet …`);
+      const prog = progressCard(`${spec.title} wird berechnet …`, { console: spec.group === 'scripts' });
       showWaiting(prog);
       const t0 = performance.now();
       const res = await engine.run(id, values, {
         preload: spec.preload,
         onProgress: (m) => { prog.querySelector('[data-slot="t"]').textContent = m.text; if (m.pct != null) { const bar = prog.querySelector('.progress'); bar.classList.remove('indet'); bar.firstElementChild.style.width = `${m.pct}%`; } },
-        onStdout: (m) => job.stdout.push(m),
+        onStdout: (m) => { job.stdout.push(m); prog.log(m); },
       });
       res.wall = (performance.now() - t0) / 1000;
       if (job.detach) return;
