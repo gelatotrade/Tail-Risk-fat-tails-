@@ -132,9 +132,12 @@ def surface(title: str, xs: Sequence[float], ys: Sequence[float], zs, *, x: Opti
 
 
 def path3d(name: str, x: Sequence, y: Sequence, z: Sequence, *, color: Any = 1,
-           mode: str = "lines", size: float = 4, text: Optional[Sequence[str]] = None) -> Dict[str, Any]:
+           mode: str = "lines", size: float = 4, text: Optional[Sequence[str]] = None,
+           opacity: float = 1.0, width: Optional[float] = None) -> Dict[str, Any]:
+    """A 3D path or point cloud.  Lower ``opacity`` keeps dense clouds from hiding highlighted paths."""
     return {"name": name, "x": list(map(float, x)), "y": list(map(float, y)), "z": list(map(float, z)),
-            "color": color, "mode": mode, "size": size, "text": list(text) if text is not None else None}
+            "color": color, "mode": mode, "size": size, "text": list(text) if text is not None else None,
+            "opacity": float(opacity), "width": width}
 
 
 def scatter3d(title: str, traces: Iterable[dict], *, x: Optional[dict] = None, y: Optional[dict] = None,

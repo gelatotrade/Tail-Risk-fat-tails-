@@ -109,3 +109,19 @@ def test_worker_api_round_trip(synthetic):
 
 def test_unknown_tool_is_reported_not_raised():
     assert core.run_tool("does-not-exist")["ok"] is False
+
+
+def test_show_if_must_reference_an_existing_param():
+    spec = json.loads(json.dumps(SPEC))
+    spec["params"][3]["show_if"] = {"m": ["hill"]}
+    validate_spec(spec)
+    spec["params"][3]["show_if"] = {"nope": ["hill"]}
+    with pytest.raises(ValueError):
+        validate_spec(spec)
+
+
+def test_table_formats_accept_digits_and_reject_unknown_codes():
+    out = core.Result()
+    out.table("t", ["a", "b"], [["x", 0.5]], formats=["text", "pct:0"])
+    with pytest.raises(AssertionError):
+        out.table("t", ["a"], [[1]], formats=["percent"])

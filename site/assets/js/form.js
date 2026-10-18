@@ -54,8 +54,18 @@ export function buildForm(spec, values, onChange) {
       el.innerHTML = `<span class="lbl"><b>${escapeHtml(p.label)}</b></span><input type="text" id="${id}" value="${escapeHtml(String(v))}" maxlength="${p.maxlength || 200}">${p.help ? `<span class="help">${escapeHtml(p.help)}</span>` : ''}`;
       el.querySelector('input').addEventListener('change', (e) => emit(p.name, e.target.value, true));
     }
+    if (p.show_if) el.dataset.showIf = JSON.stringify(p.show_if);
     form.appendChild(el);
   }
+  // parameters that only matter for some settings (e.g. one view of a tool) are shown only then
+  const syncVisibility = () => {
+    form.querySelectorAll('[data-show-if]').forEach((el) => {
+      const cond = JSON.parse(el.dataset.showIf);
+      el.hidden = !Object.entries(cond).every(([k, vals]) => vals.map(String).includes(String(state[k])));
+    });
+  };
+  form.addEventListener('change', syncVisibility);
+  syncVisibility();
   form.values = () => ({ ...state });
   return form;
 }

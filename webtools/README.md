@@ -37,7 +37,8 @@ SPEC = {
          "step": 0.001, "label": "Konfidenzniveau", "help": "optional"},
         {"name": "method", "type": "select", "default": "hill", "label": "Schätzer",
          "options": [{"value": "hill", "label": "Hill"}, {"value": "pickands", "label": "Pickands"}]},
-        {"name": "show_fit", "type": "bool", "default": True, "label": "Fit einblenden"},
+        {"name": "show_fit", "type": "bool", "default": True, "label": "Fit einblenden",
+         "show_if": {"method": ["hill"]}},     # optional: nur sichtbar, wenn method == "hill"
     ],
     "covers": ["src.models.risk_metrics.TailRiskMetrics.var_historical", "..."],
     "cost": "fast",                     # fast (< 2 s, Live-Update) | medium | slow (> 20 s)
@@ -47,7 +48,7 @@ SPEC = {
 def run(params, data, out):
     r = data.returns                    # np.ndarray, tägliche Log-Renditen (dezimal)
     out.metric("VaR 99 %", 0.023, "pct", hint="…", status=None, badge="")  # badge: eigener Plakettentext
-    out.table("Titel", ["Spalte", "Wert"], [["a", 0.1]], formats=["text", "pct"])
+    out.table("Titel", ["Spalte", "Wert"], [["a", 0.1]], formats=["text", "pct:1"])  # Code[:Nachkommastellen]
     out.chart(C.xy("Titel", [C.trace("Reihe", x, y)], x=C.axis("x"), y=C.axis("y", fmt="pct")))
     out.figure(fig, "Bildunterschrift")  # Matplotlib-Figur aus src/ → PNG
     out.note("Hinweis", "info")          # info | warning | success

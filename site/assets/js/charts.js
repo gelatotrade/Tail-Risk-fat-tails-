@@ -176,7 +176,8 @@ function riskScale(t, scale) {
 }
 
 function scene(spec, t) {
-  const ax = (a) => ({ ...axisLayout(a, t), backgroundcolor: 'rgba(0,0,0,0)', showbackground: false, title: { text: a.label || '', font: { size: 12, color: t.ink2 } } });
+  const ax = (a) => ({ ...axisLayout(a, t), backgroundcolor: 'rgba(0,0,0,0)', showbackground: false, ticks: 'outside', ticklen: 8, tickcolor: 'rgba(0,0,0,0)',
+    title: { text: a.label || '', font: { size: 12, color: t.ink2 } } });
   // elevated three-quarter view: shows the shape of a surface, not just its side wall
   const camera = spec.camera || { eye: { x: 1.55, y: -1.55, z: 1.25 }, center: { x: 0, y: 0, z: -0.12 } };
   return { xaxis: ax(spec.x), yaxis: ax(spec.y), zaxis: ax(spec.z), camera,
@@ -193,9 +194,9 @@ function surfaceFigure(spec, t) {
   }];
   for (const p of [...(spec.paths || []), ...(spec.points || [])]) {
     const c = color(p.color, t);
-    data.push({ type: 'scatter3d', name: p.name, x: p.x, y: p.y, z: p.z, text: p.text || undefined,
+    data.push({ type: 'scatter3d', name: p.name, x: p.x, y: p.y, z: p.z, text: p.text || undefined, opacity: p.opacity ?? 1,
       mode: p.mode === 'markers' ? 'markers' : p.mode === 'lines+markers' ? 'lines+markers' : 'lines',
-      line: { color: c, width: 6 }, marker: { color: c, size: p.size || 5, line: { color: t.surface, width: 1 } } });
+      line: { color: c, width: p.width || 6 }, marker: { color: c, size: p.size || 5, line: { color: t.surface, width: 1 } } });
   }
   const layout = baseLayout(spec, t);
   layout.scene = scene(spec, t);
@@ -207,8 +208,8 @@ function surfaceFigure(spec, t) {
 function scatter3dFigure(spec, t) {
   const data = spec.traces.map((p) => {
     const c = color(p.color, t);
-    return { type: 'scatter3d', name: p.name, x: p.x, y: p.y, z: p.z, text: p.text || undefined,
-      mode: p.mode || 'lines', line: { color: c, width: 3 }, marker: { color: c, size: p.size || 3 } };
+    return { type: 'scatter3d', name: p.name, x: p.x, y: p.y, z: p.z, text: p.text || undefined, opacity: p.opacity ?? 1,
+      mode: p.mode || 'lines', line: { color: c, width: p.width || 3 }, marker: { color: c, size: p.size || 3 } };
   });
   const layout = baseLayout(spec, t);
   layout.scene = scene(spec, t);

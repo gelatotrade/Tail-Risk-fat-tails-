@@ -177,9 +177,11 @@ class Result:
 
     def table(self, title: str, columns: List[str], rows: List[List[Any]], *,
               formats: Optional[List[str]] = None, note: str = "") -> "Result":
-        """A table.  ``formats`` (per column) uses the same codes as metrics."""
+        """A table.  ``formats`` (per column) uses the metric codes, optionally with digits: ``"pct:0"``."""
         if formats is not None:
             assert len(formats) == len(columns)
+            for f in formats:
+                assert f is None or str(f).split(":")[0] in FORMATS, f
         self.tables.append({"title": title, "columns": list(columns), "rows": to_json(rows),
                             "formats": formats, "note": note})
         return self
@@ -260,6 +262,9 @@ def validate_spec(spec: dict, module_name: str = "?") -> None:
             raise ValueError(f"{where}: param '{p['name']}' has unknown type '{p['type']}'")
         if p["name"] in names:
             raise ValueError(f"{where}: duplicate param '{p['name']}'")
+        for dep, allowed in (p.get("show_if") or {}).items():
+            if dep not in [q["name"] for q in spec["params"]] or not isinstance(allowed, list):
+                raise ValueError(f"{where}: show_if of '{p['name']}' must map an existing param to a list")
         names.add(p["name"])
         if p["type"] == "select":
             values = [o["value"] for o in p.get("options", [])]

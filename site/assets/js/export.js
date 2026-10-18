@@ -16,7 +16,8 @@ function sheetFrom(XLSX, header, rows, formats) {
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   if (formats) {
     rows.forEach((r, i) => r.forEach((v, j) => {
-      const z = XL_FMT[formats[j]];
+      const [code, d] = String(formats[j] ?? '').split(':');
+      const z = code === 'pct' && d !== undefined ? (Number(d) > 0 ? `0.${'0'.repeat(Number(d))}%` : '0%') : XL_FMT[code];
       if (z && typeof v === 'number') { const ref = XLSX.utils.encode_cell({ r: i + 1, c: j }); if (ws[ref]) ws[ref].z = z; }
     }));
   }
