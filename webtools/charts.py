@@ -58,13 +58,17 @@ def axis(label: str = "", *, type: str = "linear", fmt: str = "num", digits: int
 def trace(name: str, x: Sequence, y: Sequence, *, type: str = "line", color: Any = 1,
           dash: bool = False, width: float = 2, fill: bool = False, decimate_to: Optional[int] = MAX_POINTS,
           text: Optional[Sequence[str]] = None, size: Optional[float] = None,
-          yaxis_fmt: Optional[str] = None) -> Dict[str, Any]:
-    """One series.  type: line | step | bar | scatter | area."""
-    if type in ("line", "step", "area") and decimate_to and len(y) > decimate_to:
+          yaxis_fmt: Optional[str] = None, error: Optional[Sequence[float]] = None) -> Dict[str, Any]:
+    """One series.  type: line | step | bar | scatter | area.
+
+    ``error`` adds symmetric error bars (same units as y), e.g. ±2 standard errors.
+    """
+    if type in ("line", "step", "area") and decimate_to and len(y) > decimate_to and error is None:
         x, y = decimate(x, y, decimate_to)
     return {"name": name, "type": type, "x": list(x), "y": np.asarray(y, dtype=float),
             "color": color, "dash": dash, "width": width, "fill": fill or type == "area",
-            "text": list(text) if text is not None else None, "size": size}
+            "text": list(text) if text is not None else None, "size": size,
+            "error": np.asarray(error, dtype=float) if error is not None else None}
 
 
 def envelope(name: str, x: Sequence, lower: Sequence, upper: Sequence, *, color: Any = 1,
