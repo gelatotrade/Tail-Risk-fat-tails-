@@ -158,13 +158,16 @@ def run(params, data, out):
     c0, h0 = C.histogram(change_0, bins=80, range=(lo, hi))
     positive = np.concatenate([hj[hj > 0], h0[h0 > 0]])
     floor = float(positive.min()) / 3 if len(positive) else 1e-3
+    top = float(max(hj.max(), h0.max())) * 3
     out.chart(C.xy(
         f"Änderung über {hz}: mit vs. ohne Sprünge",
         [C.trace("mit Sprüngen", cj, np.where(hj > 0, hj, np.nan), type="bar", color=1),
-         C.trace("ohne Sprünge", c0, np.where(h0 > 0, h0, np.nan), color="muted", width=2)],
-        x=C.axis("Änderung von x", fmt="pct", digits=1),
-        y=C.axis("Dichte (log)", type="log", range=(floor, float(max(hj.max(), h0.max())) * 3)),
-        vlines=[C.vline(-var_j, "VaR mit Sprüngen", color="critical"), C.vline(-var_0, "VaR ohne", color="muted")],
+         C.trace("ohne Sprünge", c0, np.where(h0 > 0, h0, np.nan), color="muted", width=2),
+         C.trace(f"−VaR mit Sprüngen ({_de(100 * var_j)} %)", [-var_j] * 2, [floor, top], color="critical",
+                 dash=True, width=1.5, decimate_to=None),
+         C.trace(f"−VaR ohne ({_de(100 * var_0)} %)", [-var_0] * 2, [floor, top], color="muted", dash=True,
+                 width=1.5, decimate_to=None)],
+        x=C.axis("Änderung von x", fmt="pct", digits=1), y=C.axis("Dichte (log)", type="log", range=(floor, top)),
         height=340, subtitle="Logarithmisch aufgetragen: Die Sprünge heben den Rand an, die Mitte bleibt fast gleich.",
     ))
 

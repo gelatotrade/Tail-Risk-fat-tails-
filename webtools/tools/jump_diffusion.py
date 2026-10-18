@@ -65,6 +65,11 @@ def _de(x, digits=2):
     return f"{x:.{digits}f}".replace(".", ",")
 
 
+def _date(d):
+    """ISO date -> German date; trading-day indices stay as they are."""
+    return f"{d[8:10]}.{d[5:7]}.{d[:4]}" if isinstance(d, str) and len(d) >= 10 else d
+
+
 def _level(conf):
     return f"{100 * conf:.1f}".rstrip("0").rstrip(".").replace(".", ",") + " %"
 
@@ -111,8 +116,7 @@ def run(params, data, out):
          C.trace("Sprung", [xi for xi, j in zip(x, is_jump) if j], r[is_jump], type="scatter", color="critical",
                  size=7, decimate_to=None)],
         x=xa, y=C.axis("Rendite", fmt="pct", digits=1),
-        hlines=[C.hline(mean + thr * std, f"+{_de(thr, 1)} σ"), C.hline(mean - thr * std, f"−{_de(thr, 1)} σ"),
-                C.hline(-dec["var_total"], f"−VaR {lvl}", color="critical")],
+        hlines=[C.hline(mean + thr * std, f"+{_de(thr, 1)} σ"), C.hline(mean - thr * std, f"−{_de(thr, 1)} σ")],
     ))
 
     # Jumps per (calendar) year: Poisson would spread them evenly
@@ -157,9 +161,9 @@ def run(params, data, out):
     xs = [x[i] for i in valid]
     out.chart(C.xy(
         f"OU-Koordinaten von |Rendite| (Fenster {params['window']} Tage)",
-        [C.trace("Y: aktueller Ausschlag |r|", xs, Y[valid], color="muted", width=1),
-         C.trace("X: Vola-Niveau μ", xs, X[valid], color=1, width=2),
-         C.trace("Z: Rückstellgeschwindigkeit θ", xs, Z[valid], color=2, width=1.2)],
+        [C.trace("Z: Rückstellgeschwindigkeit θ", xs, Z[valid], color=2, width=1),
+         C.trace("Y: aktueller Ausschlag |r|", xs, Y[valid], color="muted", width=1),
+         C.trace("X: Vola-Niveau μ", xs, X[valid], color=1, width=2.5)],
         x=xa, y=C.axis("normiert (0 = Minimum, 1 = Maximum)", range=(0, 1.02)), height=320,
         subtitle="Fenster ohne gültigen OU-Fit (negative Autokorrelation) setzt das Framework auf θ = 1.",
     ))
@@ -173,7 +177,7 @@ def run(params, data, out):
     top = [i for i in order if is_jump[i]][:15]
     if top:
         out.table("Größte Sprünge", ["Datum" if data.dates else "Tag", "Rendite", "σ-Vielfaches"],
-                  [[x[i], r[i], abs(r[i] - mean) / std] for i in top], formats=["text", "pct", "num"])
+                  [[_date(x[i]), r[i], abs(r[i] - mean) / std] for i in top], formats=["text", "pct", "num"])
 
     if not has_model:
         out.note("Es gab zu wenige ruhige Tage oder keine Rückkehr zum Mittel – ohne OU-Modell ist der "

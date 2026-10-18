@@ -53,11 +53,17 @@ PHASES = {
     "CRITICAL": ("Kritisch", "serious"),
     "CRASH": ("Crash", "critical"),
 }
+TIMELINE_OBS = 40_000  # sum of history lengths classified for the timeline (bounded runtime)
 EWS_DE = {"NORMAL": "Normal", "MODERATE": "Moderat", "ELEVATED": "Erhöht", "CRITICAL": "Kritisch"}
 
 
 def _de(x, digits=2):
     return f"{x:.{digits}f}".replace(".", ",")
+
+
+def _date(d):
+    """ISO date -> German date for hover texts; trading-day indices become 'Tag n'."""
+    return f"{d[8:10]}.{d[5:7]}.{d[:4]}" if isinstance(d, str) and len(d) >= 10 else f"Tag {d}"
 
 
 def run(params, data, out):
@@ -119,7 +125,15 @@ def run(params, data, out):
     k = params["timeline"]
     if k > 0:
         start = max(2 * w + 30, 250 if n > 500 else 2 * w + 30)
-        ends = np.unique(np.linspace(start, n, k).astype(int))
+        # each cut-off re-classifies its whole history: bound the total work for long series
+        k_eff = int(max(3, min(k, TIMELINE_OBS // max(1, (start + n) // 2))))
+        ends = np.linspace(start, n, min(k, k_eff)).astype(int)
+        # add the day with the highest rolling volatility: what did the rules say at peak stress?
+        roll = np.std(np.lib.stride_tricks.sliding_window_view(r, w), axis=1)
+        peak = int(np.argmax(roll)) + w
+        if peak >= start:
+            ends = np.append(ends, peak)
+        ends = np.unique(ends)
         points = []
         for i, end in enumerate(ends):
             out.progress(f"Zeitleiste: Stichtag {i + 1} von {len(ends)} …", (i + 1) / (len(ends) + 2))
@@ -132,17 +146,26 @@ def run(params, data, out):
                 traces.append(C.trace(label, [x[p[0]] for p in sel], [p[2] for p in sel], type="scatter",
                                       color=col, size=11, decimate_to=None,
                                       text=[f"{label} · Konfidenz {_de(100 * p[3], 0)} %" for p in sel]))
+        stressed = [p for p in points if p[1] == "STABLE" and p[2] > 0.9]
+        if stressed:
+            p0 = max(stressed, key=lambda p: p[2])
+            out.note(f"Am {_date(x[p0[0]])} lag die Volatilität im {_de(100 * p0[2], 0)}. Perzentil – trotzdem "
+                     f"meldet der Klassifikator „Stabil“ (Konfidenz {_de(100 * p0[3], 0)} %). Die Crash-Regel verlangt "
+                     "im Schnitt −2 % pro Tag, die Erholungsregel steigende Kurse; greift keine, bleibt nur die "
+                     "Restkategorie.", "warning")
         out.chart(C.xy(
             "Zeitleiste der Phasen",
-            traces, x=xa, y=C.axis("Volatilitäts-Perzentil", fmt="pct", digits=0, range=(-0.03, 1.05)),
-            hlines=[C.hline(0.9, "90 %"), C.hline(0.95, "95 %")], height=320,
-            subtitle="Jeder Punkt ist eine Klassifikation nur mit den Daten bis zu diesem Tag.",
+            traces, x=xa, y=C.axis("Volatilitäts-Perzentil", fmt="pct", digits=0, range=(-0.03, 1.1)),
+            hlines=[C.hline(0.9), C.hline(0.95, "90 % / 95 %")], height=320,
+            subtitle="Jeder Punkt ist eine Klassifikation nur mit den Daten bis zu diesem Tag – inklusive des "
+                     "Tages mit der höchsten Volatilität."
+                     + (f" Wegen der langen Reihe auf {k_eff} Stichtage begrenzt." if k_eff < k else ""),
         ))
 
     # Phase space
     X, Y, Z = compute_phase_space_coordinates(r, window=w)
     valid = np.arange(2 * w, n)
-    labels = [str(x[i]) for i in valid]
+    labels = [_date(x[i]) for i in valid]
     recent_n = min(250, len(valid) // 3)
     traces3d = [
         C.path3d("Verlauf", X[valid], Y[valid], Z[valid], color="muted", text=labels),
@@ -150,11 +173,6 @@ def run(params, data, out):
                  color=1, mode="lines+markers", size=2, text=labels[-recent_n:]),
         C.path3d("heute", [X[-1]], [Y[-1]], [Z[-1]], color=2, mode="markers", size=7, text=[labels[-1]]),
     ]
-    out.chart(C.scatter3d(
-        "Phasenraum-Bahn des Markts", traces3d,
-        x=C.axis("X: Suszeptibilität"), y=C.axis("Y: Ordnung |AC(1)|"), z=C.axis("Z: Abstand zur Kritikalität"),
-        subtitle="Nahe an kritischen Zuständen: X groß, Z klein. Ziehen zum Drehen, Scrollen zum Zoomen.",
-    ))
     xs = [x[i] for i in valid]
     out.chart(C.xy(
         "Phasenraum-Koordinaten über die Zeit",
@@ -165,6 +183,11 @@ def run(params, data, out):
         subtitle=f"Rollierend über {w} Tage. Spitzen in X: Schocks schaukeln sich innerhalb des Fensters auf.",
     ))
 
+    out.chart(C.scatter3d(
+        "Phasenraum-Bahn des Markts", traces3d,
+        x=C.axis("X: Suszeptibilität"), y=C.axis("Y: Ordnung |AC(1)|"), z=C.axis("Z: Abstand zur Kritikalität"),
+        subtitle="Nahe an kritischen Zuständen: X groß, Z klein. Ziehen zum Drehen, Scrollen zum Zoomen.",
+    ))
     if phase == "STABLE" and vol_pct > 90:
         out.note(f"„Stabil“ ist hier nur die Restkategorie: Die Volatilität liegt im {_de(vol_pct, 0)}. Perzentil, "
                  "aber weder die Crash- noch die Erholungsregel greift (die Durchschnittsrendite ist ≤ 0 bzw. nicht "

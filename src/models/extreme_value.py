@@ -341,17 +341,25 @@ class EVTTailRiskAnalyzer:
     for robust tail risk estimation.
     """
 
-    def __init__(self, data: np.ndarray, block_size: int = 20):
+    def __init__(self, data: np.ndarray, block_size: int = 20,
+                 threshold_quantile: float = 0.95):
         """
         Initialize with historical data.
 
         Args:
             data: Array of returns (or losses)
             block_size: Observations per block for the GEV block maxima
+            threshold_quantile: Quantile of each tail used as the GPD
+                (peaks-over-threshold) threshold, e.g. 0.95 = the 5 % most
+                extreme observations of that side
         """
+        if not 0 < threshold_quantile < 1:
+            raise ValueError("threshold_quantile must be in (0, 1)")
+
         self.data = np.asarray(data)
         self.n = len(data)
         self.block_size = int(block_size)
+        self.threshold_quantile = float(threshold_quantile)
 
         # Fit both tails
         self._fit_models()
@@ -360,14 +368,14 @@ class EVTTailRiskAnalyzer:
         """Fit GEV and GPD models to both tails."""
         # Right tail (large positive returns - gains)
         self.gpd_right, self.stats_right = GeneralizedParetoDistribution.fit_pot(
-            self.data, quantile=0.95
+            self.data, quantile=self.threshold_quantile
         )
 
         # Left tail (large negative returns - losses)
         # Negate to work with maxima
         neg_data = -self.data
         self.gpd_left, self.stats_left = GeneralizedParetoDistribution.fit_pot(
-            neg_data, quantile=0.95
+            neg_data, quantile=self.threshold_quantile
         )
 
         # Block maxima for GEV

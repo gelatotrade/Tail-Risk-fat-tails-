@@ -550,28 +550,42 @@ def compute_phase_space_coordinates(returns: np.ndarray,
     - Z: Distance from criticality (T - T_c proxy)
 
     Near crashes, the system moves toward critical point (X→∞, Y→0, Z→0).
+
+    For i >= 2·window, entry i uses the window returns[i-window:i]; the
+    first 2·window entries are 0.  Vectorised over the windows (blocks of
+    at most ~1M cells, bounded memory in WebAssembly); the values equal the
+    per-window loop (np.var / np.corrcoef) up to rounding.
     """
+    returns = np.asarray(returns, dtype=float)
     n = len(returns)
-    detector = CriticalSlowingDownDetector(window)
 
     X = np.zeros(n)  # Susceptibility
     Y = np.zeros(n)  # Order parameter
     Z = np.zeros(n)  # Distance from criticality
 
-    for i in range(2 * window, n):
-        window_returns = returns[i-window:i]
+    if n > 2 * window:
+        # row k is returns[window + k : 2*window + k], the window that ends before i = 2*window + k
+        windows = sliding_window_view(returns, window)[window:n - window]
+        rows = max(1, _EWS_BLOCK_CELLS // window)
+        for start in range(0, len(windows), rows):
+            block = windows[start:start + rows]
+            idx = slice(2 * window + start, 2 * window + start + len(block))
 
-        # Susceptibility: variance of cumulative returns
-        cum_returns = np.cumsum(window_returns)
-        X[i] = np.var(cum_returns) / (np.var(window_returns) + 1e-10)
+            # Susceptibility: variance of cumulative returns
+            x = np.var(np.cumsum(block, axis=1), axis=1) / (np.var(block, axis=1) + 1e-10)
+            X[idx] = x
 
-        # Order parameter: autocorrelation (herding)
-        if np.std(window_returns) > 0:
-            Y[i] = np.abs(np.corrcoef(window_returns[:-1], window_returns[1:])[0, 1])
+            # Order parameter: |lag-1 autocorrelation| (herding), like np.corrcoef
+            a, b = block[:, :-1], block[:, 1:]
+            am = a - a.mean(axis=1, keepdims=True)
+            bm = b - b.mean(axis=1, keepdims=True)
+            with np.errstate(invalid='ignore', divide='ignore'):
+                r = np.sum(am * bm, axis=1) / np.sqrt(np.sum(am * am, axis=1) * np.sum(bm * bm, axis=1))
+            Y[idx] = np.where(np.std(block, axis=1) > 0, np.abs(np.clip(r, -1, 1)), 0.0)
 
-        # Distance from criticality: inverse of variance ratio
-        # High variance ratio = near critical point = small Z
-        Z[i] = 1 / (X[i] + 0.1)
+            # Distance from criticality: inverse of variance ratio
+            # High variance ratio = near critical point = small Z
+            Z[idx] = 1 / (x + 0.1)
 
     # Normalize
     X = X / (np.max(X) + 1e-10)

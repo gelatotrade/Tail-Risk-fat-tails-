@@ -103,18 +103,19 @@ def run(params, data, out):
                hint="e^(−θT): so viel von x₀ − μ ist im Erwartungswert noch übrig")
 
     gx, gy = _gapped(t, paths[:N_SHOW])
+    bx, by = _gapped(t, [mean_t + 2 * sd_t, mean_t - 2 * sd_t])
+    fan = [C.trace(f"{min(N_SHOW, len(paths))} simulierte Pfade", gx, gy, color=1, width=1, decimate_to=None),
+           C.trace("Erwartungswert (exakt)", t, mean_t, color=2, width=3),
+           C.trace("±2σ(t) (exakt)", bx, by, color=2, dash=True, decimate_to=None),
+           C.trace(f"Mittel aller {params['n_paths']} Pfade", t, mc_mean, color=3, dash=True)]
+    if ou.half_life() < T:
+        lo, hi = float(np.min(paths[:N_SHOW])), float(np.max(paths[:N_SHOW]))
+        fan.append(C.trace("nach 1 Halbwertszeit", [ou.half_life()] * 2, [lo, hi], color="muted", dash=True,
+                           width=1.5, decimate_to=None))
     out.chart(C.xy(
-        "Pfad-Fächer mit exaktem Erwartungsband",
-        [C.trace(f"{min(N_SHOW, len(paths))} simulierte Pfade", gx, gy, color=1, width=1, decimate_to=None),
-         C.trace("Erwartungswert (exakt)", t, mean_t, color=2, width=3),
-         C.trace("+2σ(t)", t, mean_t + 2 * sd_t, color=2, dash=True),
-         C.trace("−2σ(t)", t, mean_t - 2 * sd_t, color=2, dash=True),
-         C.trace(f"Mittel aller {params['n_paths']} Pfade", t, mc_mean, color=3, dash=True)],
-        x=C.axis("Zeit (Jahre)"), y=C.axis("x"),
-        hlines=[C.hline(ou.mu, "μ")],
-        vlines=[C.vline(ou.half_life(), "1 Halbwertszeit")] if ou.half_life() < T else [],
+        "Pfad-Fächer mit exaktem Erwartungsband", fan,
+        x=C.axis("Zeit (Jahre)"), y=C.axis("x"), hlines=[C.hline(ou.mu, "μ")], height=380,
         subtitle="Die Abweichung vom Mittel schrumpft exponentiell; ±2σ(t) enthält rund 95 % der Pfade.",
-        height=380,
     ))
     out.chart(C.xy(
         "Streuung: wächst und sättigt",
@@ -125,7 +126,7 @@ def run(params, data, out):
         subtitle="Anders als bei einer Irrfahrt (√t) wird die Unsicherheit nicht beliebig groß.",
     ))
     end = paths[:, -1]
-    centers, heights = C.histogram(end, bins=50)
+    centers, heights = C.histogram(end, bins=40)
     grid = np.linspace(centers[0], centers[-1], 300)
     out.chart(C.xy(
         "Verteilung am Horizont",
@@ -192,14 +193,14 @@ def _fit(params, data, out, true_ou):
     tf = f_days * DT
     f_mean = fit.expected_value(series[-1], tf)
     f_sd = np.sqrt(fit.variance_at_time(tf))
+    cx, cy = _gapped(f_days, [f_mean + 2 * f_sd, f_mean - 2 * f_sd])
     out.chart(C.xy(
         f"Fit und Prognosekegel – {label}",
-        [C.trace("Beobachtet (letzte 252 Tage)", h_days, hist, color=1, width=1.5),
+        [C.trace(f"Beobachtet (letzte {len(hist)} Tage)", h_days, hist, color=1, width=1.5),
          C.trace("Prognose E[X]", f_days, f_mean, color=2, width=2.5),
-         C.trace("+2σ", f_days, f_mean + 2 * f_sd, color=2, dash=True),
-         C.trace("−2σ", f_days, f_mean - 2 * f_sd, color=2, dash=True)],
-        x=C.axis("Handelstage relativ zum letzten Wert", fmt="int"), y=C.axis("x"),
-        hlines=[C.hline(fit.mu, "geschätztes μ")], vlines=[C.vline(0, "heute")], height=340,
+         C.trace("±2σ", cx, cy, color=2, dash=True, decimate_to=None)],
+        x=C.axis("Handelstage relativ zum letzten Wert (0 = heute)", fmt="int"), y=C.axis("x"),
+        hlines=[C.hline(fit.mu, "geschätztes μ")], height=340,
         subtitle=f"Mit dem geschätzten Modell: nach {_de(fit.half_life() * 252, 0)} Handelstagen ist die "
                  "Hälfte der heutigen Abweichung abgebaut.",
     ))
