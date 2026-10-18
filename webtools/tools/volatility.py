@@ -28,7 +28,7 @@ SPEC = {
         "misst den Prognosefehler (RMSE) und zählt **VaR-Verletzungen**: Tage, an denen der Verlust den "
         "Normal-VaR aus der Vola von gestern übertraf. Bei 99 % sollten es 1 % sein; deutlich mehr heißt, das "
         "Modell unterschätzt das Risiko. Teilt man die Renditen durch die Vola von gestern (`safe_divide`), "
-        "schrumpft die Kurtosis: Ein Teil der fetten Ränder ist Volatilitäts-Clustering – der Rest bleibt.\n\n"
+        "schrumpft die Kurtosis meist: Ein Teil der fetten Ränder ist Volatilitäts-Clustering – der Rest bleibt.\n\n"
         "Parameter: Das **Fenster** bestimmt das Gedächtnis des rollierenden Schätzers, **λ** das des EWMA "
         "(näher an 1 = langsamer), der **Horizont** die Tage, über die die realisierte Vola gemessen wird."
     ),
@@ -59,13 +59,26 @@ def _de(x, digits=2):
     return f"{x:.{digits}f}".replace(".", ",")
 
 
+def _lvl(p):
+    """0.99 -> '99 %', 0.975 -> '97,5 %'."""
+    return f"{p * 100:.1f}".rstrip("0").rstrip(".").replace(".", ",") + " %"
+
+
 def run(params, data, out):
     r = np.asarray(data.returns, dtype=float)
     n = data.n
     w, h, lam = int(params["window"]), int(params["horizon"]), float(params["lam"])
     level = float(params["level"])
-    if n < w + h + 20:
-        raise ToolError(f"Für Fenster {w} und Horizont {h} braucht es mindestens {w + h + 20} Beobachtungen.")
+    if n < w + h + 20:  # short series: shorten the horizon first, then the window
+        w0, h0 = w, h
+        h = max(5, min(h, n - w - 20))
+        w = max(5, min(w, n - h - 20))
+        if n < w + h + 20:
+            raise ToolError("Für Fenster und Horizont von je 5 Tagen braucht es mindestens 30 Beobachtungen.")
+        changed = [f"{name} auf {new} Tage (statt {old})"
+                   for name, new, old in (("das Fenster", w, w0), ("den Horizont", h, h0)) if new != old]
+        out.note(f"Die Reihe hat nur {n} Beobachtungen. Damit für den Vergleich mindestens 20 Tage übrig bleiben, "
+                 f"verkürzt das Werkzeug {' und '.join(changed)}.", "info")
     x, xa = index_axis(data)
 
     # estimates known at the close of day t
@@ -106,10 +119,13 @@ def run(params, data, out):
     out.metric(f"Vola heute ({w} Tage)", roll[-1] * ANN, "pct", digits=1, hint="annualisiert")
     out.metric("Langfristige Vola", long_run * ANN, "pct", digits=1, hint=f"über alle {n} Tage")
     out.metric("EWMA ÷ langfristig", ratio, "x", hint="über 1: unruhiger als im Durchschnitt")
-    out.metric(f"VaR-Verletzungen EWMA ({_de(level * 100, 1)} %)", rows[1][5], "pct", digits=2,
-               hint=f"Soll {_de((1 - level) * 100, 1)} %", status="serious" if rows[1][6] < 0.05 and rows[1][5] > 1 - level else None)
+    out.metric(f"VaR-Verletzungen EWMA ({_lvl(level)})", rows[1][5], "pct", digits=2,
+               hint=f"Soll {_lvl(1 - level)}" + (" · Binomialtest: zu viele" if rows[1][6] < 0.05 and
+                                                 rows[1][5] > 1 - level else ""),
+               status="serious" if rows[1][6] < 0.05 and rows[1][5] > 1 - level else None)
     out.metric("Kurtosis nach Vola-Skalierung", z_kurt["ewma"], "num", digits=1,
-               hint=f"vorher {_de(raw_kurt, 1)} – Rest = echte Sprünge")
+               hint=f"vorher {_de(raw_kurt, 1)} – der Rest sind echte Sprünge" if z_kurt["ewma"] < raw_kurt
+               else f"vorher {_de(raw_kurt, 1)} – Vola-Cluster erklären hier keine fetten Ränder")
 
     out.chart(C.xy(
         "Volatilität im Zeitverlauf (annualisiert)",
@@ -135,14 +151,19 @@ def run(params, data, out):
         subtitle="Das Fenster vergisst nach genau n Tagen alles, der EWMA vergisst allmählich.",
     ))
 
-    edges = (-10, 10)
+    zmax = np.nanmax(np.abs(safe_divide(r, prev(np.full(n, long_run)), fill=np.nan)))
+    for est in (roll, ewma):
+        zz = safe_divide(r, prev(est), fill=np.nan)
+        zmax = max(zmax, float(np.nanmax(np.abs(zz[np.isfinite(zz)])))) if np.isfinite(zz).any() else zmax
+    lim = float(np.clip(np.ceil(zmax + 0.5), 5, 15))
+    edges = (-lim, lim)
     traces, floor = [], np.inf
     for key, name, col, scale in (("const", "Rendite ÷ Gesamt-σ", "muted", np.full(n, long_run)),
                                   ("roll", f"÷ rollierende σ von gestern", 1, roll),
                                   ("ewma", "÷ EWMA-σ von gestern", 2, ewma)):
         z = safe_divide(r, prev(scale), fill=np.nan)
         z = z[np.isfinite(z)]
-        centers, dens = C.histogram(z, bins=81, density=True, range=edges)
+        centers, dens = C.histogram(z, bins=int(8 * lim) + 1, density=True, range=edges)
         floor = min(floor, float(np.min(dens[dens > 0])))
         traces.append(C.trace(f"{name} (Kurtosis {_de(z_kurt[key], 1)})", centers, np.where(dens > 0, dens, np.nan),
                               color=col, width=1.4))
@@ -159,7 +180,7 @@ def run(params, data, out):
     var_line = -q * prev(ewma)
     idx = np.flatnonzero(breaches_ewma)
     out.chart(C.xy(
-        f"VaR-Backtest mit EWMA ({_de(level * 100, 1)} %)",
+        f"VaR-Backtest mit EWMA ({_lvl(level)})",
         [C.trace("Tagesrendite", x, r, color=1, width=1),
          C.trace(f"−VaR aus der EWMA-Vola von gestern", x, var_line, color=2, width=1.2),
          C.trace("Verletzung", [x[i] for i in idx], r[idx], type="scatter", color="critical", size=6, decimate_to=None)],

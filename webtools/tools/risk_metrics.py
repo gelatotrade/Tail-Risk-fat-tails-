@@ -26,11 +26,12 @@ SPEC = {
         "und **EVT** (Generalisierte Pareto-Verteilung oberhalb einer Schwelle).\n\n"
         "So liest du die Diagramme: Die **VaR-Kurve** zeigt, ab welchem Konfidenzniveau sich die Methoden trennen – "
         "je weiter rechts, desto seltener das Ereignis. Das **Unterwasser-Diagramm** zeigt den Abstand zum letzten "
-        "Höchststand des Vermögens (Log-Renditen werden mit exp(Σr) verzinst). Die **Tail-Abhängigkeit** misst, wie "
+        "Höchststand des Vermögens (Vermögen = exp(Σ Log-Renditen)). Die **Tail-Abhängigkeit** misst, wie "
         "oft zwei Extreme am selben Tag zusammenfallen – mit VIX-Daten: Crash-Tag und VIX-Sprung; ohne VIX: "
         "Verlusttag heute und gestern (Volatilitäts-Cluster).\n\n"
         "Alle Verluste sind Tagesverluste als positive Dezimalzahl. Omega und Sortino beziehen sich auf die "
-        "Zielrendite; Omega > 1 heißt: Die Gewinne darüber überwiegen die Verluste darunter."
+        "Zielrendite; Omega > 1 heißt: Die Gewinne darüber überwiegen die Verluste darunter. Sortino teilt die "
+        "Überrendite durch die Schwankung unterhalb der Zielrendite (Tage darüber zählen als null Abweichung)."
     ),
     "needs": ["returns"],
     "params": [

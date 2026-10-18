@@ -24,7 +24,7 @@ SPEC = {
         "steht auf wenigen Schultern, ein klassisches Warnzeichen).\n\n"
         "Da echte Einzelwertdaten fehlen, erzeugt `SyntheticMarketGenerator` einen Markt aus korrelierten, "
         "fett geschwänzten Aktien; der Index ist ihr gleichgewichteter Mittelwert. Die **gemeinsame "
-        "Marktkorrelation** steuert, wie stark die Titel zusammen laufen: Im Original (0) schwanken die "
+        "Marktkorrelation** steuert, wie stark die Titel gemeinsam schwanken: Im Original (0) schwanken die "
         "Paarkorrelationen um null, die Breite bewegt sich dann kaum. Reale Aktien liegen bei etwa 0,3–0,5.\n\n"
         "So liest du die Diagramme: Grüne Punkte markieren Thrust-Signale, orange Divergenz-Tage. Die Tabelle "
         "zeigt, wie sich der Index danach entwickelte. Jeder Wert nutzt nur Daten bis zum jeweiligen Tag."
@@ -104,7 +104,9 @@ def run(params, data, out):
                hint=f"+40 Prozentpunkte Breite in 10 Tagen · {int(thrust.sum())} Signaltage")
     out.metric("Divergenz-Tage", int(diverg.sum()), "int", hint="Index auf 20-Tage-Hoch, A/D-Linie nicht",
                status="warning" if diverg[-5:].any() else None)
-    out.metric("Ø Paarkorrelation", float(corr[iu].mean()), "num", digits=2, hint=f"{k} Aktien")
+    realised = np.corrcoef(R.T)[iu]
+    out.metric("Ø Paarkorrelation", float(realised.mean()), "num", digits=2,
+               hint=f"realisiert, {k} Aktien · Vorgabe {corr[iu].mean():.2f}".replace(".", ","))
     out.metric("Indexrendite gesamt", float(index[-1] / 100 - 1), "pct", digits=1)
     out.metric("Max. Drawdown des Index", float(dd.min()), "pct", digits=1)
 
@@ -133,7 +135,6 @@ def run(params, data, out):
         x=C.axis("Handelstag", fmt="int"), y=C.axis("steigende minus fallende Aktien, kumuliert"),
         subtitle="Steigt der Index, die A/D-Linie aber nicht mehr, tragen nur noch wenige Titel die Rally.",
     ))
-    realised = np.corrcoef(R.T)[iu]
     centers, counts = C.histogram(realised, bins=min(40, max(10, len(realised) // 10)), density=False)
     out.chart(C.xy(
         "Paarkorrelationen der simulierten Aktien",

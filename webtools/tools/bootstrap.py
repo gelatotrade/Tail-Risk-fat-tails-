@@ -61,6 +61,11 @@ def _pct(x, digits=2):
     return f"{x * 100:.{digits}f} %".replace(".", ",")
 
 
+def _lvl(p):
+    """Confidence level as a short German percentage: 0.99 -> '99 %', 0.975 -> '97,5 %'."""
+    return f"{p * 100:.1f}".rstrip("0").rstrip(".").replace(".", ",") + " %"
+
+
 def _num(x, digits=2):
     return f"{x:.{digits}f}".replace(".", ",").replace("-", "−")
 
@@ -109,8 +114,8 @@ def run(params, data, out):
         return trm.expected_shortfall(level)
 
     stats_def = [
-        ("var", f"VaR {_pct(level, 1)} (1 Tag)", var_hist, True),
-        ("es", f"Expected Shortfall {_pct(level, 1)}", es_hist, True),
+        ("var", f"VaR {_lvl(level)} (1 Tag)", var_hist, True),
+        ("es", f"Expected Shortfall {_lvl(level)}", es_hist, True),
         ("kurt", "Exzess-Kurtosis", lambda s: compute_moments(s)["kurtosis"], False),
         ("hill", "Hill-Tail-Index α", lambda s: estimate_tail_index(s, "hill"), False),
     ]
@@ -130,11 +135,11 @@ def run(params, data, out):
         results[key] = (point, float(lo), float(hi), np.asarray(reps))
     trm.returns = r
 
-    cl = _pct(conf, 0)
+    cl = _lvl(conf)
     tail_obs = int(np.sum(r < -results["var"][0]))
-    out.metric(f"VaR {_pct(level, 1)}", results["var"][0], "pct", digits=2,
+    out.metric(f"VaR {_lvl(level)} (1 Tag)", results["var"][0], "pct", digits=2,
                hint=f"{cl}-Intervall {_pct(results['var'][1])} – {_pct(results['var'][2])}")
-    out.metric(f"Expected Shortfall {_pct(level, 1)}", results["es"][0], "pct", digits=2,
+    out.metric(f"Expected Shortfall {_lvl(level)}", results["es"][0], "pct", digits=2,
                hint=f"{cl}-Intervall {_pct(results['es'][1])} – {_pct(results['es'][2])}")
     out.metric("Exzess-Kurtosis", results["kurt"][0], "num", digits=1,
                hint=f"{cl}-Intervall {_num(results['kurt'][1], 1)} – {_num(results['kurt'][2], 1)}")
@@ -154,10 +159,10 @@ def run(params, data, out):
         out.chart(C.xy(
             name, [C.trace("Bootstrap-Stichproben", centers, counts, type="bar", color=1)],
             x=C.axis(name, fmt="pct" if is_pct else "num", digits=2), y=C.axis("Anzahl Stichproben", fmt="int"),
-            vlines=[C.vline(lo, f"{cl}: {_pct(lo) if is_pct else _num(lo)}", "serious"),
-                    C.vline(hi, _pct(hi) if is_pct else _num(hi), "serious"),
+            vlines=[C.vline(lo, f"{cl}: {_pct(lo) if is_pct else _num(lo)}", 2),
+                    C.vline(hi, _pct(hi) if is_pct else _num(hi), 2),
                     C.vline(point, "Schätzwert", "ink", dash=False)],
-            subtitle=sub[key].format(lv=_pct(level, 1)), height=300,
+            subtitle=sub[key].format(lv=_lvl(level)), height=300,
         ))
 
     # ---- summary table --------------------------------------------------------------------------------
@@ -181,5 +186,10 @@ def run(params, data, out):
     out.table(f"Konfidenzintervalle ({cl})", ["Kennzahl", "Methode", "Schätzwert", "untere Grenze", "obere Grenze",
                                               "± relativ"], rows,
               formats=["text", "text", "text", "text", "text", "pct"], note=note)
+    if tail_obs < 10:
+        out.note(f"Nur {tail_obs} Tag{'e' if tail_obs != 1 else ''} jenseits des VaR: Der Expected Shortfall beruht "
+                 "auf so wenigen Verlusten, dass auch das Bootstrap-Intervall die Unsicherheit unterschätzt – der "
+                 "Bootstrap kann keine Verluste erfinden, die schlimmer sind als der schlimmste beobachtete Tag. "
+                 "Nimm eine längere Reihe oder ein niedrigeres Niveau.", "warning")
     out.note("Der Bootstrap zieht Tage unabhängig. Volatilitäts-Cluster (ruhige und hektische Phasen) gehen dabei "
              "verloren – in echten Märkten sind die Intervalle eher breiter als hier.", "warning")

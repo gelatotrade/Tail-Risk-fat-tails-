@@ -29,7 +29,8 @@ SPEC = {
         "linear verlaufen; im **Hill-Plot** sollte die Schätzung stabil sein. Zu niedrige Schwellen verzerren, zu hohe "
         "lassen zu wenige Punkte übrig. Das **Wiederkehr-Diagramm** zeigt, welcher Tagesverlust im Mittel einmal in "
         "T Jahren (252 Handelstage pro Jahr) überschritten wird – GPD, GEV, Gauß und die Daten im Vergleich.\n\n"
-        "Alle Verluste sind tägliche Log-Renditen als positive Dezimalzahl. Die Tabelle aus `comprehensive_report` "
+        "Alle Verluste sind tägliche Log-Renditen als positive Dezimalzahl; die 10- und 100-Jahres-Verluste oben "
+        "stammen aus der GPD, weil sie direkt den einzelnen Tag modelliert. Die Tabelle aus `comprehensive_report` "
         "zeigt zusätzlich, um welchen Faktor die Normalverteilung 3-, 4- und 5-σ-Tage unterschätzt."
     ),
     "needs": ["returns"],
@@ -157,14 +158,14 @@ def run(params, data, out):
     gpd_rl = np.array([evt.gpd_left.var(1 - 1 / T, p_u) if 1 / T < p_u else np.nan for T in t_days], dtype=float)
     g_rl = -(mu + sd * stats.norm.ppf(1 / t_days))
     k_max = max(2, min(n, int((n + 1) / (years[0] * DAYS))))  # observed points inside the 0.1-200-year axis
-    ranks = np.unique(np.geomspace(1, k_max, 40).round().astype(int))  # evenly spread on the log axis
+    ranks = np.unique(np.geomspace(1, k_max, 28).round().astype(int))  # evenly spread on the log axis
     emp_years = (n + 1) / ranks / DAYS
     out.chart(C.xy(
         "Wiederkehrniveaus: Welcher Tagesverlust kommt einmal in T Jahren?",
-        [C.trace(f"GEV ({m}-Tage-Blockmaxima)", years, gev_rl, color=2, width=2.5),
-         C.trace("GPD (Peaks over Threshold)", years, gpd_rl, color=1, width=2.5),
+        [C.trace("Beobachtet", emp_years, losses[ranks - 1], type="scatter", color=4, size=5, decimate_to=None),
          C.trace("Normalverteilung", years, g_rl, color="muted", dash=True),
-         C.trace("Beobachtet", emp_years, losses[ranks - 1], type="scatter", color=4, size=6, decimate_to=None)],
+         C.trace(f"GEV ({m}-Tage-Blockmaxima)", years, gev_rl, color=2, width=2.5),
+         C.trace("GPD (Peaks over Threshold)", years, gpd_rl, color=1, width=2.5)],
         x=C.axis("Wiederkehrperiode (Jahre)", type="log"), y=C.axis("Tagesverlust", fmt="pct", digits=0),
         subtitle="Punkte: tatsächliche Verluste; der k-größte Verlust kommt im Mittel einmal in (n + 1)/k Tagen vor.",
         vlines=[C.vline(10, "10 Jahre"), C.vline(100, "100 Jahre")],

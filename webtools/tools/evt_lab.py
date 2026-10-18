@@ -25,7 +25,7 @@ SPEC = {
         "**Generalisierten Pareto-Verteilung (GPD)**.\n\n"
         "Wähle eine Ausgangsverteilung, simuliere Tagesverluste und vergleiche die geschätzten ξ mit der Theorie. "
         "Der **Likelihood-Quotienten-Test** prüft, ob ξ signifikant von 0 abweicht; bei der Normalverteilung "
-        "konvergieren Maxima nur langsam, kleine negative Schätzungen sind daher normal.\n\n"
+        "konvergieren Maxima nur sehr langsam, Schätzungen um −0,1 bis −0,15 sind daher normal.\n\n"
         "Im **Wiederkehr-Diagramm** ist die Gumbel-Form eine Gerade über der logarithmischen Zeitachse. Fréchet "
         "biegt nach oben ab (die nächste Katastrophe ist größer, als die Gerade vermuten lässt), Weibull flacht ab. "
         "Verluste sind positive Dezimalzahlen (0,05 = 5 % an einem Tag)."
@@ -167,14 +167,14 @@ def run(params, data, out):
     t_blocks = np.geomspace(1.05, 2000, 120)
     years = t_blocks * m / DAYS
     k_max = max(2, min(nb, int((nb + 1) / t_blocks[0])))
-    rank = np.unique(np.geomspace(1, k_max, 40).round().astype(int))  # evenly spread on the log axis
+    rank = np.unique(np.geomspace(1, k_max, 28).round().astype(int))  # evenly spread on the log axis
     emp_years = (nb + 1) / rank * m / DAYS
     out.chart(C.xy(
         "Wiederkehrniveau: Blockmaximum, das einmal in T Jahren überschritten wird",
-        [C.trace(f"GEV (ξ = {_de(xi_gev)})", years, gev.return_level(t_blocks), color=1, width=2.5),
+        [C.trace("Beobachtete Blockmaxima", emp_years, np.sort(maxima)[::-1][rank - 1], type="scatter", color=4,
+                 size=5, decimate_to=None),  # first, so the fitted curves stay visible on top
          C.trace("Gumbel (ξ = 0)", years, gumbel.return_level(t_blocks), color="muted", dash=True),
-         C.trace("Beobachtete Blockmaxima", emp_years, np.sort(maxima)[::-1][rank - 1], type="scatter", color=4,
-                 size=6, decimate_to=None)],
+         C.trace(f"GEV (ξ = {_de(xi_gev)})", years, gev.return_level(t_blocks), color=1, width=2.5)],
         x=C.axis("Wiederkehrperiode (Jahre)", type="log"), y=C.axis("Verlust", fmt="pct", digits=0),
         subtitle="Gumbel ist hier eine Gerade. Je größer ξ, desto stärker steigt die Kurve für seltene Ereignisse.",
     ))

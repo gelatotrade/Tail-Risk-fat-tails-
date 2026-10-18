@@ -76,8 +76,11 @@ def run(params, data, out):
     n = data.n
     x, xa = index_axis(data)
     label = (lambda i: _date_de(x[i])) if data.dates else (lambda i: f"Tag {i}")
-    real = data.vix is not None
-    vix = np.asarray(data.vix, dtype=float) if real else np.asarray(generate_vix_from_returns(r), dtype=float)
+    # synthetic and crisis datasets carry a VIX that data.py derived from the returns (generate_vix_from_returns)
+    derived = data.meta.get("source") in ("synthetic", "crisis")
+    real = data.vix is not None and not derived
+    vix = (np.asarray(data.vix, dtype=float) if data.vix is not None
+           else np.asarray(generate_vix_from_returns(r), dtype=float))
 
     an = VIXAnalyzer()
     an.add_data(vix)
@@ -129,9 +132,11 @@ def run(params, data, out):
                         f"VIX {vix[-1]:.1f} im Regime „{reg_de}“, {pct:.0f}. Perzentil des letzten Fensters; "
                         f"Mean-Reversion: {SIGNAL.get(mr['signal'], mr['signal'])}.".replace(".", ",", 1))
     else:
-        out.note("Der Datensatz enthält keinen VIX. Das Framework leitet ihn aus der realisierten Volatilität ab "
-                 "(`generate_vix_from_returns`, Niveau 15 + 100 × Jahresvola) – die Werte sind illustrativ und meist "
-                 "höher als der echte VIX.", "warning")
+        out.note(("Der VIX dieses synthetischen Datensatzes ist" if derived else
+                  "Der Datensatz enthält keinen VIX, deshalb wird er hier")
+                 + " aus der realisierten Volatilität abgeleitet (`generate_vix_from_returns`, Niveau 15 + 100 × "
+                 "Jahresvola). Die Werte sind illustrativ und meist höher als ein echter VIX – deshalb gibt es keine "
+                 "Einschätzung.", "warning")
 
     # ---- charts ---------------------------------------------------------------------------------------
     out.chart(C.xy(

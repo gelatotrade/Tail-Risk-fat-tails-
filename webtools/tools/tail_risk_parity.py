@@ -115,7 +115,8 @@ def run(params, data, out):
                    subtitle="Negativ heißt: Das Asset gewinnt im Mittel, wenn das Portfolio crasht."))
     corr = np.corrcoef(R.T)  # realised: what the optimiser actually sees
     out.chart(C.heatmap("Korrelationen der simulierten Renditen", names, names, corr,
-                        z=C.axis("Korrelation", digits=2, range=(-1, 1)), scale="diverging", annotate=k <= 8,
+                        z=C.axis("Korrelation", digits=2, range=(min(0.0, float(corr.min())), 1)), scale="sequential",
+                        annotate=k <= 8,
                         subtitle="Hoch korrelierte Assets crashen gemeinsam und teilen sich den Rand.",
                         height=320 + 12 * k))
 
@@ -133,8 +134,8 @@ def run(params, data, out):
               [[lbl, stats_p[key]["vol"], stats_p[key]["var"], stats_p[key]["es_hist"], stats_p[key]["dev"],
                 stats_p[key]["mdd"]] for key, (lbl, _, _) in portfolios.items()],
               formats=["text", "pct", "pct", "pct", "pct", "pct"],
-              note=f"{n_days} simulierte Handelstage; ES historisch. Risikobeiträge aus den "
-                   f"{int(round(n_days * (1 - conf)))} schlechtesten Portfolio-Tagen.")
+              note=f"{n_days:,} simulierte Handelstage; ES historisch. Risikobeiträge aus den ".replace(",", ".")
+                   + f"{int(round(n_days * (1 - conf)))} schlechtesten Portfolio-Tagen.")
     if tp["dev"] > 0.05:
         hedge = [names[i] for i in range(k) if tp["mes"][i] <= 0]
         out.note("Keine exakte Gleichverteilung gefunden"

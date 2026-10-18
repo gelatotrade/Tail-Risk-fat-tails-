@@ -52,7 +52,7 @@ SPEC = {
         {"name": "forecast_days", "type": "int", "default": 20, "min": 1, "max": 120, "step": 1,
          "label": "Prognosehorizont (Tage)"},
         {"name": "coord_window", "type": "int", "default": 30, "min": 8, "max": 120, "step": 2,
-         "label": "Fenster für den 3D-Regimeraum"},
+         "label": "Fenster für den 3D-Regimeraum", "help": "Handelstage je Schätzung von Volatilität und Wechselneigung."},
         {"name": "max_years", "type": "int", "default": 15, "min": 2, "max": 60, "step": 1,
          "label": "Zeitraum (letzte Jahre)", "help": "Lange Reihen werden auf die letzten Jahre gekürzt (Rechenzeit)."},
     ],
@@ -192,7 +192,8 @@ def run(params, data, out):
         "Wahrscheinlichkeit des Stress-Regimes",
         [C.trace("P(Stress)", x, probs[:, -1], type="area", color="critical", width=1)],
         x=xa, y=C.axis("Wahrscheinlichkeit", fmt="pct", digits=0, range=(0, 1)),
-        hlines=[C.hline(0.5, "50 %")], height=260,
+        hlines=[C.hline(0.5, "50 %")],
+        subtitle="Gefilterte Wahrscheinlichkeit des volatilsten Zustands; über 50 % ist er der wahrscheinlichste.",
     ))
 
     # --- chart 3: realised volatility and the simple vol regimes
@@ -204,7 +205,7 @@ def run(params, data, out):
         x=xa, y=C.axis("Volatilität p. a.", fmt="pct", digits=0),
         hlines=[C.hline(hi_thr, f"hoch: über {int(vp)}. Perzentil"), C.hline(lo_thr, f"niedrig: unter {int(100 - vp)}. Perzentil")],
         subtitle="Grundlage der Tabelle „VaR je Volatilitäts-Regime“. Die Perzentile stammen aus der ganzen Reihe.",
-        height=260,
+        height=260 + 30 * k,
     ))
 
     # --- chart 4: transition matrix

@@ -176,6 +176,8 @@ def run(params, data, out):
         curve = "**VIX-Kurve modelliert:** Der Datensatz hat kein VIX3M, M1/M2 werden aus dem VIX simuliert."
     if not vix_real:
         curve += " Auch der VIX fehlt – er wird aus den Renditen abgeleitet (`generate_vix_from_returns`)."
+    elif data.meta.get("source") in ("synthetic", "crisis"):
+        curve += " Der VIX dieses synthetischen Datensatzes ist selbst aus den Renditen abgeleitet."
     out.note(curve + " Alle Werte sind kausal: Tag *t* nutzt nur Daten bis *t* (`causal=True`).", "info")
 
     # ---- gauge + contributions --------------------------------------------------------------------
@@ -225,7 +227,7 @@ def run(params, data, out):
     out.chart(C.heatmap(
         "Welcher Indikator schlug wann an?", [x[a] for a in starts], rows, z,
         x=xa if data.dates else C.axis("Handelstag", fmt="int"), y=C.axis("", type="category"),
-        z=C.axis("Score"), scale="risk",
+        z=C.axis("Score", range=(0, 100)), scale="risk",
         subtitle=f"Mittlerer Score je {step} Handelstage (0 = ruhig, 100 = maximale Warnung).", height=400,
     ))
 

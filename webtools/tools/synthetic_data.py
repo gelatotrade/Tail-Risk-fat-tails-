@@ -87,11 +87,14 @@ def run(params, data, out):
     out.metric("Schlechtester Tag (alle)", min(r[4] for r in rows), "pct", digits=1)
 
     # ---- price paths --------------------------------------------------------------------------------
+    paths = {m: 100 * np.exp(np.cumsum(series[m])) for m in ORDER}
+    lo_p, hi_p = min(float(v.min()) for v in paths.values()), max(float(v.max()) for v in paths.values())
     out.chart(C.xy(
         "Kursverläufe der sechs Modelle",
-        [C.trace(SHORT[m], days, 100 * np.exp(np.cumsum(series[m])), color="muted" if m == "gaussian" else i,
-                 width=1.2) for i, m in enumerate(ORDER)],
-        x=C.axis("Handelstag", fmt="int"), y=C.axis("Kurs (Start 100)", type="log"),
+        [C.trace(SHORT[m], days, paths[m], color="muted" if m == "gaussian" else i, width=1.2)
+         for i, m in enumerate(ORDER)],
+        x=C.axis("Handelstag", fmt="int"),
+        y=C.axis("Kurs (Start 100)", type="log" if hi_p > 10 * lo_p else "linear"),
         subtitle="Gleiche Länge, gleicher Seed. Lévy- und Sprungmodelle springen, GARCH und Regimewechsel "
                  "haben unruhige Phasen.",
     ))
@@ -122,8 +125,8 @@ def run(params, data, out):
               ["Modell", "Vola p. a.", "Schiefe", "Exzess-Kurtosis", "Schlechtester Tag", "Bester Tag",
                "Max. Drawdown", "Tage jenseits 4 σ"], rows,
               formats=["text", "pct", "num", "num", "pct", "pct", "pct", "int"],
-              note=f"Eine Normalverteilung hätte bei {n} Tagen im Mittel {n * 2 * stats.norm.sf(4):.2f} Tage "
-                   "jenseits von 4 σ.".replace(".", ","))
+              note=f"Eine Normalverteilung hätte bei {n} Tagen im Mittel "
+                   f"{n * 2 * stats.norm.sf(4):.2f}".replace(".", ",") + " Tage jenseits von 4 σ.")
 
     # ---- crisis scenario + VIX proxy ------------------------------------------------------------------
     cr, meta = generate_crisis_scenario(n_pre=int(params["n_pre"]), n_crisis=int(params["n_crisis"]),
@@ -136,9 +139,9 @@ def run(params, data, out):
     out.chart(C.xy(
         "Krisenszenario: Kurs",
         [C.trace("Kurs (Start 100)", cdays, 100 * np.exp(np.cumsum(cr)), color=1, width=1.4)],
-        x=C.axis("Handelstag", fmt="int"), y=C.axis("Kurs"), bands=band,
-        vlines=[C.vline(peak, "Peak laut Metadaten")],
-        subtitle=f"Ruhig ({a} T) → Krise ({b - a} T) → Erholung ({len(cr) - b} T).",
+        x=C.axis("Handelstag", fmt="int"), y=C.axis("Kurs"), bands=[C.band(a, b, "", "critical")],
+        vlines=[C.vline(peak, "Krisen-Peak laut Metadaten")],
+        subtitle=f"Rot hinterlegt: Krise. Ruhig ({a} T) → Krise ({b - a} T) → Erholung ({len(cr) - b} T).",
     ))
     out.chart(C.xy(
         "Krisenszenario: abgeleiteter VIX",
@@ -175,6 +178,14 @@ def run(params, data, out):
         v = np.asarray(sample[key], dtype=float)
         srows.append([key, f"VIX {src}", len(v), None, None, None,
                       f"Mittel {v.mean():.1f}, Spitze {v.max():.1f}".replace(".", ",")])
+    sample_crisis = float(np.expm1(np.asarray(sample["crisis"])[sm["crisis_start"]:sm["crisis_end"]].sum()))
+    if sample_crisis > 0:
+        out.note(f"Achtung: Die Beispielreihe „crisis“ (Seed 43) steigt in ihrem Krisenfenster um "
+                 f"{sample_crisis * 100:.0f} %".replace(".", ",") + ". Die Hauptkrise zieht aus einer symmetrischen "
+                 "t-Verteilung (ν = 3) mit sehr großer Skala, deren Schwankung die negative Drift überdeckt – bei "
+                 "rund einem Fünftel der Seeds wird so aus der Krise eine Rally. Seed 43 ist auch die Vorgabe des "
+                 "Datensatzes „Krisenszenario“; wähle dort einen anderen Seed (z. B. 42) für einen echten Crash.",
+                 "warning")
     out.table("Beispieldaten des Frameworks (load_sample_data)",
               ["Reihe", "Modell", "Länge", "Vola p. a.", "Exzess-Kurtosis", "Rendite gesamt", "Hinweis"], srows,
               formats=["text", "text", "int", "pct", "num", "pct", "text"],
