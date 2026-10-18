@@ -160,7 +160,7 @@ class Result:
                hint: str = "", status: Optional[str] = None, unit: str = "", badge: str = "") -> "Result":
         """A headline number.  ``fmt='pct'`` expects a fraction (0.0123 -> 1,23 %).
 
-        ``status`` adds a coloured badge (default labels: Low / Elevated / High / Critical);
+        ``status`` adds a coloured badge (default labels: Normal / Elevated / High / Critical);
         ``badge`` overrides its text, e.g. ``badge="Fat tails"``.
         """
         assert fmt in FORMATS, fmt

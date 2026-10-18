@@ -42,7 +42,7 @@ export function heroChart(pulse, { width = 560, height = 300 } = {}) {
     grid.push(`<text x="${pad.l - 6}" y="${Y(10 ** e) + 4}" text-anchor="end" font-size="10.5" fill="var(--muted)">10${sup(e)}</text>`);
   }
   for (let s = Math.ceil(lo / 2) * 2; s <= hi; s += 2) {
-    grid.push(`<text x="${X(s)}" y="${pad.t + H + 18}" text-anchor="middle" font-size="10.5" fill="var(--muted)">${s > 0 ? '+' : ''}${s}σ</text>`);
+    grid.push(`<text x="${X(s)}" y="${pad.t + H + 18}" text-anchor="middle" font-size="10.5" fill="var(--muted)">${s > 0 ? '+' : s < 0 ? '−' : ''}${Math.abs(s)}σ</text>`);
   }
   const worst = Math.min(...z);
   const worstLbl = `Worst day: ${fmt(Math.min(...pulse.returns), 'pct', 1)} (${fmt(Math.abs(worst), 'num', 1)}σ)`;

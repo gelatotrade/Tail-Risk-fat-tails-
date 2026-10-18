@@ -5,6 +5,7 @@ import numpy as np
 from src.visualization.phase_space import PhaseSpaceAnalyzer
 
 from .. import charts as C
+from ..data import fmt_date
 from ..core import ToolError
 
 SPEC = {
@@ -64,8 +65,6 @@ REGIME_LABELS = {"LOW_VOL": "Calm (low vol)", "NORMAL": "Normal", "HIGH_VOL": "S
 RANK_COLORS = (1, 4, 2, 7, 5, 8)  # attractors ordered calm -> stress: blue, amber, orange, ... (never green for stress)
 MAX_CLOUD = 500   # points per attractor in the 3D cloud: denser clouds hide the recent path (the original figure
                   # and the 2D charts always get every day)
-MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-
 
 def _num(x, digits=2):
     """Number inside text: decimal point, thousands comma, typographic minus."""
@@ -80,12 +79,6 @@ def _signed(x, digits=2, unit=""):
     return ("+" if x > 0 else "−" if x < 0 else "±") + s + unit
 
 
-def _date(d):
-    """ISO date -> '15 Oct 2026'; anything else is returned unchanged."""
-    s = str(d)
-    if len(s) == 10 and s[4] == "-":
-        return f"{int(s[8:10])} {MONTHS[int(s[5:7]) - 1]} {s[:4]}"
-    return s
 
 
 def _regime_label(label):
@@ -124,7 +117,7 @@ def run(params, data, out):
     dates = list(data.dates[-n:]) if data.dates else None
     x_time = dates if dates else list(range(data.n - n + 1, data.n + 1))
     x_axis = C.axis("", type="date") if dates else C.axis("Trading day", fmt="int")
-    day_txt = [_date(d) for d in dates] if dates else [f"Day {i}" for i in x_time]
+    day_txt = [fmt_date(d) for d in dates] if dates else [f"Day {i}" for i in x_time]
 
     out.progress("Phase-space coordinates …", 0.05)
     psa = PhaseSpaceAnalyzer(r, window=w)
@@ -259,7 +252,7 @@ def run(params, data, out):
     for cid in sorted(rank, key=rank.get):
         c = centers[cid - 1]
         mask = lab_v == cid
-        last = _date(x_time[idx[np.flatnonzero(mask)[-1]]]) if mask.any() and dates else (
+        last = fmt_date(x_time[idx[np.flatnonzero(mask)[-1]]]) if mask.any() and dates else (
             f"Day {x_time[idx[np.flatnonzero(mask)[-1]]]}" if mask.any() else "–")
         rows.append([names[cid] + (" ← today" if cid == cur else ""), float(c[0]), float(c[1]),
                      float(c[1] * np.sqrt(252)), float(c[2]), float(mask.mean()), _mean_run(lab_v, cid), last])

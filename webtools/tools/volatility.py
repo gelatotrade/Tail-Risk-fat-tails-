@@ -1,4 +1,4 @@
-"""Estimating volatility: rolling window vs. EWMA (RiskMetrics) vs. realised, with a VaR backtest."""
+"""Estimating volatility: rolling window vs EWMA (RiskMetrics) vs realised, with a VaR backtest."""
 
 import numpy as np
 from scipy import stats

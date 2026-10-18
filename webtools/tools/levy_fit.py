@@ -10,7 +10,7 @@ from ..core import ToolError
 
 SPEC = {
     "id": "levy-fit",
-    "title": "Lévy fit, tail index & VaR",
+    "title": "Lévy fit, tail index and VaR",
     "group": "physics",
     "order": 20,
     "summary": "Fits a Lévy-stable distribution to your returns, estimates the tail index with Hill and Pickands, "

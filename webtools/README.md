@@ -96,7 +96,12 @@ behaviour, optimise, centre, programme). Write for risk managers, treasury and c
 * **Parameter labels** are noun phrases in sentence case ("Confidence level", "Window (trading
   days)"); units in the label or in `unit`.
 * **Numbers**: decimal point, thousands comma (1,234.56); percentages without a space (2.5%);
-  dates as `15 Oct 2026` in prose. Formatting of values is done by the front end — pass raw numbers.
+  dates as `15 Oct 2026` in prose (`webtools.data.fmt_date`). Formatting of values is done by the
+  front end — pass raw numbers. Units follow the same typography: `unit="%"` and `"σ"` attach to
+  the number, `"$bn"` wraps it ($4.2bn), word units get the singular for exactly one (1 trading day).
+* **Labels**: confidence level first ("99% VaR · historical", "97.5% Expected Shortfall"); "vs"
+  without a full stop; "and" rather than "&" in titles; single quotes in prose (‘Original scripts’).
+  Negative numbers in text use the minus sign (−2.5%), as the front end does.
 * Keep established terms in English finance usage (see glossary); do not invent synonyms.
 
 | German | English (use this) |

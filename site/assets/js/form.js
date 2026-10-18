@@ -1,5 +1,5 @@
 // Parameter forms generated from a tool SPEC.
-import { escapeHtml } from './format.js';
+import { escapeHtml, withUnit } from './format.js';
 import { parseNumber } from './data.js';
 
 const dec = (step) => { const s = String(step ?? 1); return s.includes('.') ? s.split('.')[1].length : 0; };
@@ -33,7 +33,7 @@ export function buildForm(spec, values, onChange) {
       const step = p.step ?? (p.type === 'int' ? 1 : (p.max - p.min) / 100);
       el = document.createElement('label');
       el.className = 'field';
-      el.innerHTML = `<span class="lbl"><b>${escapeHtml(p.label)}</b><output for="${id}">${show(v, step)}${p.unit ? ' ' + escapeHtml(p.unit) : ''}</output></span>
+      el.innerHTML = `<span class="lbl"><b>${escapeHtml(p.label)}</b><output for="${id}">${escapeHtml(withUnit(show(v, step), p.unit, v))}</output></span>
         <div class="range-row"><input type="range" id="${id}" min="${p.min}" max="${p.max}" step="${step}" value="${v}">
         <input type="text" inputmode="decimal" class="num-box" value="${show(v, step)}" aria-label="${escapeHtml(p.label)} (number)"></div>
         ${p.help ? `<span class="help">${escapeHtml(p.help)}</span>` : ''}`;
@@ -43,7 +43,7 @@ export function buildForm(spec, values, onChange) {
         if (!Number.isFinite(x)) { num.value = show(state[p.name], step); return; }
         x = Math.min(p.max, Math.max(p.min, x));
         if (p.type === 'int') x = Math.round(x);
-        range.value = x; num.value = show(x, step); out.textContent = show(x, step) + (p.unit ? ' ' + p.unit : '');
+        range.value = x; num.value = show(x, step); out.textContent = withUnit(show(x, step), p.unit, x);
         emit(p.name, x, commit);
       };
       range.addEventListener('input', () => set(Number(range.value), false));

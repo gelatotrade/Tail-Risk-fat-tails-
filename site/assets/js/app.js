@@ -126,7 +126,7 @@ function catalogueHtml() {
     return `<div class="tool-group" data-group="${g.id}"><div class="group-title">${icon(g.id, 'width="15" height="15"')} ${escapeHtml(g.title)}</div><div class="tool-grid">${tools.map(toolCard).join('')}</div></div>`;
   }).join('');
   return `<div class="catalogue-bar">
-      <label class="search">${icon('search')}<input type="search" placeholder="Search tools – e.g. VaR, Lévy, VIX, Excel …" aria-label="Search tools"></label>
+      <label class="search">${icon('search')}<input type="search" placeholder="Search, e.g. VaR or VIX" aria-label="Search tools"></label>
       <div class="seg" role="tablist" aria-label="Filter">
         <button type="button" data-f="all" aria-selected="true">All</button>
         <button type="button" data-f="data" aria-selected="false">Uses your data</button>
@@ -253,7 +253,7 @@ async function renderHome() {
 function renderCatalogue() {
   view.innerHTML = `<section class="section wrap">
     <div class="section-head"><div><h1 style="font-size:clamp(26px,3vw,36px);letter-spacing:-.03em">Tools</h1>
-    <p>Every tool calls the framework's original Python code. Tools marked "uses your data" work on the selected dataset; simulations generate their own paths.</p></div></div>
+    <p>Every tool calls the framework's original Python code. Tools marked ‘uses your data’ work on the selected dataset; simulations generate their own paths.</p></div></div>
     ${catalogueHtml()}</section>`;
   wireCatalogue(view);
   prewarmOnIntent(view);
@@ -272,7 +272,7 @@ function wireGallery(root) {
 function renderGallery() {
   const secs = app.gallery?.sections || [];
   view.innerHTML = `<section class="section wrap"><div class="section-head"><div><h1 style="font-size:clamp(26px,3vw,36px);letter-spacing:-.03em">Gallery</h1>
-    <p>Every figure produced by the repository's scripts. Under "Original scripts" you can regenerate them in your browser.</p></div></div>
+    <p>Every figure produced by the repository's scripts. Under ‘Original scripts’ you can regenerate them in your browser.</p></div></div>
     ${secs.map((s) => `<div class="group-title">${escapeHtml(s.title)}</div><div class="gallery">${s.items.map(galleryItem).join('')}</div>`).join('')}</section>`;
   wireGallery(view);
 }
@@ -687,7 +687,7 @@ async function renderTool(id, query, { autorun } = {}) {
       if (job.detach) return;
       waiting?.dispose?.(); waiting?.remove();
       results.classList.remove('stale');
-      if (err instanceof CancelledError) { toast('Calculation cancelled.'); if (!results.children.length) results.appendChild(h('<div class="empty">Cancelled. Press “Calculate” to start again.</div>')); }
+      if (err instanceof CancelledError) { toast('Calculation cancelled.'); if (!results.children.length) results.appendChild(h('<div class="empty">Cancelled. Press ‘Calculate’ to start again.</div>')); }
       else renderError(results, { error: err.message, traceback: err.traceback, kind: err.kind }, { onRetry: () => run() });
     } finally {
       job.done = true;

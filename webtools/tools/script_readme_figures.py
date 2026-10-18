@@ -1,17 +1,18 @@
-"""Abbildungen der Dokumentation – runs `generate_readme_figures.py` unmodified in the browser."""
+"""Documentation figures – runs `generate_readme_figures.py` unmodified in the browser."""
 
 from ..scriptrunner import QUALITY_PARAM, script_tool
 
 SPEC = {
     "id": "script-readme-figures",
-    "title": "Abbildungen der Dokumentation",
+    "title": "Documentation figures",
     "group": "scripts",
     "order": 20,
-    "summary": "Erzeugt die fünf Grundlagen-Grafiken des README: fette Ränder, Physik-Mapping, Tail-Index, VaR-Vergleich, Frühwarnsignale.",
+    "summary": "Generates the README's five core figures: fat tails, physics mapping, tail index, VaR comparison, "
+               "early-warning signals.",
     "description": (
-        "Führt `generate_readme_figures.py` aus. Die Grafiken entstehen aus synthetischen Daten mit festem Seed und "
-        "sind deshalb reproduzierbar – das Ergebnis sollte den Bildern im Repository entsprechen.\n\n"
-        "Gut geeignet, um zu prüfen, dass das ganze Framework im Browser identisch rechnet."
+        "Runs `generate_readme_figures.py`. The figures are generated from synthetic data with a fixed seed and "
+        "are therefore reproducible – the result should match the images in the repository.\n\n"
+        "Useful for verifying that the entire framework produces identical results in the browser."
     ),
     "needs": [],
     "params": [QUALITY_PARAM],

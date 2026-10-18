@@ -1,4 +1,4 @@
-"""Marktbreite: breadth thrust and price/breadth divergence on a simulated multi-asset market."""
+"""Market breadth: breadth thrust and price/breadth divergence on a simulated multi-asset market."""
 
 import numpy as np
 
@@ -10,34 +10,35 @@ from .. import charts as C
 
 SPEC = {
     "id": "market-breadth",
-    "title": "Marktbreite: Thrust & Divergenz",
+    "title": "Market breadth: thrust and divergence",
     "group": "warning",
     "order": 50,
-    "summary": "Wie viele Aktien den Index tragen – Breadth-Thrust- und Divergenz-Signale auf einem "
-               "simulierten Markt mit vielen Einzelwerten.",
+    "summary": "How many stocks are carrying the index: breadth-thrust and divergence signals on a simulated "
+               "market with many individual stocks.",
     "description": (
-        "**Marktbreite** misst, wie viele Aktien eine Bewegung mittragen. Zwei Kennzahlen: der Anteil der "
-        "Aktien über ihrer 50-Tage-Linie und die **Advance/Decline-Linie** (kumuliert: steigende minus "
-        "fallende Titel je Tag). Der `MarketBreadthAnalyzer` des Frameworks sucht damit zwei Signale: einen "
-        "**Breadth Thrust** (die Breite springt in 10 Tagen um mehr als 40 Prozentpunkte – oft der Start einer "
-        "Erholung) und eine **Divergenz** (der Index markiert ein 20-Tage-Hoch, die A/D-Linie nicht – die Rally "
-        "steht auf wenigen Schultern, ein klassisches Warnzeichen).\n\n"
-        "Da echte Einzelwertdaten fehlen, erzeugt `SyntheticMarketGenerator` einen Markt aus korrelierten "
-        "Aktien mit fetten Rändern; der Index ist ihr gleichgewichteter Mittelwert. Die **gemeinsame "
-        "Marktkorrelation** steuert, wie stark die Titel gemeinsam schwanken: Im Original (0) schwanken die "
-        "Paarkorrelationen um null, die Breite bewegt sich dann kaum. Reale Aktien liegen bei etwa 0,3–0,5.\n\n"
-        "So liest du die Diagramme: Grüne Punkte markieren Thrust-Signale, orange Divergenz-Tage. Die Tabelle "
-        "zeigt, wie sich der Index danach entwickelte. Jeder Wert nutzt nur Daten bis zum jeweiligen Tag."
+        "**Market breadth** measures how many stocks participate in a move. Two measures are used: the share "
+        "of stocks above their 50-day moving average and the **advance/decline line** (cumulative advancing "
+        "minus declining stocks per day). The framework's `MarketBreadthAnalyzer` uses them to look for two "
+        "signals: a **breadth thrust** (breadth jumps by more than 40 percentage points within 10 days, often "
+        "the start of a recovery) and a **divergence** (the index makes a 20-day high but the A/D line does "
+        "not, so the rally is carried by only a few stocks – a classic warning sign).\n\n"
+        "As real single-stock data are not available, `SyntheticMarketGenerator` creates a market of "
+        "correlated stocks with fat tails; the index is their equally weighted average. The **common market "
+        "correlation** controls how strongly the stocks move together: in the original generator (0) the "
+        "pairwise correlations scatter around zero and breadth barely moves. Real stocks sit at roughly "
+        "0.3–0.5.\n\n"
+        "How to read the charts: green dots mark thrust signals, orange dots divergence days. The table shows "
+        "how the index performed afterwards. Each value uses only data up to the day in question."
     ),
     "needs": [],
     "params": [
-        {"name": "n_assets", "type": "int", "default": 40, "min": 5, "max": 150, "step": 5, "label": "Anzahl Aktien"},
+        {"name": "n_assets", "type": "int", "default": 40, "min": 5, "max": 150, "step": 5, "label": "Number of stocks"},
         {"name": "n_days", "type": "int", "default": 1000, "min": 260, "max": 3000, "step": 20,
-         "label": "Handelstage", "unit": "Tage"},
+         "label": "Trading days", "unit": "days"},
         {"name": "base_corr", "type": "float", "default": 0.3, "min": 0.0, "max": 0.9, "step": 0.05,
-         "label": "Gemeinsame Marktkorrelation",
-         "help": "0 = Original-Generator (Paarkorrelationen um null). Reale Aktien: etwa 0,3–0,5."},
-        {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 99999, "step": 1, "label": "Zufalls-Seed"},
+         "label": "Common market correlation",
+         "help": "0 = original generator (pairwise correlations around zero). Real stocks: about 0.3–0.5."},
+        {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 99999, "step": 1, "label": "Random seed"},
     ],
     "covers": [
         "src.utils.data_loader.SyntheticMarketGenerator",
@@ -99,76 +100,76 @@ def run(params, data, out):
     corr = np.asarray(mkt["correlations"], dtype=float)
     iu = np.triu_indices(k, 1)
     dd = index / np.maximum.accumulate(index) - 1
-    out.metric("Breite heute", b50[-1] / 100, "pct", digits=0, hint="Aktien über ihrer 50-Tage-Linie")
-    out.metric("Breadth-Thrust-Signale", len(signals), "int",
-               hint=f"+40 Prozentpunkte Breite in 10 Tagen · {int(thrust.sum())} Signaltage")
-    out.metric("Divergenz-Tage", int(diverg.sum()), "int", hint="Index auf 20-Tage-Hoch, A/D-Linie nicht",
+    out.metric("Breadth today", b50[-1] / 100, "pct", digits=0, hint="Stocks above their 50-day moving average")
+    out.metric("Breadth-thrust signals", len(signals), "int",
+               hint=f"+40 percentage points of breadth in 10 days · {int(thrust.sum()):,} signal days")
+    out.metric("Divergence days", int(diverg.sum()), "int", hint="Index at a 20-day high, A/D line not",
                status="warning" if diverg[-5:].any() else None)
     realised = np.corrcoef(R.T)[iu]
-    out.metric("Ø Paarkorrelation", float(realised.mean()), "num", digits=2,
-               hint=f"realisiert, {k} Aktien · Vorgabe {corr[iu].mean():.2f}".replace(".", ","))
-    out.metric("Indexrendite gesamt", float(index[-1] / 100 - 1), "pct", digits=1)
-    out.metric("Max. Drawdown des Index", float(dd.min()), "pct", digits=1)
+    out.metric("Mean pairwise correlation", float(realised.mean()), "num", digits=2,
+               hint=f"realised, {k} stocks · target {corr[iu].mean():.2f}")
+    out.metric("Total index return", float(index[-1] / 100 - 1), "pct", digits=1)
+    out.metric("Maximum index drawdown", float(dd.min()), "pct", digits=1)
 
     out.chart(C.xy(
-        "Index mit Breiten-Signalen",
-        [C.trace("Index (gleichgewichtet)", x, index, color=1, width=1.4),
-         C.trace("Divergenz (Warnung)", [x[i] for i in np.flatnonzero(diverg)], index[diverg], type="scatter",
+        "Index with breadth signals",
+        [C.trace("Index (equally weighted)", x, index, color=1, width=1.4),
+         C.trace("Divergence (warning)", [x[i] for i in np.flatnonzero(diverg)], index[diverg], type="scatter",
                  color="warning", size=6, decimate_to=None),
-         C.trace("Breadth Thrust", [x[i] for i in signals], index[signals], type="scatter", color="good", size=10,
+         C.trace("Breadth thrust", [x[i] for i in signals], index[signals], type="scatter", color="good", size=10,
                  decimate_to=None)],
-        x=C.axis("Handelstag", fmt="int"), y=C.axis("Index (Start 100)"),
-        subtitle="Orange: Index auf Hoch, aber die Mehrheit der Aktien zieht nicht mit. Grün: breite Erholung setzt ein.",
+        x=C.axis("Trading day", fmt="int"), y=C.axis("Index (base 100)"),
+        subtitle="Orange: index at a high, but most stocks are not following. Green: a broad recovery is starting.",
     ))
     out.chart(C.xy(
-        "Anteil der Aktien über ihrem Durchschnitt",
-        [C.trace("über 50-Tage-Linie", x, b50 / 100, color=1, width=1.4)]
-        + ([C.trace("über 200-Tage-Linie", x, b200 / 100, color=2, width=1.2)] if n_days >= 200 else [])
-        + [C.trace("Thrust-Signal", [x[i] for i in signals], b50[signals] / 100, type="scatter", color="good", size=10,
+        "Share of stocks above their moving average",
+        [C.trace("Above 50-day average", x, b50 / 100, color=1, width=1.4)]
+        + ([C.trace("Above 200-day average", x, b200 / 100, color=2, width=1.2)] if n_days >= 200 else [])
+        + [C.trace("Thrust signal", [x[i] for i in signals], b50[signals] / 100, type="scatter", color="good", size=10,
                    decimate_to=None)],
-        x=C.axis("Handelstag", fmt="int"), y=C.axis("Anteil", fmt="pct", digits=0, range=(0, 1)),
-        subtitle="Ein Thrust: die Breite springt binnen 10 Tagen von überverkauft auf breit getragen.",
+        x=C.axis("Trading day", fmt="int"), y=C.axis("Share", fmt="pct", digits=0, range=(0, 1)),
+        subtitle="A thrust: within 10 days, breadth jumps from oversold to broad participation.",
     ))
     out.chart(C.xy(
-        "Advance/Decline-Linie",
-        [C.trace("A/D-Linie (kumuliert)", x, ad, color=3, width=1.4)],
-        x=C.axis("Handelstag", fmt="int"), y=C.axis("steigende minus fallende Aktien, kumuliert"),
-        subtitle="Steigt der Index, die A/D-Linie aber nicht mehr, tragen nur noch wenige Titel die Rally.",
+        "Advance/decline line",
+        [C.trace("A/D line (cumulative)", x, ad, color=3, width=1.4)],
+        x=C.axis("Trading day", fmt="int"), y=C.axis("Advancing minus declining stocks, cumulative"),
+        subtitle="If the index rises but the A/D line no longer does, only a few stocks are carrying the rally.",
     ))
     centers, counts = C.histogram(realised, bins=min(40, max(10, len(realised) // 10)), density=False)
     out.chart(C.xy(
-        "Paarkorrelationen der simulierten Aktien",
-        [C.trace("Aktienpaare", centers, counts, type="bar", color=1)],
-        x=C.axis("Korrelation der Tagesrenditen", digits=2), y=C.axis("Anzahl Paare", fmt="int"),
-        vlines=[C.vline(float(corr[iu].mean()), "Ziel des Generators"),
-                C.vline(float(realised.mean()), "Mittel realisiert", "ink", dash=False)],
-        subtitle=f"{len(realised)} Paare aus {k} Aktien. Je höher die Korrelation, desto stärker schwanken Breite "
-                 "und Index gemeinsam – und desto eher springt die Breite um 40 Punkte.",
+        "Pairwise correlations of the simulated stocks",
+        [C.trace("Stock pairs", centers, counts, type="bar", color=1)],
+        x=C.axis("Correlation of daily returns", digits=2), y=C.axis("Number of pairs", fmt="int"),
+        vlines=[C.vline(float(corr[iu].mean()), "Generator target"),
+                C.vline(float(realised.mean()), "Realised mean", "ink", dash=False)],
+        subtitle=f"{len(realised):,} pairs from {k} stocks. The higher the correlation, the more breadth and the "
+                 "index move together – and the more likely breadth is to jump by 40 points.",
     ))
 
     c = np.concatenate([[0.0], np.cumsum(mkt["market"])])
     fwd = np.full(n_days, np.nan)
     fwd[:n_days - H] = np.expm1(c[1 + H:] - c[1:n_days + 1 - H])
     rows = []
-    for name, idx in (("Breadth Thrust (erster Signaltag)", signals), ("Divergenz-Tag", np.flatnonzero(diverg)),
-                      ("Alle Tage ab Tag 50", np.arange(49, n_days))):
+    for name, idx in (("Breadth thrust (first signal day)", signals), ("Divergence day", np.flatnonzero(diverg)),
+                      ("All days from day 50", np.arange(49, n_days))):
         f = fwd[idx]
         f = f[np.isfinite(f)]
         rows.append([name, int(len(idx)), float(np.mean(f)) if f.size else None, float(np.mean(f > 0)) if f.size else None,
                      float(np.min(f)) if f.size else None])
-    out.table(f"Was folgte auf die Signale? (Index, nächste {H} Handelstage)",
-              ["Signal", "Anzahl", f"Ø Rendite {H} T", "Anteil positiv", "Schlechteste"], rows,
+    out.table(f"Outcomes after the signals (index, next {H} trading days)",
+              ["Signal", "Count", f"Mean return, {H}d", "Share positive", "Worst"], rows,
               formats=["text", "int", "pct", "pct", "pct"],
-              note="Auf einem simulierten Markt ohne echte Anleger zeigt das, wie die Regeln mechanisch reagieren – "
-                   "keine Prognosegüte für reale Märkte.")
+              note="On a simulated market without real investors, this shows how the rules react mechanically – "
+                   "not their forecasting power in real markets.")
     if len(signals):
         trows = [[int(t), float(b50[t - 10]) / 100, float(b50[t]) / 100, float(magnitude[t]) / 100,
                   float(fwd[t]) if np.isfinite(fwd[t]) else None] for t in signals[:15]]
-        out.table("Breadth-Thrust-Signale", ["Handelstag", "Breite vor 10 Tagen", "Breite", "Zuwachs",
-                                             f"Index nächste {H} T"], trows,
+        out.table("Breadth-thrust signals", ["Trading day", "Breadth 10 days earlier", "Breadth", "Increase",
+                                             f"Index, next {H}d"], trows,
                   formats=["int", "pct", "pct", "pct", "pct"],
-                  note="Zuwachs in Prozentpunkten der Breite. Signaltage mit weniger als 10 Tagen Abstand zählen "
-                       "als ein Signal, gezeigt ab dem ersten Tag.")
+                  note="Increase in percentage points of breadth. Signal days less than 10 days apart count as one "
+                       "signal, shown from its first day.")
     else:
-        out.note("Kein Breadth Thrust in diesem Markt. Mit höherer Marktkorrelation schwingt die Breite stärker – "
-                 "probier 0,4–0,5 oder einen anderen Seed.", "info")
+        out.note("No breadth thrust in this market. With a higher market correlation, breadth swings more "
+                 "strongly; try 0.4–0.5 or a different seed.", "info")

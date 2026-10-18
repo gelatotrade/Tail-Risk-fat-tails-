@@ -27,7 +27,7 @@ from .core import Result, ToolError
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 CAPTIONS = {
-    "fat_tails_comparison.png": "Fat tails vs. the normal distribution",
+    "fat_tails_comparison.png": "Fat tails vs the normal distribution",
     "physics_finance_mapping.png": "Physics → finance",
     "tail_index_interpretation.png": "Reading the tail index α",
     "var_comparison.png": "VaR methods compared",
@@ -60,7 +60,7 @@ CAPTIONS = {
     "current_market_dashboard.png": "Current market dashboard",
     "current_market_analysis.png": "Current market analysis",
     "current_state_jan2026.png": "Market conditions, January 2026",
-    "crisis_vs_current_comparison.png": "Crises vs. today",
+    "crisis_vs_current_comparison.png": "Crises vs today",
     "analysis_dashboard.png": "Tail-risk dashboard of your data",
     "tail_risk_report.txt": "Report",
     "analysis_report.txt": "Report",

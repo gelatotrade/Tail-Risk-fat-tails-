@@ -12,34 +12,34 @@ from ..core import ToolError
 
 SPEC = {
     "id": "tail-risk-dashboard",
-    "title": "Tail-Risk-Gesamtdashboard",
+    "title": "Integrated tail-risk dashboard",
     "group": "dashboard",
     "order": 10,
-    "summary": "Alles auf einen Blick: VaR, Expected Shortfall, Tail-Index, Volatilitätsregime und der "
-               "Composite-Risikoindex des Frameworks – mit Textbericht und zuschaltbarem Original-Dashboard.",
+    "summary": "Everything at a glance: VaR, Expected Shortfall, tail index, volatility regime and the framework's "
+               "composite risk index – with a text report and the original dashboard on demand.",
     "description": (
-        "`TailRiskDashboard` rechnet in einem Durchgang alles, was das Framework über die Ränder deiner Renditen "
-        "weiß: rollierenden VaR und Expected Shortfall (99 %, 60 Tage), Schiefe, Kurtosis und Hill-Tail-Index, "
-        "die drei Physik-Koordinatensysteme (Lévy, Tsallis, Phasenübergang) und das aktuelle Volatilitätsregime "
-        "(einfache Vola-Perzentile und ein Markov-Modell mit drei Zuständen). Die wichtigsten Reihen siehst du "
-        "interaktiv; die Original-Grafik (`create_full_dashboard`) mit allen 14 Feldern lässt sich zuschalten.\n\n"
-        "Der **Composite-Risikoindex** ist die Formel des Dashboards: (λ + 0,5·q + χ) / 2,5 aus Sprungintensität "
-        "λ = |r|/σ (Lévy), Tsallis-q und Suszeptibilität χ, danach auf 0–100 über die gezeigte Historie skaliert. "
-        "Über 75 heißt EXTREM, über 50 ERHÖHT, über 25 MODERAT. Weil λ die heutige Tagesbewegung misst, springt "
-        "der Index von Tag zu Tag – lies deshalb auch das 20-Tage-Mittel.\n\n"
-        "Der **Textbericht** (`create_summary_report`) fasst Momente, Tail-Index, VaR/ES und den 3σ-Vergleich "
-        "mit der Normalverteilung zusammen; du kannst ihn im Original herunterladen. **Zeitraum** begrenzt die "
-        "Rechnung auf die letzten Handelstage (das Markov-Modell ist der teuerste Teil).\n\n"
-        "Bei 60 Tagen liegt nur ein Wert jenseits des 99-%-VaR: Der rollierende Expected Shortfall ist dann genau "
-        "der größte Tagesverlust im Fenster – ein grobes, aber ehrliches Maß."
+        "`TailRiskDashboard` computes, in a single pass, everything the framework knows about the tails of your "
+        "returns: rolling VaR and Expected Shortfall (99%, 60 days), skewness, kurtosis and the Hill tail index, "
+        "the three physics coordinate systems (Lévy, Tsallis, phase transition) and the current volatility regime "
+        "(simple volatility percentiles and a three-state Markov model). The key series are shown interactively; "
+        "the original figure (`create_full_dashboard`) with all 14 panels can be switched on.\n\n"
+        "The **composite risk index** is the dashboard's own formula: (λ + 0.5·q + χ) / 2.5 from the jump "
+        "intensity λ = |r|/σ (Lévy), Tsallis q and the susceptibility χ, then scaled to 0–100 over the history "
+        "shown. Above 75 means EXTREME, above 50 ELEVATED, above 25 MODERATE. Because λ measures today's daily "
+        "move, the index jumps from day to day – so read the 20-day average as well.\n\n"
+        "The **text report** (`create_summary_report`) summarises moments, tail index, VaR/ES and the 3σ "
+        "comparison with the normal distribution; you can download it in its original form. **Period** limits the "
+        "calculation to the most recent trading days (the Markov model is the most expensive part).\n\n"
+        "With 60 days, only one value lies beyond the 99% VaR: the rolling Expected Shortfall is then exactly the "
+        "largest one-day loss in the window – a crude but honest measure."
     ),
     "needs": ["returns"],
     "params": [
         {"name": "last_n", "type": "int", "default": 2520, "min": 250, "max": 5000, "step": 250,
-         "label": "Zeitraum (letzte Handelstage)", "unit": "Tage",
-         "help": "2520 Tage ≈ 10 Jahre. Längere Zeiträume brauchen deutlich mehr Rechenzeit."},
-        {"name": "figure", "type": "bool", "default": False, "label": "Original-Dashboard (Matplotlib) zeichnen",
-         "help": "Die 14-Felder-Grafik aus create_full_dashboard – kostet im Browser rund 6 Sekunden extra."},
+         "label": "Period (most recent trading days)", "unit": "days",
+         "help": "2,520 days ≈ 10 years. Longer periods take considerably more computing time."},
+        {"name": "figure", "type": "bool", "default": False, "label": "Draw the original dashboard (Matplotlib)",
+         "help": "The 14-panel figure from create_full_dashboard – adds about 6 seconds in the browser."},
     ],
     "covers": [
         "src.visualization.dashboard.TailRiskDashboard",
@@ -51,40 +51,40 @@ SPEC = {
     "cost": "medium",
 }
 
-CLASSES = [(75, "EXTREM", "critical"), (50, "ERHÖHT", "serious"), (25, "MODERAT", "warning"), (-1, "NIEDRIG", "good")]
-REGIMES = {"LOW_VOL": "Niedrige Vola", "MEDIUM_VOL": "Mittlere Vola", "HIGH_VOL": "Hohe Vola", "UNKNOWN": "unbekannt",
-           "UNCONDITIONAL": "Gesamt (unbedingt)"}
+CLASSES = [(75, "EXTREME", "critical"), (50, "ELEVATED", "serious"), (25, "MODERATE", "warning"), (-1, "LOW", "good")]
+REGIMES = {"LOW_VOL": "Low volatility", "MEDIUM_VOL": "Medium volatility", "HIGH_VOL": "High volatility",
+           "UNKNOWN": "unknown", "UNCONDITIONAL": "Overall (unconditional)"}
 # MEDIUM_VOL is the middle half of the volatility history - normal, so it gets no warning colour
 REGIME_STATUS = {"LOW_VOL": "good", "MEDIUM_VOL": None, "HIGH_VOL": "serious"}
 
-# create_summary_report: English labels -> German
-REPORT_SECTIONS = {"BASIC STATISTICS": "Grundstatistik", "TAIL RISK METRICS": "Tail-Risiko",
-                   "TAIL PROBABILITY COMPARISON (3σ)": "3σ-Vergleich (beide Ränder)",
-                   "INTERPRETATION": "Einordnung des Berichts"}
-REPORT_LABELS = {"Mean Return": "Mittlere Tagesrendite", "Standard Deviation": "Standardabweichung (täglich)",
-                 "Skewness": "Schiefe", "Excess Kurtosis": "Exzess-Kurtosis", "Tail Index (α)": "Tail-Index α (Hill)",
-                 "VaR (99%)": "VaR 99 % (historisch)", "ES (99%)": "Expected Shortfall 99 %",
-                 "ES/VaR Ratio": "Verhältnis ES / VaR", "Gaussian Probability": "Normalverteilung: P(|r| > 3σ)",
-                 "Empirical Probability": "Beobachtet: P(|r| > 3σ)", "Fat Tail Ratio": "Faktor beobachtet / Gauß"}
-REPORT_REMARKS = {"(Fat tails!)": "fette\u00a0Ränder", "(Normal)": "im\u00a0Normalbereich",
-                  "(High tail risk)": "hohes\u00a0Tail-Risiko"}
+# create_summary_report: the report's labels -> the site's wording (sentence case, explicit thresholds)
+REPORT_SECTIONS = {"BASIC STATISTICS": "Basic statistics", "TAIL RISK METRICS": "Tail risk",
+                   "TAIL PROBABILITY COMPARISON (3σ)": "3σ comparison (both tails)",
+                   "INTERPRETATION": "Report assessment"}
+REPORT_LABELS = {"Mean Return": "Mean daily return", "Standard Deviation": "Standard deviation (daily)",
+                 "Skewness": "Skewness", "Excess Kurtosis": "Excess kurtosis", "Tail Index (α)": "Tail index α (Hill)",
+                 "VaR (99%)": "VaR 99% (historical)", "ES (99%)": "Expected Shortfall 99%",
+                 "ES/VaR Ratio": "ES / VaR ratio", "Gaussian Probability": "Normal distribution: P(|r| > 3σ)",
+                 "Empirical Probability": "Observed: P(|r| > 3σ)", "Fat Tail Ratio": "Factor observed / Gaussian"}
+REPORT_REMARKS = {"(Fat tails!)": "fat\u00a0tails", "(Normal)": "within\u00a0normal\u00a0range",
+                  "(High tail risk)": "high\u00a0tail\u00a0risk"}
 REPORT_LINES = {
-    "Distribution has significant fat tails": "Die Verteilung hat deutlich fette Ränder (Exzess-Kurtosis > 3)",
-    "Distribution close to normal": "Verteilung nahe der Normalverteilung (Exzess-Kurtosis ≤ 3)",
-    "Negative skewness indicates crash risk": "Negative Schiefe (< −0,5): Crashs häufiger als Rallyes",
-    "Symmetric distribution": "Weitgehend symmetrisch (Schiefe ≥ −0,5)",
+    "Distribution has significant fat tails": "The distribution has clearly fat tails (excess kurtosis > 3)",
+    "Distribution close to normal": "Distribution close to normal (excess kurtosis ≤ 3)",
+    "Negative skewness indicates crash risk": "Negative skewness (< −0.5): crashes more frequent than rallies",
+    "Symmetric distribution": "Largely symmetric (skewness ≥ −0.5)",
     "Tail events are significantly more likely than Gaussian predicts":
-        "3σ-Tage mehr als doppelt so häufig wie von der Normalverteilung vorhergesagt",
-    "Tail probabilities close to Gaussian": "3σ-Tage etwa so häufig wie bei einer Normalverteilung",
+        "3σ days more than twice as frequent as the normal distribution predicts",
+    "Tail probabilities close to Gaussian": "3σ days about as frequent as under a normal distribution",
 }
 
 
-def _de(x, digits=2):
-    return f"{x:.{digits}f}".replace(".", ",").replace("-", "−")
+def _num(x, digits=2):
+    return f"{x:.{digits}f}".replace("-", "−")
 
 
 def _report_rows(report):
-    """Turn the box-drawn text of create_summary_report into German table rows."""
+    """Turn the box-drawn text of create_summary_report into table rows with the site's wording."""
     rows, section = [], ""
     for line in report.splitlines():
         if not line.startswith("║"):
@@ -97,7 +97,7 @@ def _report_rows(report):
             continue
         if body.startswith(("⚠", "✓")):
             text = body.lstrip("⚠️✓ ").strip()
-            rows.append([section, REPORT_LINES.get(text, text), "", "Warnung" if body.startswith("⚠") else "ok"])
+            rows.append([section, REPORT_LINES.get(text, text), "", "warning" if body.startswith("⚠") else "ok"])
             continue
         if ":" not in body:
             continue
@@ -107,7 +107,7 @@ def _report_rows(report):
             continue
         num, unit, remark = m.groups()
         digits = len(num.split(".")[1]) if "." in num else 0
-        shown = _de(float(num), digits) + ("\u00a0%" if unit == "%" else "×" if unit == "x" else "")
+        shown = _num(float(num), digits) + ("%" if unit == "%" else "×" if unit == "x" else "")
         rows.append([section, REPORT_LABELS.get(label, label), shown, REPORT_REMARKS.get(remark or "", "")])
     return rows
 
@@ -121,14 +121,14 @@ def run(params, data, out):
     n_all = data.n
     k = int(min(params["last_n"], n_all))
     if k < 150:
-        raise ToolError(f"Das Dashboard braucht mindestens 150 Tagesrenditen, der Datensatz hat {n_all}.")
+        raise ToolError(f"The dashboard needs at least 150 daily returns; the dataset has {n_all}.")
     r = np.asarray(data.returns[-k:], dtype=float)
     vix = np.asarray(data.vix[-k:], dtype=float) if data.vix is not None else None
     dates = data.dates[-k:] if data.dates else None
     x = list(dates) if dates else list(range(n_all - k + 1, n_all + 1))
-    xa = C.axis("", type="date") if dates else C.axis("Handelstag", fmt="int")
+    xa = C.axis("", type="date") if dates else C.axis("Trading day", fmt="int")
 
-    out.progress("Physik-Koordinaten, rollierende Kennzahlen und Regime …", 0.1)
+    out.progress("Physics coordinates, rolling metrics and regimes …", 0.1)
     dash = TailRiskDashboard(r, vix=vix)      # __init__ runs _compute_metrics()
     report = create_summary_report(r)
     rm = dash.rolling_metrics
@@ -150,54 +150,57 @@ def run(params, data, out):
     probs = reg.get("regime_probabilities", {})
 
     # --- metrics ------------------------------------------------------------------------
-    out.metric("Risikostufe (Composite)", cls, "text", status=cls_status,
-               hint=f"Index heute {_de(comp_now, 0)} von 100 (Perzentil {_de(100 * comp_pct, 0)} %) · "
-                    f"20-Tage-Mittel {_de(float(comp_avg[-1]), 0)}")
-    out.metric("VaR 99 % (60 Tage)", var99, "pct", digits=2, hint="historisch, Tagesverlust",
+    out.metric("Risk level (composite)", cls, "text", status=cls_status,
+               hint=f"index today {_num(comp_now, 0)} of 100 (percentile {_num(100 * comp_pct, 0)}%) · "
+                    f"20-day average {_num(float(comp_avg[-1]), 0)}")
+    out.metric("VaR 99% (60 days)", var99, "pct", digits=2, hint="historical, one-day loss",
                status="serious" if var99 > 0.03 else "warning" if var99 > 0.02 else None)
-    out.metric("Expected Shortfall 99 %", es99, "pct", digits=2,
-               hint=(f"Ø Verlust jenseits des VaR (bei 60 Tagen: der größte Tagesverlust) · "
-                     f"ES/VaR = {_de(es99 / var99)}") if var99 > 0 else "")
-    out.metric("Tail-Index α (60 Tage)", alpha_now, "num", digits=2, hint="Hill · < 3: fette Ränder",
-               status="warning" if alpha_now < 3 else None, badge="Fette Ränder" if alpha_now < 3 else "")
-    out.metric("Exzess-Kurtosis (60 Tage)", kurt_now, "num", digits=1, hint="Normalverteilung = 0")
-    out.metric("Volatilitätsregime", REGIMES.get(simple, simple), "text", status=REGIME_STATUS.get(simple),
-               hint="einfach: 20-Tage-Vola · niedrig unter dem 25., hoch über dem 75. Perzentil")
+    out.metric("Expected Shortfall 99%", es99, "pct", digits=2,
+               hint=(f"avg. loss beyond VaR (with 60 days: the largest one-day loss) · "
+                     f"ES/VaR = {_num(es99 / var99)}") if var99 > 0 else "")
+    out.metric("Tail index α (60 days)", alpha_now, "num", digits=2, hint="Hill · < 3: fat tails",
+               status="warning" if alpha_now < 3 else None, badge="Fat tails" if alpha_now < 3 else "")
+    out.metric("Excess kurtosis (60 days)", kurt_now, "num", digits=1, hint="normal distribution = 0")
+    out.metric("Volatility regime", REGIMES.get(simple, simple), "text", status=REGIME_STATUS.get(simple),
+               hint="simple: 20-day volatility · low below the 25th, high above the 75th percentile")
     if markov:
         key = {"LOW_VOL": "low_vol", "MEDIUM_VOL": "medium_vol", "HIGH_VOL": "high_vol"}.get(markov)
         p = probs.get(key)
-        out.metric("Markov-Regime", REGIMES.get(markov, markov), "text", status=REGIME_STATUS.get(markov),
-                   hint=f"Wahrscheinlichkeit {_de(100 * float(p), 0)} % (3-Zustands-Markov-Modell)" if p is not None else "")
+        out.metric("Markov regime", REGIMES.get(markov, markov), "text", status=REGIME_STATUS.get(markov),
+                   hint=f"probability {_num(100 * float(p), 0)}% (three-state Markov model)" if p is not None else "")
     synth = dash._generate_synthetic_vix() if vix is not None else np.asarray(dash.vix, dtype=float)
-    out.metric("Synthetischer VIX", _last(synth), "num", digits=1,
-               hint="20-Tage-Vola p. a. × 100" + (f" · echter VIX heute {_de(float(vix[-1]), 1)}" if vix is not None else ""))
+    out.metric("Synthetic VIX", _last(synth), "num", digits=1,
+               hint="20-day volatility p.a. × 100" + (f" · actual VIX today {_num(float(vix[-1]), 1)}"
+                                                       if vix is not None else ""))
 
     # --- interactive key charts ---------------------------------------------------------
     out.chart(C.xy(
-        "VaR und Expected Shortfall (99 %, rollierend 60 Tage)",
-        [C.envelope("Abstand ES – VaR", x, rm["var_99"], rm["es_99"], color=2),
-         C.trace("VaR 99 %", x, rm["var_99"], color=1, width=1.5),
-         C.trace("Expected Shortfall 99 %", x, rm["es_99"], color=2, width=1.5)],
-        x=xa, y=C.axis("Tagesverlust", fmt="pct", digits=1),
-        subtitle="Der ES ist der Durchschnitt der Verluste jenseits des VaR – je größer der Abstand, desto fetter der "
-                 "Rand. Bei 60 Tagen ist das genau der größte Tagesverlust im Fenster. Der Wert an einem Datum stammt "
-                 "aus den 60 Tagen davor.",
+        "VaR and Expected Shortfall (99%, rolling 60 days)",
+        [C.envelope("Gap ES – VaR", x, rm["var_99"], rm["es_99"], color=2),
+         C.trace("VaR 99%", x, rm["var_99"], color=1, width=1.5),
+         C.trace("Expected Shortfall 99%", x, rm["es_99"], color=2, width=1.5)],
+        x=xa, y=C.axis("One-day loss", fmt="pct", digits=1),
+        subtitle="ES is the average of the losses beyond VaR – the wider the gap, the fatter the tail. With 60 days "
+                 "it is exactly the largest one-day loss in the window. The value on a given date comes from the "
+                 "60 days before it.",
     ))
     tail = np.asarray(rm["tail_index"], dtype=float)
     out.chart(C.xy(
-        "Tail-Index α (Hill, rollierend 60 Tage)",
+        "Tail index α (Hill, rolling 60 days)",
         [C.trace("α", x, tail, color=1, width=1.5)],
         x=xa, y=C.axis("α", range=(0, 6)),
-        hlines=[C.hline(2.0, "Lévy-Grenze α = 2"), C.hline(3.0, "Kubisches Gesetz α = 3", color="warning")],
-        subtitle="Unter 3 liegen die Ränder im Bereich typischer Aktien-Crashs; unter 2 wäre die Varianz unendlich.",
+        hlines=[C.hline(2.0, "Lévy limit α = 2"), C.hline(3.0, "Cubic law α = 3", color="warning")],
+        subtitle="Below 3, the tails are in the range typical of equity crashes; below 2, the variance would be "
+                 "infinite.",
     ))
     out.chart(C.xy(
-        "Composite-Risikoindex des Dashboards (0–100)",
-        [C.trace("Composite (Tageswert)", x, composite, color=1, width=1),
-         C.trace("20-Tage-Mittel", x, comp_avg, color=2, width=2)],
+        "Composite risk index of the dashboard (0–100)",
+        [C.trace("Composite (daily value)", x, composite, color=1, width=1),
+         C.trace("20-day average", x, comp_avg, color=2, width=2)],
         x=xa, y=C.axis("Index", range=(0, 100)),
-        hlines=[C.hline(25, "Moderat"), C.hline(50, "Erhöht", color="serious"), C.hline(75, "Extrem", color="critical")],
-        subtitle="(λ + 0,5·q + χ) / 2,5, auf die gezeigte Historie skaliert. Der Tageswert folgt vor allem |r|/σ von heute.",
+        hlines=[C.hline(25, "Moderate"), C.hline(50, "Elevated", color="serious"),
+                C.hline(75, "Extreme", color="critical")],
+        subtitle="(λ + 0.5·q + χ) / 2.5, scaled to the history shown. The daily value mainly tracks today's |r|/σ.",
     ))
     sd = float(np.std(r))
     sig = [2, 3, 4, 5]
@@ -205,46 +208,46 @@ def run(params, data, out):
     emp = [float(np.mean(np.abs(r) > s * sd)) for s in sig]
     floor = min(g for g in gauss) / 3
     out.chart(C.xy(
-        "Extreme Tage: Normalverteilung vs. beobachtet (beide Ränder)",
-        [C.trace("Normalverteilung", [f"{s} σ" for s in sig], gauss, type="bar", color="muted"),
-         C.trace("Beobachtet", [f"{s} σ" for s in sig], [e if e > 0 else None for e in emp], type="bar", color=1)],
-        x=C.axis("Schwelle", type="category"), y=C.axis("Häufigkeit", type="log", fmt="pct", range=(floor, 0.2)),
-        subtitle="Log-Skala: jeder Teilstrich ist Faktor 10. Fehlt ein Balken, kam der Fall nie vor.",
+        "Extreme days: normal distribution vs observed (both tails)",
+        [C.trace("Normal distribution", [f"{s} σ" for s in sig], gauss, type="bar", color="muted"),
+         C.trace("Observed", [f"{s} σ" for s in sig], [e if e > 0 else None for e in emp], type="bar", color=1)],
+        x=C.axis("Threshold", type="category"), y=C.axis("Frequency", type="log", fmt="pct", range=(floor, 0.2)),
+        subtitle="Log scale: each tick is a factor of 10. A missing bar means the event never occurred.",
     ))
 
     # --- tables ---------------------------------------------------------------------
     rows = _report_rows(report)
     if rows:
-        out.table("Tail-Risk-Bericht (create_summary_report)", ["Abschnitt", "Kennzahl", "Wert", "Einordnung"], rows,
+        out.table("Tail-risk report (create_summary_report)", ["Section", "Metric", "Value", "Assessment"], rows,
                   formats=["text", "text", "text", "text"],
-                  note=f"Über alle {format(k, ',').replace(',', '.')} gezeigten Tage. Schwellen des Originalberichts: Kurtosis > 3, Schiefe < −0,5, "
-                       "Faktor > 2, α < 3, ES/VaR > 1,5.")
+                  note=f"Across all {k:,} days shown. Thresholds of the original report: kurtosis > 3, "
+                       "skewness < −0.5, factor > 2, α < 3, ES/VaR > 1.5.")
     rv = dash.regime_var or {}
     if rv:
-        out.table("VaR 99 % je Volatilitätsregime", ["Regime", "VaR 99 %", "Beobachtungen"],
+        out.table("VaR 99% by volatility regime", ["Regime", "VaR 99%", "Observations"],
                   [[REGIMES.get(key, key), v.get("var"), v.get("n_observations")] for key, v in rv.items()],
                   formats=["text", "pct", "int"],
-                  note="Historischer VaR, nur aus den Tagen des jeweiligen Regimes (RegimeAwareTailRisk).")
+                  note="Historical VaR, using only the days of the respective regime (RegimeAwareTailRisk).")
     if probs:
-        out.table("Markov-Modell: Wahrscheinlichkeit der Regime heute", ["Regime", "Wahrscheinlichkeit"],
+        out.table("Markov model: regime probabilities today", ["Regime", "Probability"],
                   [[REGIMES.get(key.upper(), key), float(v)] for key, v in probs.items()], formats=["text", "pct"])
     elif simple == "UNKNOWN":
-        out.note("Die Regime-Analyse ist für diesen Datensatz fehlgeschlagen; die Regimefelder bleiben leer.", "warning")
+        out.note("The regime analysis failed for this dataset; the regime fields remain empty.", "warning")
     out.download("tail_risk_report.txt", report.strip("\n") + "\n", "text/plain;charset=utf-8")
 
     # --- verdict: the dashboard's own risk class ----------------------------------------
     texts = {
-        "EXTREM": "Der Composite-Index liegt im obersten Viertel seiner historischen Spanne – die heutige Bewegung, "
-                  "die Tsallis-q und die Suszeptibilität sind gemeinsam hoch.",
-        "ERHÖHT": "Der Composite-Index liegt über 50: mehrere Physik-Koordinaten zeigen erhöhte Spannung.",
-        "MODERAT": "Der Composite-Index liegt zwischen 25 und 50 – leicht erhöht, aber ohne Extremsignal.",
-        "NIEDRIG": "Der Composite-Index liegt im unteren Viertel seiner historischen Spanne.",
+        "EXTREME": "The composite index is in the top quarter of its historical range – today's move, Tsallis q "
+                   "and the susceptibility are all high at the same time.",
+        "ELEVATED": "The composite index is above 50: several physics coordinates show elevated stress.",
+        "MODERATE": "The composite index is between 25 and 50 – slightly elevated, but without an extreme signal.",
+        "LOW": "The composite index is in the bottom quarter of its historical range.",
     }
-    tail_txt = (f" Der Tail-Index von {_de(alpha_now)} zeigt fette Ränder." if alpha_now < 3
-                else f" Der Tail-Index von {_de(alpha_now)} liegt im Normalbereich.")
-    out.set_verdict(cls_status, f"Risikostufe {cls} (Composite {_de(comp_now, 0)})", texts[cls] + tail_txt)
+    tail_txt = (f" The tail index of {_num(alpha_now)} indicates fat tails." if alpha_now < 3
+                else f" The tail index of {_num(alpha_now)} is within the normal range.")
+    out.set_verdict(cls_status, f"Risk level {cls} (composite {_num(comp_now, 0)})", texts[cls] + tail_txt)
 
     if params["figure"]:
-        out.progress("Original-Dashboard wird gezeichnet …", 0.7)
+        out.progress("Drawing the original dashboard …", 0.7)
         fig = dash.create_full_dashboard()      # no save_path: nothing is written
-        out.figure(fig, "Original-Dashboard: create_full_dashboard()", dpi=56)
+        out.figure(fig, "Original dashboard: create_full_dashboard()", dpi=56)

@@ -11,7 +11,7 @@ from ..data import index_axis
 
 SPEC = {
     "id": "fat-tails",
-    "title": "Fat tails vs. the normal distribution",
+    "title": "Fat tails vs the normal distribution",
     "group": "data",
     "order": 10,
     "summary": "How often 3, 4 and 5-sigma days actually occur, compared with the Gaussian assumption.",
@@ -68,7 +68,7 @@ def run(params, data, out):
         years_gauss = (1 / gauss) / 252 if gauss > 0 else None
         rows.append([f"{k}σ", days, emp, gauss, ratio, years_gauss])
     out.table(
-        "Extreme days: observed vs. normal distribution",
+        "Extreme days: observed vs normal distribution",
         ["Threshold", "Days observed", "Observed frequency", "Gaussian frequency", "Factor",
          "Gaussian: once every … years"],
         rows, formats=["text", "int", "pct", "pct", "x", "num"],

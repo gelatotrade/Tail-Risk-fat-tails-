@@ -211,7 +211,7 @@ def run(params, data, out):
         qq.append(C.trace(NAMES[key], q, rs[idx], type="scatter", color=COLORS[key], size=5, decimate_to=None))
     span = (rs[0] * 1.3, rs[-1] * 1.3)
     out.chart(C.xy(
-        "Q-Q plot: model quantiles vs. observed quantiles", qq,
+        "Q-Q plot: model quantiles vs observed quantiles", qq,
         x=C.axis("Model quantile", fmt="pct", digits=0, range=span), y=C.axis("Observed quantile", fmt="pct", digits=0),
         subtitle="Points below the diagonal on the left: actual crashes are deeper than the model expects.",
     ))

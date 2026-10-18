@@ -6,7 +6,7 @@ from src.physics.phase_transitions import MarketPhaseClassifier, compute_phase_s
 
 from .. import charts as C
 from ..core import ToolError
-from ..data import index_axis
+from ..data import index_axis, fmt_date
 
 SPEC = {
     "id": "market-phase",
@@ -62,8 +62,6 @@ PHASES = {
 MIN_EXTRA = 20  # days of phase-space coordinates beyond the 2·window warm-up
 TIMELINE_OBS = 40_000  # sum of history lengths classified for the timeline (bounded runtime)
 EWS_LABELS = {"NORMAL": "Normal", "MODERATE": "Moderate", "ELEVATED": "Elevated", "CRITICAL": "Critical"}
-MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-
 
 def _num(x, digits=2):
     """Number inside text: decimal point, thousands comma."""
@@ -83,9 +81,7 @@ def _pctl(p):
 
 def _date(d):
     """ISO date -> '15 Oct 2026' for hover texts; trading-day indices become 'Day n'."""
-    if isinstance(d, str) and len(d) >= 10 and d[4] == "-":
-        return f"{int(d[8:10])} {MONTHS[int(d[5:7]) - 1]} {d[:4]}"
-    return f"Day {d}"
+    return fmt_date(d, "Day {}")
 
 
 def run(params, data, out):

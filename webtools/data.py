@@ -168,6 +168,21 @@ def build(descriptor: Dict[str, Any], arrays: Optional[Dict[str, Any]] = None) -
     raise ToolError(f"Unknown data source: {source}")
 
 
+MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def fmt_date(d, otherwise: str = "{}") -> str:
+    """'2026-10-15' -> '15 Oct 2026', the site's date style (locale-independent).
+
+    Anything that is not an ISO date (e.g. a trading-day index) goes through ``otherwise``,
+    so ``fmt_date(i, "Day {}")`` reads 'Day 812' on datasets without dates.
+    """
+    s = str(d)
+    if len(s) >= 10 and s[4] == "-" and s[7] == "-" and s[5:7].isdigit() and s[8:10].isdigit():
+        return f"{int(s[8:10])} {MONTHS[int(s[5:7]) - 1]} {s[:4]}"
+    return otherwise.format(d)
+
+
 def index_axis(data: Dataset):
     """x values + axis type for time-series charts: real dates if present, else trading-day index."""
     from .charts import axis

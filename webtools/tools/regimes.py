@@ -12,15 +12,13 @@ from src.models.risk_metrics import TailRiskMetrics
 
 from .. import charts as C
 from ..core import ToolError
-from ..data import index_axis
+from ..data import index_axis, fmt_date
 
 LEVELS = [{"value": v, "label": l} for v, l in ((0.95, "95%"), (0.975, "97.5%"), (0.99, "99%"))]
 STATE_NAMES = {2: ["Calm", "Stress"], 3: ["Calm", "Elevated", "Stress"]}
 STATE_COLORS = {2: ["good", "critical"], 3: ["good", "warning", "critical"]}
 VOL_NAMES = {"LOW_VOL": "Low", "MEDIUM_VOL": "Medium", "HIGH_VOL": "High"}
 DAYS = 252
-MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-
 SPEC = {
     "id": "regimes",
     "title": "Volatility regimes (Markov)",
@@ -92,9 +90,7 @@ def _ordinal(k):
 
 
 def _fmt_date(s):
-    if isinstance(s, str) and len(s) == 10 and s[4] == "-":
-        return f"{int(s[8:10])} {MONTHS[int(s[5:7]) - 1]} {s[:4]}"
-    return f"Day {s}"
+    return fmt_date(s, "Day {}")
 
 
 def _pct0(p):
@@ -177,7 +173,7 @@ def run(params, data, out):
                unit="day" if round(stay[-1]) == 1 else "days", hint=f"calm: {_days(stay[0])}")
     if var_by_state[-1][0] is not None and var_all[0]:
         out.metric(f"VaR {lvl} under stress ÷ overall", var_by_state[-1][0] / var_all[0], "x",
-                   hint=f"{_num(100 * var_by_state[-1][0])}% vs. {_num(100 * var_all[0])}% · from "
+                   hint=f"{_num(100 * var_by_state[-1][0])}% vs {_num(100 * var_all[0])}% · from "
                         f"{int(np.sum(state == k - 1)):,} stress days")
     out.metric("Realised volatility today (20 days)", rv[-1], "pct", digits=1,
                hint=f"Volatility regime: {VOL_NAMES.get(simple['simple_regime'], simple['simple_regime']).lower()}")

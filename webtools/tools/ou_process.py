@@ -150,7 +150,7 @@ def _fit(params, data, out, true_ou):
     fit_source = params["fit_source"]
     if fit_source == "vix" and (data is None or data.vix is None):
         out.note("Your dataset contains no VIX, so the fit uses a simulated path with your parameters. To fit "
-                 "the actual VIX, select the “S&P 500” dataset.")
+                 "the actual VIX, select the ‘S&P 500’ dataset.")
         fit_source = "sim"
     if fit_source == "vix":
         series = np.asarray(data.vix, dtype=float)

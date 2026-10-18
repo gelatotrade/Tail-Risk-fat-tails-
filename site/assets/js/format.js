@@ -8,35 +8,51 @@ function nf(digits, opts = {}) {
 
 export function fmt(value, code = 'num', digits = undefined, unit = '') {
   if (value === null || value === undefined || value === '') return '–';
-  if (typeof value === 'string' || code === 'text') return String(value) + (unit ? ` ${unit}` : '');
+  if (typeof value === 'string' || code === 'text') return withUnit(String(value), unit);
   if (typeof value === 'boolean') return value ? 'yes' : 'no';
   if (!Number.isFinite(value)) return '–';
-  const u = unit ? ` ${unit}` : '';
+  const u = (text) => withUnit(minus(text), unit, value);
   switch (code) {
     case 'pct': {
       const p = value * 100;
-      if (p !== 0 && Math.abs(p) < 0.01) return `${sig(p, 2)}%`;
-      return `${nf(digits ?? 2).format(p)}%`;
+      if (p !== 0 && Math.abs(p) < 0.01) return `${minus(sig(p, 2))}%`;
+      return `${minus(nf(digits ?? 2).format(p))}%`;
     }
-    case 'bp': return `${nf(0).format(value * 10000)} bp`;
-    case 'int': return nf(0).format(Math.round(value)) + u;
-    case 'x': return `${nf(value >= 100 ? 0 : value >= 10 ? 1 : 2).format(value)}×`;
-    case 'money': return nf(digits ?? 2).format(value) + (u || ' EUR');
+    case 'bp': return `${minus(nf(0).format(value * 10000))} bp`;
+    case 'int': return u(nf(0).format(Math.round(value)));
+    case 'x': return `${minus(nf(value >= 100 ? 0 : value >= 10 ? 1 : 2).format(value))}×`;
+    case 'money': return unit ? u(nf(digits ?? 2).format(value)) : `${minus(nf(digits ?? 2).format(value))} EUR`;
     default: {
       const a = Math.abs(value);
-      if (a !== 0 && (a < 1e-4 || a >= 1e12)) return value.toExponential(2) + u;
+      if (a !== 0 && (a < 1e-4 || a >= 1e12)) return u(value.toExponential(2));
       if (digits == null) {
         // automatic: fewer decimals for bigger numbers, significant digits for small ones
-        if (a >= 1000) return nf(0).format(value) + u;
-        if (a >= 100) return nf(1).format(value) + u;
-        if (a >= 1) return nf(2).format(value) + u;
-        return sig(value, 3) + u;
+        if (a >= 1000) return u(nf(0).format(value));
+        if (a >= 100) return u(nf(1).format(value));
+        if (a >= 1) return u(nf(2).format(value));
+        return u(sig(value, 3));
       }
-      if (a >= 1e5 && digits > 0) return nf(0).format(value) + u;
-      return nf(digits).format(value) + u;
+      if (a >= 1e5 && digits > 0) return u(nf(0).format(value));
+      return u(nf(digits).format(value));
     }
   }
 }
+
+/**
+ * A number with its unit, set the English way: '%' and 'σ' attach to the number (2.5%, 3σ), '$bn'
+ * wraps it ($4.2bn, −$2.2bn) and word units take a space and the singular for exactly one
+ * (1 trading day, 20 trading days).
+ */
+export function withUnit(text, unit, value) {
+  if (!unit) return text;
+  if (unit === '%' || unit === 'σ') return text + unit;
+  if (unit === '$bn') return /^[-−]/.test(text) ? `−$${text.slice(1)}bn` : `$${text}bn`;
+  if (Number(value) === 1 && /^[a-z][a-z ]*s$/i.test(unit)) return `${text} ${unit.slice(0, -1)}`;
+  return `${text} ${unit}`;
+}
+
+// Negative numbers get the typographic minus (−12.8%), as in the texts the Python tools write.
+const minus = (s) => s.replace(/-/g, '−');
 
 function sig(v, n) {
   return new Intl.NumberFormat('en-GB', { maximumSignificantDigits: n }).format(v);

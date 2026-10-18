@@ -5,7 +5,7 @@
       "items": [
         {
           "file": "fat_tails_comparison.png",
-          "title": "Fat tails vs. the normal distribution",
+          "title": "Fat tails vs the normal distribution",
           "caption": "On a linear scale the peaks look alike; on a log scale the far higher frequency of extremes becomes obvious.",
           "teaser": true,
           "tool": "fat-tails"
@@ -226,7 +226,7 @@
         },
         {
           "file": "crisis_vs_current_comparison.png",
-          "title": "Crises vs. today",
+          "title": "Crises vs today",
           "caption": "Current conditions compared with the crises.",
           "tool": "script-crisis-examples"
         }

@@ -1,18 +1,19 @@
-"""3D-Tail-Risk-Fläche (Original-Grafik) – runs `generate_tail_risk_surface.py` unmodified in the browser."""
+"""3D tail-risk surface (original figure) – runs `generate_tail_risk_surface.py` unmodified in the browser."""
 
 from ..scriptrunner import QUALITY_PARAM, script_tool
 
 SPEC = {
     "id": "script-tail-risk-surface",
-    "title": "3D-Tail-Risk-Fläche (Original-Grafik)",
+    "title": "3D tail-risk surface (original figure)",
     "group": "scripts",
     "order": 30,
-    "summary": "Die Hauptgrafik des Frameworks: Crash-Wahrscheinlichkeit über Volatilität und Tail-Index mit Krisenpfaden.",
+    "summary": "The framework's flagship chart: crash probability across volatility and tail index, with crisis paths.",
     "description": (
-        "Führt `generate_tail_risk_surface.py` aus und erzeugt die große 3D-Risikofläche mit Draufsicht, "
-        "Konturen der Crash-Wahrscheinlichkeit, den Krisenverläufen von COVID-19, 2022 und 2025 sowie der Marktlage.\n\n"
-        "Eine interaktive, drehbare Variante mit der Bahn deines Datensatzes ist das Werkzeug "
-        "„3D-Tail-Risk-Fläche mit Marktbahn“."
+        "Runs `generate_tail_risk_surface.py` and produces the large 3D risk surface with a top view, contours of "
+        "the crash probability, the crisis paths of COVID-19, 2022 and 2025, and the current market "
+        "position.\n\n"
+        "For an interactive, rotatable version with your dataset's trajectory, use the *3D tail-risk surface with "
+        "market trajectory* tool."
     ),
     "needs": [],
     "params": [QUALITY_PARAM],

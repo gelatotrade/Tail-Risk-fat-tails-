@@ -1,17 +1,17 @@
-"""Frühwarnanalyse Januar 2026 – runs `generate_ews_jan2026.py` unmodified in the browser."""
+"""Early-warning analysis January 2026 – runs `generate_ews_jan2026.py` unmodified in the browser."""
 
 from ..scriptrunner import QUALITY_PARAM, script_tool
 
 SPEC = {
     "id": "script-ews-jan2026",
-    "title": "Frühwarnanalyse Januar 2026",
+    "title": "Early-warning analysis January 2026",
     "group": "scripts",
     "order": 43,
-    "summary": "Die Frühwarnanalyse zum Jahresbeginn 2026 mit allen fünf Indikatoren und dem "
-               "Komposit-Score.",
+    "summary": "The early-warning analysis at the start of 2026 with all five indicators and the "
+               "composite score.",
     "description": (
-        "Führt `generate_ews_jan2026.py` aus: Stand der Frühwarnindikatoren am 3. Januar 2026 im Vergleich zu den "
-        "Krisen – die Grundlage des Abschnitts „Current Market Status“ im README."
+        "Runs `generate_ews_jan2026.py`: the state of the early-warning indicators on 3 Jan 2026 compared with "
+        "past crises – the basis of the ‘Current Market Status’ section in the README."
     ),
     "needs": [],
     "params": [QUALITY_PARAM],

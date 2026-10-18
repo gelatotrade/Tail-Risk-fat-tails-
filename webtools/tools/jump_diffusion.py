@@ -6,7 +6,7 @@ from scipy import optimize, stats
 from src.physics.ornstein_uhlenbeck import JumpDiffusionRiskAnalyzer, compute_ou_coordinates
 
 from .. import charts as C
-from ..data import index_axis
+from ..data import index_axis, fmt_date
 
 SPEC = {
     "id": "jump-diffusion",
@@ -63,18 +63,11 @@ FIT_STATUS = {
 SWEEP = [2.0, 2.5, 3.0, 3.5, 4.0, 5.0]
 
 
-_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-
 
 def _num(x, digits=2):
     return f"{x:.{digits}f}"
 
 
-def _date(d):
-    """ISO date -> '15 Oct 2026'; trading-day indices stay as they are."""
-    if isinstance(d, str) and len(d) >= 10:
-        return f"{int(d[8:10])} {_MONTHS[int(d[5:7]) - 1]} {d[:4]}"
-    return d
 
 
 def _level(conf):
@@ -202,7 +195,7 @@ def run(params, data, out):
         clip = q99 > 0 and float(xv.max()) > 2.5 * q99  # one estimation spike would flatten everything else
         top = min(1.02, 1.6 * q99) if clip else 1.02
         n_cut = int(np.sum(xv > top))
-        peak = _date(xs[int(np.argmax(xv))])
+        peak = fmt_date(xs[int(np.argmax(xv))])
         out.chart(C.xy(
             f"OU coordinate X: volatility level ({w}-day window)",
             [C.trace("X: level μ of |return|", xs, xv, color=1, width=1.5)],
@@ -239,7 +232,7 @@ def run(params, data, out):
     top = [i for i in order if is_jump[i]][:15]
     if top:
         out.table("Largest jumps", ["Date" if data.dates else "Day", "Return", "σ multiple"],
-                  [[_date(x[i]), r[i], abs(r[i] - mean) / std] for i in top], formats=["text", "pct", "num"])
+                  [[fmt_date(x[i]), r[i], abs(r[i] - mean) / std] for i in top], formats=["text", "pct", "num"])
 
     if not has_model:
         out.note("There were too few calm days or no mean reversion – without an OU model, the model VaR is "

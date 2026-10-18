@@ -10,7 +10,7 @@ from ..core import ToolError
 
 SPEC = {
     "id": "tsallis-fit",
-    "title": "Tsallis fit & risk level",
+    "title": "Tsallis fit and risk level",
     "group": "physics",
     "order": 80,
     "summary": "Estimates the Tsallis index q of your returns in three ways, compares model and data in the "

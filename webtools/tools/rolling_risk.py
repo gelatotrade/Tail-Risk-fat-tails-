@@ -7,7 +7,7 @@ from src.models.risk_metrics import RollingRiskMetrics, compute_risk_3d_coordina
 
 from .. import charts as C
 from ..core import ToolError
-from ..data import index_axis
+from ..data import index_axis, fmt_date
 
 LEVELS = [{"value": v, "label": l} for v, l in ((0.95, "95%"), (0.975, "97.5%"), (0.99, "99%"))]
 
@@ -56,17 +56,13 @@ SPEC = {
 }
 
 
-_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-
 
 def _num(x, digits=2):
     return f"{x:.{digits}f}"
 
 
 def _fmt_date(s):
-    if isinstance(s, str) and len(s) == 10 and s[4] == "-":
-        return f"{int(s[8:10])} {_MONTHS[int(s[5:7]) - 1]} {s[:4]}"
-    return f"day {s}"
+    return fmt_date(s, "day {}")
 
 
 def _kupiec(breaches, n, p):

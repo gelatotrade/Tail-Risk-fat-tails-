@@ -1,6 +1,6 @@
 // Turn a tool result (webtools Result.to_dict) into DOM.
 import { fmt, escapeHtml, richText, inlineText } from './format.js';
-import { icon, STATUS_ICON, STATUS_LABEL, BADGE_LABEL } from './icons.js';
+import { icon, STATUS_ICON, STATUS_LABEL } from './icons.js';
 import { renderChart, chartRows } from './charts.js';
 
 const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
@@ -86,7 +86,7 @@ export function renderResult(root, result) {
     for (const m of result.metrics) {
       grid.appendChild(h(`<div class="metric"><div class="l">${escapeHtml(m.label)}</div>
         <div class="v">${escapeHtml(fmt(m.value, m.fmt, m.digits, m.unit))}</div>
-        ${m.status ? statusBadge(m.status, m.badge || BADGE_LABEL[m.status]) : ''}${m.hint ? `<div class="h">${inlineText(m.hint)}</div>` : ''}</div>`));
+        ${m.status ? statusBadge(m.status, m.badge) : ''}${m.hint ? `<div class="h">${inlineText(m.hint)}</div>` : ''}</div>`));
     }
     root.appendChild(grid);
   }

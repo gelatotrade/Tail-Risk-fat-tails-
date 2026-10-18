@@ -6,7 +6,7 @@ from src.models.extreme_value import GeneralizedParetoDistribution
 from src.models.risk_metrics import TailRiskMetrics
 
 from .. import charts as C
-from ..data import index_axis
+from ..data import index_axis, fmt_date
 
 LEVELS = [{"value": v, "label": l} for v, l in
           ((0.95, "95%"), (0.975, "97.5%"), (0.99, "99%"), (0.995, "99.5%"), (0.999, "99.9%"))]
@@ -63,8 +63,6 @@ SPEC = {
 TABLE_LEVELS = (0.95, 0.975, 0.99, 0.995, 0.999)
 
 
-_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-
 
 def _num(x, digits=2):
     return f"{x:.{digits}f}"
@@ -78,10 +76,6 @@ def _date(data, i):
     return data.dates[i] if data.dates else f"Day {i}"
 
 
-def _fmt_date(s):
-    if isinstance(s, str) and len(s) == 10 and s[4] == "-":
-        return f"{int(s[8:10])} {_MONTHS[int(s[5:7]) - 1]} {s[:4]}"
-    return str(s)
 
 
 def run(params, data, out):
@@ -121,7 +115,7 @@ def run(params, data, out):
     out.metric(f"{lvl} Expected Shortfall", v["es_hist"], "pct", hint="historical: average loss beyond the VaR",
                status="serious" if v["es_hist"] > 1.5 * v["es_gauss"] else "warning" if v["es_hist"] > 1.15 * v["es_gauss"] else None)
     out.metric("Maximum drawdown", dd["max_drawdown"], "pct", digits=1,
-               hint=f"{_fmt_date(_date(data, i0))} → {_fmt_date(_date(data, i1))} · {rec_txt}",
+               hint=f"{fmt_date(_date(data, i0))} → {fmt_date(_date(data, i1))} · {rec_txt}",
                status="critical" if dd["max_drawdown"] > 0.4 else "serious" if dd["max_drawdown"] > 0.2 else None)
     out.metric("Calmar ratio", calmar, "num", hint="return p.a. ÷ max. drawdown")
     out.metric("Sortino ratio", sortino, "num", hint="annualised; risk = downside deviation below the target return")

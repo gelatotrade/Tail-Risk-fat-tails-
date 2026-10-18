@@ -6,6 +6,7 @@ from scipy.spatial.distance import pdist, squareform
 from src.visualization.phase_space import LyapunovExponentEstimator, RecurrencePlotAnalyzer
 
 from .. import charts as C
+from ..data import fmt_date
 from ..core import ToolError
 
 SPEC = {
@@ -79,20 +80,12 @@ M_CURVE = (2, 3, 4, 5, 6, 7)   # embedding dimensions of the sensitivity curve
 CURVE_SURR = 3                 # surrogates averaged per point of that curve
 HEAT_CELLS = 60                # heatmap cells per axis (blocks of consecutive points)
 N_NEIGHBORS = 5                # default of the original
-MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-
 
 def _num(x, digits=2):
     """Number inside text: decimal point, thousands comma, typographic minus."""
     return f"{x:,.{digits}f}".replace("-", "−")
 
 
-def _date(d):
-    """ISO date -> '15 Oct 2026'; anything else is returned unchanged."""
-    s = str(d)
-    if len(s) == 10 and s[4] == "-":
-        return f"{int(s[8:10])} {MONTHS[int(s[5:7]) - 1]} {s[:4]}"
-    return s
 
 
 def _logistic(n, x0):
@@ -247,7 +240,7 @@ def run(params, data, out):
     dat = units
     lead = (f"Each cell aggregates {b} × {b} pairs of {dat}: the share of pairs whose states" if b > 1 else
             f"Each cell is a pair of {dat}: 100% if their states")
-    period = (f"{_date(x_lab[0])} – {_date(x_lab[-1])}" if data.dates else f"last {len(x)} {units}")
+    period = (f"{fmt_date(x_lab[0])} – {fmt_date(x_lab[-1])}" if data.dates else f"last {len(x)} {units}")
     scale_txt = "weekly returns" if weekly else "daily returns"
     out.chart(C.heatmap(
         f"Recurrence plot of {scale_txt} ({period})", ticks, ticks, np.round(D, 3), x=hx, y=hx, z=z_ax,
@@ -290,7 +283,7 @@ def run(params, data, out):
     # --- chart 4: delay embedding of the daily series --------------------------------------
     emb = np.asarray(est.embedded, dtype=float)
     dl = list(data.dates[-n:]) if data.dates else None
-    lab = [_date(d) for d in dl[:len(emb)]] if dl else None
+    lab = [fmt_date(d) for d in dl[:len(emb)]] if dl else None
     if m >= 3:
         out.chart(C.scatter3d(
             f"Reconstructed phase space of daily returns (delay embedding, {len(emb):,} states)",

@@ -216,8 +216,8 @@ def run(params, data, out):
     out.metric(f"{lvl} Expected Shortfall · Gaussian", g["es"], "pct")
     out.metric(f"Highest {lvl} Expected Shortfall", worst["es"], "pct", hint=worst["short"],
                status="serious" if worst["es"] > 1.3 * g["es"] else "warning" if worst["es"] > 1.1 * g["es"] else None)
-    out.metric("ES uplift vs. Gaussian", worst["es"] / g["es"], "x", hint=f"{worst['short']} ÷ Gaussian")
-    out.metric("5σ loss: frequency vs. Gaussian", p5_worst / p5_g if p5_g > 0 else None, "x",
+    out.metric("ES uplift vs Gaussian", worst["es"] / g["es"], "x", hint=f"{worst['short']} ÷ Gaussian")
+    out.metric("5σ loss: frequency vs Gaussian", p5_worst / p5_g if p5_g > 0 else None, "x",
                hint=f"{worst5['short']}: once every {_thousands(1 / p5_worst / 252)} years instead of every "
                     f"{_thousands(1 / p5_g / 252)} years" if p5_worst > 0 else "")
 
@@ -268,7 +268,7 @@ def run(params, data, out):
                      p5 / p5_g if p5_g > 0 else None, f["kurt"] if np.isfinite(f["kurt"]) else "∞", f["sd"]])
     out.table(
         "Distributions at a glance", ["Distribution", f"{lvl} VaR", f"{lvl} ES", "ES ÷ VaR",
-                                      "P(< −3σ)", "P(< −5σ)", "5σ vs. Gaussian", "Excess kurtosis", "σ (sample)"],
+                                      "P(< −3σ)", "P(< −5σ)", "5σ vs Gaussian", "Excess kurtosis", "σ (sample)"],
         rows, formats=["text", "pct", "pct", "num", "pct", "pct", "x", "num", "pct"],
         note=(f"VaR/ES for the Gaussian and Student-t analytical, otherwise from {_thousands(n_s)} draws. "
               + "Tail probabilities by integrating the densities; the excess kurtosis of the t-distribution is "
