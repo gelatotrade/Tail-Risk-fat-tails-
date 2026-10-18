@@ -90,7 +90,7 @@ function setNav(active) {
 async function route() {
   const { parts, query } = parseHash();
   const [first, second] = parts;
-  if (app.run && !(first === 'tool' && second === app.run.toolId)) app.run.detach = true;
+  if (app.run && !app.run.done) app.run.detach = true; // keeps running; result is cached for re-entry
   window.scrollTo({ top: 0 });
   if (!first) { setNav('home'); return renderHome(); }
   if (first === 'werkzeuge') { setNav('tools'); return renderCatalogue(); }
@@ -588,7 +588,7 @@ async function renderTool(id, query, { autorun } = {}) {
     if (app.dataset.shareable && spec.needs.length) q.set('ds', D.encodeChoice(app.choice));
     history.replaceState(null, '', toolHref(id, q));
     markDirty();
-    if (commit && spec.cost === 'fast') { clearTimeout(liveTimer); liveTimer = setTimeout(run, 350); }
+    if (commit && spec.cost === 'fast') { clearTimeout(liveTimer); liveTimer = setTimeout(() => run(), 350); }
   });
   let liveTimer;
   if (spec.params.length) paramsCard.appendChild(form); else paramsCard.appendChild(h('<p class="muted small" style="margin:0">Keine Parameter – einfach berechnen.</p>'));
@@ -605,12 +605,19 @@ async function renderTool(id, query, { autorun } = {}) {
 
   const resultKey = () => JSON.stringify([id, spec.needs.length ? app.dataset.key : '-', values]);
 
-  const run = async () => {
+  // toggle: the button (reads "Abbrechen" while this tool runs) cancels; otherwise a new run replaces the old.
+  const run = async ({ toggle = false } = {}) => {
     if (app.run && !app.run.done) {
-      if (app.run.toolId === id) { engine.cancel(); return; }
-      engine.cancel();
+      if (toggle && app.run.toolId === id) { engine.cancel(); return; }
+      if (app.run.toolId === id && spec.cost === 'fast' && !app.run.detach) {
+        app.run.rerun = true;         // fast tool: let it finish, then recompute with the latest values
+        return;
+      }
+      engine.cancel();                // a cancel reboots Python, only worth it for long runs
     }
-    const job = { toolId: id, done: false, stdout: [] };
+    const job = { toolId: id, key: resultKey(), done: false, stdout: [], detach: false };
+    let finish;
+    job.promise = new Promise((r) => { finish = r; });
     app.run = job;
     runBtn.innerHTML = `${icon('stop')} Abbrechen`;
     results.classList.add('stale');
@@ -638,23 +645,25 @@ async function renderTool(id, query, { autorun } = {}) {
         onStdout: (m) => { job.stdout.push(m); prog.log(m); },
       });
       res.wall = (performance.now() - t0) / 1000;
+      if (res.ok) app.results.set(id, { key: job.key, result: res, stdout: job.stdout });
       if (job.detach) return;
       waiting?.remove();
       if (!res.ok) throw Object.assign(new Error(res.error), res);
-      app.results.set(id, { key: resultKey(), result: res, stdout: job.stdout });
       showResult(res, job.stdout);
     } catch (err) {
       if (job.detach) return;
       waiting?.dispose?.(); waiting?.remove();
       results.classList.remove('stale');
       if (err instanceof CancelledError) { toast('Berechnung abgebrochen.'); if (!results.children.length) results.appendChild(h('<div class="empty">Abgebrochen. Klicke auf „Berechnen“, um neu zu starten.</div>')); }
-      else renderError(results, { error: err.message, traceback: err.traceback, kind: err.kind }, { onRetry: run });
+      else renderError(results, { error: err.message, traceback: err.traceback, kind: err.kind }, { onRetry: () => run() });
     } finally {
       job.done = true;
+      finish();
       if (!job.detach) markDirty();
+      if (job.rerun && !job.detach) run();
     }
   };
-  runBtn.addEventListener('click', run);
+  runBtn.addEventListener('click', () => run({ toggle: true }));
 
   const showResult = (res, stdout) => {
     results.classList.remove('stale');
@@ -685,11 +694,24 @@ async function renderTool(id, query, { autorun } = {}) {
   };
 
   const cached = app.results.get(id);
-  if (cached && cached.key === resultKey()) { showResult(cached.result, cached.stdout); }
-  else if (app.run && !app.run.done && app.run.toolId === id) { app.run.detach = true; run(); }
-  else if (autorun !== false) { run(); }
+  const pending = app.run && !app.run.done && app.run.toolId === id && app.run.key === resultKey() ? app.run : null;
+  if (cached && cached.key === resultKey()) showResult(cached.result, cached.stdout);
+  else if (pending) {
+    // came back while this exact computation is still running: wait for it instead of restarting
+    const card = progressCard(`${spec.title} wird berechnet …`, { console: spec.group === 'scripts' });
+    pending.stdout.forEach((m) => card.log(m));
+    results.appendChild(card);
+    runBtn.innerHTML = `${icon('stop')} Abbrechen`;
+    pending.promise.then(() => {
+      if (!card.isConnected) return;
+      const done = app.results.get(id);
+      if (done && done.key === resultKey()) showResult(done.result, done.stdout); else card.remove();
+      markDirty();
+    });
+    pending.detach = true; // its own closure renders into the old DOM; this view takes over
+    return;
+  } else if (autorun !== false) run();
   markDirty();
-  if (app.run && !app.run.done && app.run.toolId === id) runBtn.innerHTML = `${icon('stop')} Abbrechen`;
 }
 
 // --------------------------------------------------------------------------- boot
