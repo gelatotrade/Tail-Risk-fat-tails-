@@ -286,7 +286,7 @@ def run(params, data, out):
                        last["composite_score"], ""])
     out.table(f"Letzter Tag ({label(n - 1)}): die fünf Indikatoren",
               ["Indikator", "Wert", "Einordnung", "Score", "Gewicht", "Beitrag", "Datenbasis"], table_rows,
-              formats=["text", "text", "text", "num", "pct", "num", "text"],
+              formats=["text", "text", "text", "num", "pct:0", "num", "text"],
               note="Einordnung nach den Snapshot-Regeln des Frameworks (calculate_*), Score und Beitrag (Punkte "
                    "0–100) nach den Zeitreihen-Regeln von simulate_all_indicators – deshalb können Einordnung und "
                    "Score auseinanderliegen.")

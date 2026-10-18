@@ -202,7 +202,7 @@ def run(params, data, out):
          C.trace("Gauß: e^(−t²)", t, np.real(phi_g), color="muted", dash=True)],
         x=C.axis("t (in 1/γ)"), y=C.axis("φ(t)", range=(-1.05, 1.05)),
         subtitle="|φ(t)| = e^(−|t|^α): Die Spitze bei t = 0 für α < 2 ist der Fingerabdruck der fetten Ränder. "
-                 "Ein Imaginärteil Ein Imaginärteil Im φ ≠ 0 bedeutet Schiefe.", height=300,
+                 "Ein Imaginärteil Im φ ≠ 0 bedeutet Schiefe.", height=300,
     ))
 
     # --- table: tail probabilities

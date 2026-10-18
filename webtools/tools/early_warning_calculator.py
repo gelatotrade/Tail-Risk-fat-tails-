@@ -263,7 +263,7 @@ def run(params, data, out):
              comp["components"][k]["weight"], comp["components"][k]["contribution"]] for i, k in enumerate(KEYS)]
     rows.append(["Komposit", "", level_de, action_de, score, 1.0, score])
     out.table("Die fünf Indikatoren", ["Indikator", "Eingabe", "Stufe", "Signal", "Score", "Gewicht", "Beitrag"], rows,
-              formats=["text", "text", "text", "text", "num", "pct", "num"],
+              formats=["text", "text", "text", "text", "num", "pct:0", "num"],
               note=f"GEX-Regime: {GEX_DESCRIPTION.get(gdesc, gdesc)}")
 
     # ---- table: how close are the next thresholds? ----------------------------------------------------

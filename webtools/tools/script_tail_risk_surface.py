@@ -11,7 +11,8 @@ SPEC = {
     "description": (
         "Führt `generate_tail_risk_surface.py` aus und erzeugt die große 3D-Risikofläche mit Draufsicht, "
         "Konturen der Crash-Wahrscheinlichkeit, den Krisenverläufen von COVID-19, 2022 und 2025 sowie der Marktlage.\n\n"
-        "Eine interaktive, drehbare Variante mit der Bahn deines Datensatzes ist das Werkzeug „3D-Tail-Risk-Fläche mit Marktbahn“."
+        "Eine interaktive, drehbare Variante mit der Bahn deines Datensatzes ist das Werkzeug "
+        "„3D-Tail-Risk-Fläche mit Marktbahn“."
     ),
     "needs": [],
     "params": [QUALITY_PARAM],

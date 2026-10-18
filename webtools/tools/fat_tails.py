@@ -89,7 +89,7 @@ def run(params, data, out):
             "Verteilung der Tagesrenditen" + (" – logarithmisch" if log else ""),
             [hist_trace,
              C.trace("Normalverteilung", grid, g, color="muted", dash=True),
-             C.trace(f"Student-t (ν = {t_params[0]:.1f})", grid, tp, color=2)],
+             C.trace(f"Student-t (ν = {t_params[0]:.1f})".replace(".", ","), grid, tp, color=2)],
             x=C.axis("Tagesrendite", fmt="pct", digits=1),
             y=C.axis("Dichte", type="log", range=log_range) if log else C.axis("Dichte"),
             subtitle=("Auf der Log-Skala liegen die beobachteten Ränder weit über der Gauß-Kurve."

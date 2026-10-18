@@ -190,9 +190,10 @@ def run(params, data, out):
         [C.trace("Historisch", tail_p, v_h, color=1, width=2.5),
          C.trace("Lévy-stabil", tail_p, v_l, color=2),
          C.trace("Normalverteilung", tail_p, v_g, color="muted", dash=True)],
-        x=C.axis("Überschreitungswahrscheinlichkeit 1 − c", type="log", fmt="pct", digits=1),
+        x=C.axis("Überschreitungswahrscheinlichkeit 1 − c", type="log", fmt="pct", digits=1,
+                 range=(0.1, float(tail_p[0]))),
         y=C.axis("Value at Risk (Verlust)", fmt="pct", digits=1),
-        subtitle="Links liegen die extremen Niveaus (99,9 %), rechts das 90-%-Niveau.",
+        subtitle="Links häufige Verluste (90-%-VaR), rechts die extremen Niveaus (99,9 % und mehr).",
     ))
 
     # --- tables

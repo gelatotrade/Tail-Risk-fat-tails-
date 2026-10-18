@@ -198,5 +198,5 @@ def run(params, data, out):
              ind.weights[k] / tot, float(res["components"][k]) * ind.weights[k] / tot] for k in keys]
     rows.append(["Komposit", "", comp, 1.0, comp])
     out.table("Zusammensetzung", ["Eingabe", "Wert", "Teil-Score", "Gewicht", "Beitrag"], rows,
-              formats=["text", "text", "num", "pct", "num"],
+              formats=["text", "text", "num", "pct:0", "num"],
               note="VIX: 5 × (20 − VIX); Breite: 2 × (Breite − 50); Momentum: 10 × Rendite in %; alle auf ±100 begrenzt.")
