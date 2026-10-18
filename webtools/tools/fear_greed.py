@@ -11,21 +11,22 @@ SPEC = {
     "title": "Angst-und-Gier-Rechner",
     "group": "warning",
     "order": 40,
-    "summary": "Aus VIX, Put/Call-Ratio, Marktbreite und Momentum ein Stimmungswert von −100 (extreme Angst) bis "
-               "+100 (extreme Gier) – und was er für das Crash-Risiko bedeutet.",
+    "summary": "Verdichtet VIX, Put/Call-Ratio, Marktbreite und Momentum zu einem Stimmungswert von −100 (extreme "
+               "Angst) bis +100 (extreme Gier) – und zeigt, was er für das Crash-Risiko bedeutet.",
     "description": (
         "Der `CompositeSentimentIndicator` des Frameworks übersetzt vier Marktablesungen in Teil-Scores von "
         "−100 bis +100 und mittelt sie gewichtet: **VIX** 30 % (neutral bei 20, 5 Punkte je VIX-Punkt), "
         "**Put/Call-Ratio** 25 % (viele Puts = Angst), **Marktbreite** 25 % (Anteil der Aktien über ihrer "
         "50-Tage-Linie, neutral bei 50 %) und **Momentum** 20 % (Indexrendite der letzten Wochen, 10 Punkte je "
         "Prozent). Über +25 herrscht Gier, unter −25 Angst, jenseits von ±75 das Extrem.\n\n"
-        "Daraus leitet das Framework ein **Tail-Risk-Signal** ab – konträr gedacht: Extreme Gier heißt "
-        "Sorglosigkeit und damit erhöhtes Crash-Risiko, extreme Angst heißt, der Ausverkauf läuft schon und "
-        "eine Wende kann nahe sein.\n\n"
+        "Daraus leitet das Framework ein **Tail-Risiko-Signal** ab – konträr gedacht: Über +50 mahnt es zur "
+        "Wachsamkeit, über +75 (extreme Gier = Sorglosigkeit) meldet es erhöhtes Crash-Risiko. Unter −50 "
+        "erwartet es mehr Schwankung, unter −75 läuft der Ausverkauf schon, und eine Wende kann nahe sein.\n\n"
         "Die Put/Call-Ratio wertet der `PutCallRatioAnalyzer` ohne Historie mit festen Schwellen (0,6 / 0,7 / "
         "0,85 / 1,0) aus, mit mindestens 20 Werten Historie über ihr Perzentil – dann gibt es auch ein "
-        "Konträr-Signal. Hier kannst du eine simulierte Jahres-Historie zuschalten (Seed). Das "
-        "Was-wäre-wenn-Diagramm variiert eine Eingabe und hält die anderen fest."
+        "Konträr-Signal. Hier kannst du eine simulierte Jahres-Historie zuschalten (Seed) – sie ist "
+        "illustrativ und verschiebt den Put/Call-Teil-Score. Das Was-wäre-wenn-Diagramm variiert eine Eingabe und "
+        "hält die anderen fest."
     ),
     "needs": [],
     "params": [
@@ -36,9 +37,10 @@ SPEC = {
          "label": "Marktbreite", "unit": "%", "help": "Anteil der Aktien über ihrer 50-Tage-Linie."},
         {"name": "momentum", "type": "float", "default": 1.5, "min": -30.0, "max": 30.0, "step": 0.1,
          "label": "Momentum", "unit": "%", "help": "Indexrendite der letzten Wochen in Prozent."},
-        {"name": "history", "type": "select", "default": "sim", "label": "Put/Call-Historie",
-         "options": [{"value": "sim", "label": "Simulierte Jahres-Historie (Perzentil-Modus)"},
-                     {"value": "none", "label": "Keine Historie (feste Schwellen)"}]},
+        {"name": "history", "type": "select", "default": "none", "label": "Put/Call-Historie",
+         "options": [{"value": "none", "label": "Keine Historie (feste Schwellen)"},
+                     {"value": "sim", "label": "Simulierte Jahres-Historie (Perzentil-Modus)"}],
+         "help": "Mit Historie bewertet das Framework die Put/Call-Ratio relativ (Perzentil) und gibt Konträr-Signale."},
         {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 99999, "step": 1,
          "label": "Seed der Historie", "help": "Nur für die simulierte Put/Call-Historie."},
         {"name": "what_if", "type": "select", "default": "vix", "label": "Was-wäre-wenn für",
@@ -67,7 +69,7 @@ TEXT = {
     "Bullish sentiment - monitor for extremes": "Optimistische Stimmung – auf Übertreibungen achten",
     "Panic selling - may be near capitulation": "Panikverkäufe – womöglich nahe der Kapitulation",
     "Fear rising - volatility expected": "Die Angst steigt – mehr Schwankung zu erwarten",
-    "Neutral sentiment": "Neutrale Stimmung",
+    "Neutral sentiment": "Die Stimmung ist nicht extrem (zwischen −50 und +50)",
     "Reduce risk exposure": "Risiko reduzieren", "Maintain hedges": "Absicherungen halten",
     "Prepare for reversal": "Auf eine Wende vorbereiten", "Increase hedges": "Absicherungen erhöhen",
     "Normal positioning": "Normale Positionierung",
@@ -124,7 +126,8 @@ def run(params, data, out):
     out.metric("Put/Call konträr", CONTRA.get(contra["signal"], contra["signal"]), "text",
                hint=(TEXT.get(contra.get("reason", ""), "") + (f" · Konfidenz {_de(contra['confidence'] * 100, 0)} %"
                                                                if contra.get("confidence") else ""))
-               or ("ab 20 Tagen Historie" if hist is None else "Put/Call im normalen Bereich der Historie"))
+               or ("braucht mindestens 20 Tage Put/Call-Historie" if hist is None
+                   else "Put/Call im normalen Bereich der Historie"))
 
     # ---- sub-scores ---------------------------------------------------------------------------------
     keys = [k for k in ("vix", "put_call", "breadth", "momentum") if k in res["components"]]
@@ -136,7 +139,7 @@ def run(params, data, out):
          C.trace("Komposit (gewichtet)", cats[-1:], vals[-1:], type="bar", color=2)],
         x=C.axis("", type="category"), y=C.axis("Score (−100 Angst … +100 Gier)", range=(-100, 100)),
         hlines=[C.hline(75, "extreme Gier"), C.hline(25, "Gier"), C.hline(-25, "Angst"), C.hline(-75, "extreme Angst")],
-        subtitle="Gewichte: VIX 30 %, Put/Call 25 %, Breite 25 %, Momentum 20 %. Linien = Stufengrenzen.",
+        subtitle="Gewichte: VIX 30 %, Put/Call 25 %, Breite 25 %, Momentum 20 %. Linien = Stimmungsstufen.",
     ))
 
     # ---- what-if --------------------------------------------------------------------------------------
@@ -154,10 +157,11 @@ def run(params, data, out):
         f"Was wäre, wenn sich nur {short} ändert?",
         [C.trace("Stimmung", grid, ys, color=1)],
         x=C.axis(xlabel, digits=2 if name == "put_call" else 1), y=C.axis("Stimmung", range=(-100, 100)),
-        hlines=[C.hline(75, "extreme Gier", "serious"), C.hline(25, "Gier"), C.hline(-25, "Angst"),
-                C.hline(-75, "extreme Angst", "critical")],
+        hlines=[C.hline(75, "extreme Gier"), C.hline(25, "Gier"), C.hline(-25, "Angst"),
+                C.hline(-75, "extreme Angst")],
         vlines=[C.vline(cur, "heute", "ink")],
-        subtitle="Alle anderen Eingaben bleiben fest. Jenseits von ±75 schlägt das Tail-Risk-Signal an.",
+        subtitle="Alle anderen Eingaben bleiben fest. Ab ±50 meldet das Tail-Risiko-Signal mehr als „Normal“, "
+                 "jenseits von ±75 das Extrem.",
     ))
 
     # ---- how the framework reads the put/call ratio ------------------------------------------------

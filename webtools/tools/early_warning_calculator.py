@@ -51,11 +51,13 @@ SPEC = {
                  "6.700 (2,7 % unter Spot) ist eine Annahme."},
         {"name": "tdex", "type": "float", "default": 7.8, "min": 1.0, "max": 60.0, "step": 0.1,
          "label": "TailDex (TDEX)", "help": "Indexstand des CBOE TailDex; Schwellen des Frameworks 5 / 10 / 15 / 20."},
-        {"name": "vix", "type": "float", "default": 14.5, "min": 5.0, "max": 90.0, "step": 0.1, "label": "VIX Spot"},
+        {"name": "vix", "type": "float", "default": 14.5, "min": 5.0, "max": 90.0, "step": 0.1, "label": "VIX Spot",
+         "help": "Das README nennt keinen VIX-Stand – 14,5 ist eine Annahme passend zur dort genannten Vola von 10,4 %."},
         {"name": "m1", "type": "float", "default": 15.7, "min": 5.0, "max": 90.0, "step": 0.05,
          "label": "VIX-Future 1. Monat (M1)"},
         {"name": "m2", "type": "float", "default": 18.05, "min": 5.0, "max": 90.0, "step": 0.05,
-         "label": "VIX-Future 2. Monat (M2)", "help": "README: M1/M2 = 0,87 (normales Contango)."},
+         "label": "VIX-Future 2. Monat (M2)",
+         "help": "README: M1/M2 = 0,87 (normales Contango). Die Einzelstände von M1, M2 und M4 sind Annahmen."},
         {"name": "m4", "type": "float", "default": 19.6, "min": 0.0, "max": 90.0, "step": 0.05,
          "label": "VIX-Future 4. Monat (M4)", "help": "0 = nicht verfügbar."},
         {"name": "dix", "type": "float", "default": 46.2, "min": 25.0, "max": 65.0, "step": 0.1,
@@ -273,8 +275,9 @@ def run(params, data, out):
         vary = _Vary(p, res, k, pname)
         digits = 3 if pname == "ratio" else 2
         fmt_v = (lambda x, sign=pname in ("gex", "last60"): f"{de(x, digits, sign=sign)}{(' ' + unit) if unit else ''}")
+        name = NAMES[k] + (" – letzte Stunde" if k == "smfi" else "")
         if (limit - now) * direction <= 0:
-            trows.append([NAMES[k], fmt_v(now), "–", "Rand des Suchbereichs", "–", "–"])
+            trows.append([name, fmt_v(now), "–", "Rand des Suchbereichs", "–", "–"])
             continue
         hit_state = _first_change(lambda v: _state_code(k, vary(v)[0]), now, limit)
         if next_level:
@@ -286,7 +289,7 @@ def run(params, data, out):
         else:
             comp_txt = "schon höchste Stufe"
         trows.append([
-            NAMES[k], fmt_v(now),
+            name, fmt_v(now),
             _state_de(k, hit_state[1]) if hit_state else "keine weitere Stufe",
             fmt_v(hit_state[0]) if hit_state else "–",
             fmt_v(hit_state[0] - now, True) if hit_state else "–",
@@ -297,7 +300,8 @@ def run(params, data, out):
                f"Komposit springt auf {LEVEL[next_level][1] if next_level else '–'} (nur dieser Indikator)"],
               trows, formats=["text"] * 6,
               note="Gesucht wird in Richtung höheren Risikos: GEX, DIX und SMFI-Schlussstunde fallend, TDEX und M1/M2 "
-                   "steigend. Beim SMFI wird die Kursänderung der letzten Stunde variiert.")
+                   "steigend (M2 bleibt fest). Beim SMFI wird die Kursänderung der letzten Stunde variiert, alle "
+                   "übrigen Eingaben bleiben fest.")
 
     # ---- table: details --------------------------------------------------------------------------------
     drows = [

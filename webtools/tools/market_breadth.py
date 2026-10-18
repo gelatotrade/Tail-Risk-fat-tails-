@@ -53,10 +53,13 @@ SPEC = {
 H = 20  # trading days after a signal
 
 
-def _starts(mask):
-    """First day of every run of True."""
-    m = np.asarray(mask, dtype=bool)
-    return np.flatnonzero(m & ~np.concatenate([[False], m[:-1]]))
+def _starts(mask, gap=10):
+    """First day of every signal event: runs of True less than ``gap`` days apart count as one event."""
+    idx = np.flatnonzero(np.asarray(mask, dtype=bool))
+    if idx.size == 0:
+        return idx
+    keep = np.concatenate([[True], np.diff(idx) > gap])
+    return idx[keep]
 
 
 def _pct_above(prices, w):
@@ -97,7 +100,8 @@ def run(params, data, out):
     iu = np.triu_indices(k, 1)
     dd = index / np.maximum.accumulate(index) - 1
     out.metric("Breite heute", b50[-1] / 100, "pct", digits=0, hint="Aktien über ihrer 50-Tage-Linie")
-    out.metric("Breadth-Thrust-Signale", len(signals), "int", hint="+40 Prozentpunkte Breite in 10 Tagen")
+    out.metric("Breadth-Thrust-Signale", len(signals), "int",
+               hint=f"+40 Prozentpunkte Breite in 10 Tagen · {int(thrust.sum())} Signaltage")
     out.metric("Divergenz-Tage", int(diverg.sum()), "int", hint="Index auf 20-Tage-Hoch, A/D-Linie nicht",
                status="warning" if diverg[-5:].any() else None)
     out.metric("Ø Paarkorrelation", float(corr[iu].mean()), "num", digits=2, hint=f"{k} Aktien")
@@ -129,18 +133,23 @@ def run(params, data, out):
         x=C.axis("Handelstag", fmt="int"), y=C.axis("steigende minus fallende Aktien, kumuliert"),
         subtitle="Steigt der Index, die A/D-Linie aber nicht mehr, tragen nur noch wenige Titel die Rally.",
     ))
-    names = [f"Aktie {i + 1}" for i in range(k)]
-    out.chart(C.heatmap(
-        "Korrelationen der simulierten Aktien", names, names, corr, z=C.axis("Korrelation"), scale="diverging",
-        subtitle=f"Mittlere Paarkorrelation {corr[iu].mean():.2f}".replace(".", ",") + " – je höher, desto "
-                 "stärker schwanken Breite und Index gemeinsam.", height=420,
+    realised = np.corrcoef(R.T)[iu]
+    centers, counts = C.histogram(realised, bins=min(40, max(10, len(realised) // 10)), density=False)
+    out.chart(C.xy(
+        "Paarkorrelationen der simulierten Aktien",
+        [C.trace("Aktienpaare", centers, counts, type="bar", color=1)],
+        x=C.axis("Korrelation der Tagesrenditen", digits=2), y=C.axis("Anzahl Paare", fmt="int"),
+        vlines=[C.vline(float(corr[iu].mean()), "Ziel des Generators"),
+                C.vline(float(realised.mean()), "Mittel realisiert", "ink", dash=False)],
+        subtitle=f"{len(realised)} Paare aus {k} Aktien. Je höher die Korrelation, desto stärker schwanken Breite "
+                 "und Index gemeinsam – und desto eher springt die Breite um 40 Punkte.",
     ))
 
     c = np.concatenate([[0.0], np.cumsum(mkt["market"])])
     fwd = np.full(n_days, np.nan)
     fwd[:n_days - H] = np.expm1(c[1 + H:] - c[1:n_days + 1 - H])
     rows = []
-    for name, idx in (("Breadth Thrust (Signaltag)", signals), ("Divergenz-Tag", np.flatnonzero(diverg)),
+    for name, idx in (("Breadth Thrust (erster Signaltag)", signals), ("Divergenz-Tag", np.flatnonzero(diverg)),
                       ("Alle Tage ab Tag 50", np.arange(49, n_days))):
         f = fwd[idx]
         f = f[np.isfinite(f)]
@@ -157,7 +166,8 @@ def run(params, data, out):
         out.table("Breadth-Thrust-Signale", ["Handelstag", "Breite vor 10 Tagen", "Breite", "Zuwachs",
                                              f"Index nächste {H} T"], trows,
                   formats=["int", "pct", "pct", "pct", "pct"],
-                  note="Zuwachs in Prozentpunkten der Breite. Mehrtägige Signale zählen ab ihrem ersten Tag.")
+                  note="Zuwachs in Prozentpunkten der Breite. Signaltage mit weniger als 10 Tagen Abstand zählen "
+                       "als ein Signal, gezeigt ab dem ersten Tag.")
     else:
         out.note("Kein Breadth Thrust in diesem Markt. Mit höherer Marktkorrelation schwingt die Breite stärker – "
                  "probier 0,4–0,5 oder einen anderen Seed.", "info")

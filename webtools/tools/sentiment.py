@@ -22,10 +22,11 @@ SPEC = {
         "erkennt **Spikes** (Tagesanstieg größer als die Schwelle × übliche Tagesschwankung der letzten 19 "
         "Tage) und gibt ein **Mean-Reversion-Signal**: Ein z-Wert über 2 deutet auf eine nahe Umkehr der "
         "Angst, unter −1,5 auf Sorglosigkeit.\n\n"
-        "Jeder Tageswert nutzt nur den VIX bis zu diesem Tag. Die Tabellen prüfen, was in den 20 "
-        "Handelstagen nach einem Regime oder Spike mit den Kursen geschah. Der 3D-Phasenraum "
-        "(`compute_sentiment_coordinates`) zeigt VIX-Niveau, VIX-Momentum und die Korrelation zwischen "
-        "Renditen und VIX-Änderungen, jeweils auf 0–1 normiert.\n\n"
+        "Regime, Spikes und Mean-Reversion-Signal nutzen an jedem Tag nur den VIX bis zu diesem Tag. Die "
+        "Tabellen prüfen, was in den 20 Handelstagen nach einem Regime oder Spike mit den Kursen geschah. Der "
+        "3D-Phasenraum (`compute_sentiment_coordinates`) zeigt VIX-Niveau, VIX-Momentum und die Korrelation "
+        "zwischen Renditen und VIX-Änderungen, jeweils mit Minimum und Maximum der ganzen Reihe auf 0–1 "
+        "normiert.\n\n"
         "Enthält der Datensatz keinen VIX, leitet das Framework einen aus den Renditen ab "
         "(`generate_vix_from_returns`) – dann sind die Werte illustrativ, und es gibt keine Einschätzung."
     ),
@@ -168,8 +169,8 @@ def run(params, data, out):
     out.chart(C.scatter3d(
         "Sentiment-Phasenraum", traces,
         x=C.axis("VIX-Niveau (0–1)"), y=C.axis("VIX-Momentum (0–1)"), z=C.axis("Rendite-VIX-Korrelation (0–1)"),
-        subtitle=f"Letzte {len(idx)} Tage. Panik liegt rechts (hohes Niveau) und vorn (steigender VIX); "
-                 "kleine Korrelation = Renditen und VIX laufen gegeneinander.",
+        subtitle=f"Letzte {len(idx)} Tage, Farbe = VIX-Regime. Panik: hohes Niveau und steigender VIX. Kleine "
+                 "Korrelation = Renditen und VIX laufen gegeneinander (der Normalfall).",
     ))
 
     # ---- what happened next? ----------------------------------------------------------------------------
@@ -201,7 +202,7 @@ def run(params, data, out):
         top = spikes[np.argsort(z_spike[spikes])[::-1][:10]]
         srows = [[label(i), float(vix[i]), float(vix[i] - vix[i - 1]), float(z_spike[i]), float(r[i]),
                   float(fwd[i]) if np.isfinite(fwd[i]) else None] for i in sorted(top)]
-        out.table("Die zehn stärksten VIX-Spikes",
+        out.table(f"Die {len(top)} stärksten VIX-Spikes (chronologisch)",
                   ["Datum", "VIX", "Anstieg (Punkte)", "z", "Rendite am Tag", f"Rendite nächste {H} T"], srows,
                   formats=["text", "num", "num", "num", "pct", "pct"],
                   note="z = Anstieg ÷ Standardabweichung der VIX-Tagesänderungen der 19 Tage davor.")
