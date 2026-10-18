@@ -116,8 +116,9 @@ def run(params, data, out):
     out.metric("ξ aus Blockmaxima (GEV)", xi_gev, "num", hint=f"{_domain(xi_gev)} · {nb} Blöcke à {m} Tage")
     out.metric("ξ aus Peaks over Threshold (GPD)", xi_gpd, "num",
                hint=f"{_domain(xi_gpd)} · {st['n_exceedances']} Überschreitungen")
-    out.metric("Test ξ = 0 (GEV)", p_gev, "num", digits=3, hint="p-Wert; < 0,05: ξ signifikant ≠ 0",
-               status="good" if (p_gev < 0.05) == (abs(xi_true) > 0) else "warning")
+    p_txt = "p < 0,001" if p_gev < 0.001 else f"p = {_de(p_gev, 3)}"
+    out.metric("ξ signifikant ≠ 0? (GEV)", "ja" if p_gev < 0.05 else "nein", "text",
+               hint=f"Likelihood-Quotienten-Test gegen Gumbel · {p_txt}")
     out.metric("Größter simulierter Verlust", float(x.max()), "pct")
 
     # --- chart 1: the three GEV shapes, standardized, plus the fitted shape
@@ -165,10 +166,10 @@ def run(params, data, out):
     emp_years = (nb + 1) / rank * m / DAYS
     out.chart(C.xy(
         "Wiederkehrniveau: Blockmaximum, das einmal in T Jahren überschritten wird",
-        [C.trace("Beobachtete Blockmaxima", emp_years, np.sort(maxima)[::-1][:top], type="scatter", color=4, size=6,
-                 decimate_to=None),
-         C.trace(f"GEV (ξ = {_de(xi_gev)})", years, gev.return_level(t_blocks), color=1, width=2.5),
-         C.trace("Gumbel (ξ = 0)", years, gumbel.return_level(t_blocks), color="muted", dash=True)],
+        [C.trace(f"GEV (ξ = {_de(xi_gev)})", years, gev.return_level(t_blocks), color=1, width=2.5),
+         C.trace("Gumbel (ξ = 0)", years, gumbel.return_level(t_blocks), color="muted", dash=True),
+         C.trace("Beobachtete Blockmaxima", emp_years, np.sort(maxima)[::-1][:top], type="scatter", color=4, size=6,
+                 decimate_to=None)],
         x=C.axis("Wiederkehrperiode (Jahre)", type="log"), y=C.axis("Verlust", fmt="pct", digits=0),
         subtitle="Gumbel ist hier eine Gerade. Je größer ξ, desto stärker steigt die Kurve für seltene Ereignisse.",
     ))

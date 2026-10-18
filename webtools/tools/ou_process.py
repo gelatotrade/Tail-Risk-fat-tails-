@@ -204,7 +204,8 @@ def _fit(params, data, out, true_ou):
         [C.trace(f"Beobachtet (letzte {len(hist)} Tage)", h_days, hist, color=1, width=1.5),
          C.trace("Prognose E[X]", f_days, f_mean, color=2, width=2.5),
          C.trace("±2σ", cx, cy, color=2, dash=True, decimate_to=None)],
-        x=C.axis("Handelstage relativ zum letzten Wert (0 = heute)", fmt="int"), y=C.axis("x"),
+        x=C.axis("Handelstage relativ zum letzten Wert (0 = heute)", fmt="int"),
+        y=C.axis("VIX" if fit_source == "vix" else "x"),
         hlines=[C.hline(fit.mu, "geschätztes μ")], height=340,
         subtitle=f"Mit dem geschätzten Modell: nach {_de(fit.half_life() * 252, 0)} Handelstagen ist die "
                  "Hälfte der heutigen Abweichung abgebaut.",

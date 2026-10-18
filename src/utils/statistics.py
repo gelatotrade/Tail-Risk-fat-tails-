@@ -9,13 +9,33 @@ from typing import Tuple, Dict, Optional
 
 
 def compute_moments(data: np.ndarray) -> Dict[str, float]:
-    """Compute all moments of a distribution."""
+    """
+    Compute all moments of a distribution.
+
+    Skewness and (excess) kurtosis are the biased sample estimators of
+    ``scipy.stats.skew`` / ``scipy.stats.kurtosis`` (same values, same NaN for
+    constant data), computed with NumPy directly: SciPy's generic array-API
+    path costs milliseconds per call, which matters inside bootstraps and in
+    the browser.
+    """
+    x = np.asarray(data, dtype=float)
+    mean = np.mean(x)
+    d = x - mean
+    d2 = d * d
+    m2 = np.mean(d2)
+    with np.errstate(all='ignore'):
+        m3 = np.mean(d2 * d)
+        m4 = np.mean(d2 * d2)
+        # scipy's guard: a variance at round-off level of the mean = constant data
+        degenerate = not m2 > (np.finfo(float).eps * mean) ** 2
+        skewness = np.float64(np.nan) if degenerate else np.float64(m3 / m2 ** 1.5)
+        kurtosis = np.float64(np.nan) if degenerate else np.float64(m4 / m2 ** 2 - 3.0)
     return {
-        'mean': np.mean(data),
-        'variance': np.var(data),
-        'std': np.std(data),
-        'skewness': stats.skew(data),
-        'kurtosis': stats.kurtosis(data)
+        'mean': mean,
+        'variance': np.var(x),
+        'std': np.std(x),
+        'skewness': skewness,
+        'kurtosis': kurtosis
     }
 
 

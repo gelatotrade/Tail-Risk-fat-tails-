@@ -164,7 +164,7 @@ def run(params, data, out):
         out.chart(C.xy(
             "Zeitleiste der Phasen",
             traces, x=xa, y=C.axis("Volatilitäts-Perzentil", fmt="pct", digits=0, range=(-0.03, 1.1)),
-            hlines=[C.hline(0.9), C.hline(0.95, "90 % / 95 %")], height=320,
+            hlines=[C.hline(0.9), C.hline(0.95, "90 % / 95 %")], height=390,
             subtitle="Jeder Punkt ist eine Klassifikation nur mit den Daten bis zu diesem Tag – inklusive des "
                      "Tages mit der höchsten Volatilität."
                      + (f" Wegen der langen Reihe auf {k_eff} Stichtage begrenzt." if k_eff < k else ""),

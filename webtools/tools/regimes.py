@@ -157,7 +157,7 @@ def run(params, data, out):
     status = {"good": "good", "warning": "warning", "critical": "serious"}
     out.metric("Aktuelles Regime (Markov)", names[cur], "text", hint=f"Wahrscheinlichkeit {_de(100 * cur_p[cur], 0)} %",
                status=status[colors[cur]])
-    out.metric("P(Stress-Regime) heute", cur_p[-1], "pct", digits=0)
+    out.metric("P(Stress-Regime) heute", cur_p[-1], "pct", digits=1)
     out.metric("Vola im Stress-Regime", stds[-1] * np.sqrt(DAYS), "pct", digits=1,
                hint=f"ruhig: {_de(100 * stds[0] * np.sqrt(DAYS), 1)} % p. a.")
     out.metric("Ø Dauer des Stress-Regimes", stay[-1], "num", digits=0, unit="Tage",
@@ -167,8 +167,9 @@ def run(params, data, out):
                    hint=f"{_de(100 * var_by_state[-1][0])} % statt {_de(100 * var_all[0])} %")
     out.metric("Realisierte Vola heute (20 Tage)", rv[-1], "pct", digits=1,
                hint=f"Vola-Regime: {VOL_NAMES.get(simple['simple_regime'], simple['simple_regime'])}")
-    out.metric("Ljung-Box (quadrierte Renditen)", lb["p_value"], "num", digits=3,
-               hint="p < 0,05: Volatilität clustert" if lb["significant"] else "kein signifikantes Clustering")
+    p_lb = float(lb["p_value"])
+    out.metric("Volatilitäts-Clustering", "ja" if lb["significant"] else "nein", "text",
+               hint="Ljung-Box auf quadrierte Renditen · " + ("p < 0,001" if p_lb < 0.001 else f"p = {_de(p_lb, 3)}"))
 
     # --- chart 1: price coloured by regime
     if data.prices is not None:
@@ -222,10 +223,10 @@ def run(params, data, out):
     for s in range(k):
         share = float(np.mean(state == s))
         v_s, e_s = var_by_state[s]
-        rows.append([names[s], stds[s] * np.sqrt(DAYS), means[s] * DAYS, stay[s], share, v_s, e_s, cur_p[s]])
-    out.table("Markov-Zustände", ["Regime", "Vola p. a.", "Ø Rendite p. a.", "Ø Dauer (Tage)", "Anteil Tage",
-                                  f"VaR {lvl}", f"ES {lvl}", "Wahrscheinlichkeit heute"], rows,
-              formats=["text", "pct", "pct", "num", "pct", "pct", "pct", "pct"],
+        rows.append([names[s], stds[s] * np.sqrt(DAYS), means[s], P[s, s], stay[s], share, v_s, e_s, cur_p[s]])
+    out.table("Markov-Zustände", ["Regime", "Vola p. a.", "Ø Tagesrendite", "Beharrung p", "Ø Dauer (Tage)",
+                                  "Anteil Tage", f"VaR {lvl}", f"ES {lvl}", "P heute"], rows,
+              formats=["text", "pct", "pct", "pct", "num", "pct", "pct", "pct", "pct"],
               note="VaR und ES historisch aus den Tagen, an denen das Regime am wahrscheinlichsten war.")
 
     vrows = []

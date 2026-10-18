@@ -151,10 +151,10 @@ def run(params, data, out):
     emp_years = (n + 1) / np.arange(1, k + 1) / DAYS
     out.chart(C.xy(
         "Wiederkehrniveaus: Welcher Tagesverlust kommt einmal in T Jahren?",
-        [C.trace("Beobachtet", emp_years, losses[:k], type="scatter", color=4, size=6, decimate_to=None),
-         C.trace(f"GEV ({m}-Tage-Blockmaxima)", years, gev_rl, color=2, width=2.5),
+        [C.trace(f"GEV ({m}-Tage-Blockmaxima)", years, gev_rl, color=2, width=2.5),
          C.trace("GPD (Peaks over Threshold)", years, gpd_rl, color=1, width=2.5),
-         C.trace("Normalverteilung", years, g_rl, color="muted", dash=True)],
+         C.trace("Normalverteilung", years, g_rl, color="muted", dash=True),
+         C.trace("Beobachtet", emp_years, losses[:k], type="scatter", color=4, size=6, decimate_to=None)],
         x=C.axis("Wiederkehrperiode (Jahre)", type="log"), y=C.axis("Tagesverlust", fmt="pct", digits=0),
         subtitle="Punkte: tatsächliche Verluste, sortiert nach ihrer Seltenheit in den Daten.",
         vlines=[C.vline(10, "10 Jahre"), C.vline(100, "100 Jahre")],
@@ -176,14 +176,16 @@ def run(params, data, out):
     loss_only = -r[r < 0]
     hp = hill_plot(loss_only)
     kv, hv = np.asarray(hp["k_values"]), np.asarray(hp["hill_estimates"], dtype=float)
-    hlines = [C.hline(1 / xi_l, f"1/ξ (GPD) = {_de(1 / xi_l, 1)}", color="critical")] if xi_l > 0.02 else []
-    if len(kv):
+    inv_xi = 1 / xi_l if xi_l > 0.02 else np.nan
+    hlines = [C.hline(inv_xi, f"1/ξ (GPD) = {_de(inv_xi, 1)}", color="critical")] if np.isfinite(inv_xi) else []
+    if len(kv) and np.any(np.isfinite(hv)):
+        top = np.nanmax([np.nanmax(hv), inv_xi if np.isfinite(inv_xi) and inv_xi < 3 * np.nanmax(hv) else 0])
         out.chart(C.xy(
             "Hill-Plot: Tail-Index α der Verluste je Zahl k der Extremwerte",
             [C.trace("Hill-Schätzer α(k)", kv, hv, color=1)],
-            x=C.axis("k (größte Verluste)", fmt="int"), y=C.axis("Tail-Index α"),
+            x=C.axis("k (größte Verluste)", fmt="int"), y=C.axis("Tail-Index α", range=(0, top * 1.2)),
             subtitle="Ein stabiles Plateau ist der glaubwürdige Tail-Index. α = 1/ξ; α < 4 heißt unendliche Kurtosis.",
-            hlines=hlines, vlines=[C.vline(st["n_exceedances"], "k = Überschreitungen")],
+            hlines=hlines, vlines=[C.vline(st["n_exceedances"], f"k = {st['n_exceedances']}")],
         ))
 
     # --- tables

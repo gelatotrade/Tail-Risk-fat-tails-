@@ -140,8 +140,7 @@ def run(params, data, out):
     trm = TailRiskMetrics(r)
     var_h, es_h = float(trm.var_historical(conf)), float(trm.expected_shortfall(conf, "historical"))
 
-    out.metric("Bestes Modell (KS)", NAMES[best], "text", hint=f"KS-Abstand {_de(models[best]['ks'], 3)}",
-               status="good" if best != "gaussian" else None)
+    out.metric("Bestes Modell (KS)", NAMES[best], "text", hint=f"KS-Abstand {_de(models[best]['ks'], 3)}")
     out.metric("Bestes Modell (AIC)", NAMES[best_aic], "text")
     out.metric("Student-t: Freiheitsgrade ν", tp["nu"], "num", hint="< 4: unendliche Kurtosis · < 2: unendliche Varianz",
                status="critical" if tp["nu"] < 2.5 else "serious" if tp["nu"] < 4 else "warning" if tp["nu"] < 8 else None)
@@ -187,7 +186,7 @@ def run(params, data, out):
     idx = np.unique(np.concatenate([np.arange(edge), np.linspace(edge, n - edge - 1, 200).astype(int),
                                     np.arange(n - edge, n)]))
     qq = [C.trace("Perfekter Fit", [rs[0], rs[-1]], [rs[0], rs[-1]], color="ink", dash=True, width=1)]
-    for key in ("gaussian", "student_t", "nig", "variance_gamma"):
+    for key in reversed(order):  # best model last, i.e. drawn on top
         m = models[key]
         q = np.asarray(m["ppf"](p[idx]), dtype=float) if m["ppf"] is not None else np.quantile(m["sample"], p[idx])
         qq.append(C.trace(NAMES[key], q, rs[idx], type="scatter", color=COLORS[key], size=5, decimate_to=None))

@@ -212,7 +212,7 @@ def run(params, data, out):
                status="serious" if worst["es"] > 1.3 * g["es"] else "warning" if worst["es"] > 1.1 * g["es"] else None)
     out.metric("ES-Aufschlag ggü. Gauß", worst["es"] / g["es"], "x", hint=f"{worst['short']} ÷ Gauß")
     out.metric("5-σ-Verlust: häufiger als Gauß", p5_worst / p5_g if p5_g > 0 else None, "x",
-               hint=f"{worst5['short']}: einmal in {1 / p5_worst / 252:,.0f} Jahren statt {1 / p5_g / 252:,.0f}".replace(",", ".")
+               hint=f"{worst5['short']}: einmal in {1 / p5_worst / 252:,.0f} statt in {1 / p5_g / 252:,.0f} Jahren".replace(",", ".")
                if p5_worst > 0 else "")
 
     # --- chart 1: densities on a log scale
@@ -258,12 +258,12 @@ def run(params, data, out):
     rows = []
     for f in fams:
         p3, p5 = float(np.interp(3, ks, f["tail"])), float(np.interp(5, ks, f["tail"]))
-        rows.append([f["short"], f["par"], f["var"], f["es"], f["es"] / f["var"], p3, p5,
+        rows.append([f["short"], f["var"], f["es"], f["es"] / f["var"], p3, p5,
                      p5 / p5_g if p5_g > 0 else None, f["kurt"] if np.isfinite(f["kurt"]) else "∞", f["sd"]])
     out.table(
-        "Verteilungen im Überblick", ["Verteilung", "Parameter", f"VaR {lvl}", f"ES {lvl}", "ES ÷ VaR",
+        "Verteilungen im Überblick", ["Verteilung", f"VaR {lvl}", f"ES {lvl}", "ES ÷ VaR",
                                       "P(< −3 σ)", "P(< −5 σ)", "5 σ vs. Gauß", "Exzess-Kurtosis", "σ (Stichprobe)"],
-        rows, formats=["text", "text", "pct", "pct", "num", "pct", "pct", "x", "num", "pct"],
+        rows, formats=["text", "pct", "pct", "num", "pct", "pct", "x", "num", "pct"],
         note=(f"VaR/ES von Gauß und Student-t analytisch, sonst aus {n_s:,} Ziehungen. ".replace(",", ".")
               + "Randwahrscheinlichkeiten durch Integration der Dichten; Exzess-Kurtosis der t-Verteilung ist für ν ≤ 4 "
               "unendlich, bei Variance Gamma aus der charakteristischen Funktion berechnet."),

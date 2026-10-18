@@ -131,6 +131,8 @@ def run(params, data, out):
         curves["gauss"].append(trm.var_parametric_gaussian(c))
         curves["cf"].append(trm.var_cornish_fisher(c))
         curves["evt"].append(gpd.var(c, p_u) if a < p_u else np.nan)
+    sane = [curves[key][-1] for key in ("hist", "gauss", "evt") if np.isfinite(curves[key][-1])]
+    y_top = 1.4 * max(sane)  # Cornish-Fisher may overshoot far beyond; it then leaves the chart
     out.chart(C.xy(
         "VaR je Konfidenzniveau: Wo sich die Methoden trennen",
         [C.trace("Historisch", tails, curves["hist"], color=4, type="step"),
@@ -138,7 +140,8 @@ def run(params, data, out):
          C.trace("Cornish-Fisher", tails, curves["cf"], color=3),
          C.trace("EVT (GPD)", tails, curves["evt"], color=1, width=2.5)],
         x=C.axis("Überschreitungswahrscheinlichkeit 1 − c (pro Tag)", type="log", fmt="pct", digits=1, range=(0.1, 0.001)),
-        y=C.axis("VaR (Tagesverlust)", fmt="pct", digits=1),
+        y=C.axis("VaR (Tagesverlust)", fmt="pct", digits=1,
+                 range=(min(0.0, float(np.nanmin(curves["hist"] + curves["gauss"]))), y_top)),
         subtitle="Links: häufige Verluste (90 %-VaR), rechts: seltene (99,9 %). Gauß bleibt bei seltenen Ereignissen zurück.",
         vlines=[C.vline(1 - conf, f"gewählt: {lvl}")],
     ))
@@ -152,7 +155,9 @@ def run(params, data, out):
         [C.trace("Drawdown", x, ddser, type="area", color=1, width=1)],
         x=xa, y=C.axis("Drawdown", fmt="pct", digits=0),
         bands=[C.band(x[i0], x[i1], f"Max. Drawdown −{_de(100 * dd['max_drawdown'], 1)} %", color="critical"),
-               C.band(x[i1], x[min(end_rec, n - 1)], "Erholung" if np.isfinite(rec) else "", color="warning")],
+               C.band(x[i1], x[min(end_rec, n - 1)], "", color="warning")],
+        subtitle="Rot: Weg in den maximalen Drawdown; gelb: " + (f"Erholung bis zum alten Höchststand ({int(rec)} Tage)."
+                                                                if np.isfinite(rec) else "seither noch nicht erholt."),
     ))
 
     # --- tail dependence: VIX changes if available, else yesterday's return
@@ -230,13 +235,13 @@ def run(params, data, out):
             out.set_verdict("good", "Gauß- und Fat-Tail-Risiko liegen nah beieinander",
                             f"Bei {lvl} ist die Normalverteilung hier eine brauchbare Näherung – prüfe höhere "
                             "Konfidenzniveaus in der VaR-Kurve.")
-        elif r_var >= r_es:
-            out.set_verdict(level, f"Der Gauß-VaR unterschätzt das Risiko um {pct} %",
-                            f"Bei {lvl} liegt der Fat-Tail-VaR bei {_de(100 * fat)} %, die Normalverteilung sagt "
-                            f"{_de(100 * v['gauss'])} %. Der Expected Shortfall ({_de(100 * v['es_hist'])} % gegen "
-                            f"{_de(100 * v['es_gauss'])} %) zeigt, wie tief es an solchen Tagen im Mittel geht.")
         else:
-            out.set_verdict(level, f"Gauß unterschätzt den Expected Shortfall um {pct} %",
-                            f"Der VaR {lvl} ({_de(100 * fat)} %) liegt nah am Gauß-Wert ({_de(100 * v['gauss'])} %), "
-                            f"doch jenseits davon geht es viel tiefer: im Mittel {_de(100 * v['es_hist'])} % statt "
-                            f"{_de(100 * v['es_gauss'])} %. Genau das verbirgt ein reiner VaR.")
+            facts = (f"VaR {lvl}: {_de(100 * fat)} % gegen Gauß {_de(100 * v['gauss'])} % "
+                     f"({'+' if r_var >= 1 else '−'}{_de(100 * abs(r_var - 1), 0)} %). Expected Shortfall: "
+                     f"{_de(100 * v['es_hist'])} % gegen {_de(100 * v['es_gauss'])} % (+{_de(100 * (r_es - 1), 0)} %).")
+            if r_var >= r_es:
+                out.set_verdict(level, f"Der Gauß-VaR unterschätzt das Risiko um {pct} %", facts)
+            else:
+                out.set_verdict(level, f"Gauß unterschätzt den Expected Shortfall um {pct} %",
+                                facts + " Jenseits des VaR geht es viel tiefer, als die Normalverteilung erwartet "
+                                        "– genau das verbirgt ein reiner VaR.")

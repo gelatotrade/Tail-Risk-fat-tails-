@@ -116,6 +116,7 @@ def run(params, data, out):
                  size=7, decimate_to=None)],
         x=xa, y=C.axis("Rendite", fmt="pct", digits=1),
         hlines=[C.hline(mean + thr * std, f"+{_de(thr, 1)} σ"), C.hline(mean - thr * std, f"−{_de(thr, 1)} σ")],
+        height=390,
     ))
 
     # Jumps per (calendar) year: Poisson would spread them evenly

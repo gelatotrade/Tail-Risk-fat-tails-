@@ -180,10 +180,10 @@ def run(params, data, out):
     sample = [_de(100 * mu, 3) + " %", _de(100 * sd, 2) + " % (Volatilität)",
               _de(stats.skew(r)), _de(stats.kurtosis(r), 1) + " (Exzess)"]
     out.table("Welche Momente existieren?", ["Moment", "Bedingung", "existiert?", "Stichprobe (Tagesrenditen)"],
-              [[name, f"α − 1 > {k}", "ja" if tail_index > k else "nein – unendlich", s]
+              [[name, f"α − 1 > {k}", "ja" if tail_index > k else "nein – divergiert", s]
                for (k, name), s in zip(MOMENTS, sample)],
               formats=["text", "text", "text", "text"],
-              note="Auch ein unendliches Moment liefert in jeder Stichprobe eine endliche Zahl – sie ist aber "
+              note="Auch ein divergierendes Moment liefert in jeder Stichprobe eine endliche Zahl – sie ist aber "
                    "instabil und wächst mit jedem neuen Extremtag.")
 
     rows = []

@@ -111,8 +111,10 @@ def run(params, data, out):
                f"{_fmt_date(x[i_max]) if data.dates else _fmt_date(i_max)}")
     out.metric("VaR-Verletzungen", rate, "pct", hint=f"{n_breach} von {n_valid} Tagen · erwartet {_de(100 * (1 - conf), 1)} %",
                status="critical" if rate > 2.5 * (1 - conf) else "serious" if rate > 1.5 * (1 - conf) else "good")
-    out.metric("Kupiec-Test (p-Wert)", p_kup, "num", digits=3, hint="< 0,05: Verletzungsquote passt nicht zum Niveau",
-               status="warning" if p_kup < 0.05 else None)
+    p_txt = "p < 0,001" if p_kup < 0.001 else f"p = {_de(p_kup, 3)}"
+    out.metric("Kupiec-Test", "abgelehnt" if p_kup < 0.05 else "bestanden", "text",
+               hint=f"{p_txt} · abgelehnt: Verletzungsquote passt nicht zum Niveau",
+               status="warning" if p_kup < 0.05 else "good")
     out.metric("Exzess-Kurtosis heute", kurt[-1], "num", digits=1)
     out.metric("Schiefe heute", skew[-1], "num")
     out.metric(f"Tail-Index α heute ({'Hill' if method == 'hill' else 'Pickands'})", last_alpha, "num",
@@ -123,7 +125,7 @@ def run(params, data, out):
     bx = [xi for xi, b in zip(x, breach) if b]
     out.chart(C.xy(
         f"Rollierender VaR und Expected Shortfall {lvl} gegen die tatsächlichen Renditen",
-        [C.trace("Tagesrendite", x, r, color="muted", width=1),
+        [C.trace("Tagesrendite", x, r, type="scatter", color="muted", size=2.5, decimate_to=None),
          C.trace(f"−VaR {lvl}", x, -var, color=1, width=2),
          C.trace(f"−ES {lvl}", x, -es, color=2, width=1.5),
          C.trace("VaR-Verletzung", bx, r[breach], type="scatter", color="critical", size=6, decimate_to=None)],
@@ -162,7 +164,7 @@ def run(params, data, out):
         recent = idx[-min(w, idx.size):]
         out.chart(C.scatter3d(
             "Weg durch den 3D-Risikoraum",
-            [C.path3d("Verlauf", X[hist], Y[hist], Z[hist], color="muted", mode="lines",
+            [C.path3d("Alle Tage", X[hist], Y[hist], Z[hist], color="muted", mode="markers", size=1.5,
                       text=[labels[i] for i in hist]),
              C.path3d("Riskanteste 3 % der Tage", X[hot], Y[hot], Z[hot], color="critical", mode="markers", size=3,
                       text=[labels[i] for i in hot]),

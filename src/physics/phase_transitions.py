@@ -275,10 +275,20 @@ class CriticalSlowingDownDetector:
             yield start, windows[start:start + rows]
 
     def _detrended_windows(self, data: np.ndarray):
-        """Like _windows, but each window is detrended exactly as detrend()."""
+        """
+        Like _windows, but each window is detrended exactly as detrend().
+
+        gaussian_filter1d is linear, so the trend of a window x is K @ x with
+        the (window x window) matrix K whose column j is the filtered unit
+        vector e_j.  One matrix product per block replaces a convolution with
+        the full kernel (8·σ + 1 taps) per window - the same numbers, much
+        cheaper when σ is large compared to the window.
+        """
+        kernel = None
         for start, block in self._windows(data):
-            trend = gaussian_filter1d(block, self.detrend_window, axis=1)
-            yield start, block - trend
+            if kernel is None:
+                kernel = gaussian_filter1d(np.eye(self.window), self.detrend_window, axis=0)
+            yield start, block - block @ kernel.T
 
     def autocorrelation_lag1(self, data: np.ndarray) -> np.ndarray:
         """
@@ -621,6 +631,7 @@ class MarketPhaseClassifier:
         Returns:
             Phase classification and supporting metrics
         """
+        returns = np.asarray(returns, dtype=float)
         if len(returns) < 2 * window:
             return {'phase': 'UNKNOWN', 'confidence': 0}
 
@@ -633,11 +644,10 @@ class MarketPhaseClassifier:
         recent_return = np.mean(recent_returns)
         recent_ac1 = ews['autocorrelation'][-1] if len(ews['autocorrelation']) > 0 else 0
 
-        # Classification logic
-        vol_percentile = stats.percentileofscore(
-            [np.std(returns[i:i+window]) for i in range(len(returns) - window)],
-            recent_vol
-        )
+        # Classification logic: recent volatility against every earlier
+        # window returns[i:i+window], i = 0 .. n-window-1 (vectorised)
+        past_vols = np.std(sliding_window_view(returns, window)[:len(returns) - window], axis=1)
+        vol_percentile = stats.percentileofscore(past_vols, recent_vol)
 
         if vol_percentile > 95 and recent_return < -0.02:
             phase = 'CRASH'

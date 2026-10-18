@@ -149,8 +149,7 @@ def run(params, data, out):
     out.metric("Energie je Händler", e_now / n, "num",
                hint=f"{_de(-(J + abs(h)))}: völlige Ordnung · ≈ 0: Chaos")
     out.metric("Suszeptibilität χ ohne Herdentrieb", chi_now, "num",
-               hint=f"(1−M²)/T: so empfindlich wären unabhängige Händler bei diesem M. Mit Herdentrieb "
-                    f"(exakt, wie im Phasendiagramm): {_de(exact_chi)}")
+               hint=f"(1−M²)/T für unabhängige Händler · mit Herdentrieb (exakt): {_de(exact_chi)}")
     out.metric("T / T_c (2D-Referenz)", T / tc if tc > 0 else None, "num",
                hint="nur Skala: die 1D-Kette hat keinen echten Phasenübergang")
     out.metric("Schwankung des Modellkurses", np.std(ret), "pct",
