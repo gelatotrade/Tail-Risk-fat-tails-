@@ -6,7 +6,6 @@ from scipy import stats
 from src.physics.ornstein_uhlenbeck import JumpDiffusionRiskAnalyzer, compute_ou_coordinates
 
 from .. import charts as C
-from ..core import ToolError
 from ..data import index_axis
 
 SPEC = {
@@ -97,7 +96,9 @@ def run(params, data, out):
     out.metric(f"Historischer VaR {lvl}", var_hist, "pct", hint=f"Normalverteilung: {_de(100 * var_gauss)} %")
     out.metric("Erkannte Sprünge", int(dec["n_jumps"]), "int",
                hint=f"{_de(dec['jump_intensity'] * 252, 1)} pro Jahr ({_de(100 * dec['jump_intensity'], 2)} % der Tage)")
-    out.metric("Ø-Sprung", dec["jump_mean"], "pct", hint=f"Streuung {_de(100 * dec['jump_std'])} %")
+    n_jumps = int(dec["n_jumps"])
+    out.metric("Ø-Sprung", dec["jump_mean"] if n_jumps else None, "pct",
+               hint=f"Streuung {_de(100 * dec['jump_std'])} %" if n_jumps > 1 else "zu wenige Sprünge für eine Streuung")
     out.metric("Anteil der Sprünge an Σ|r|", dec["jump_contribution"], "pct", digits=1,
                hint="so viel der gesamten Bewegung steckt in den Sprungtagen")
     if has_model:
@@ -131,14 +132,16 @@ def run(params, data, out):
     ok = expected > 0
     disp = (float(np.sum((counts[ok] - expected[ok]) ** 2 / expected[ok]) / max(1, ok.sum() - 1))
             if counts.sum() > 0 and ok.sum() > 1 else None)
-    out.chart(C.xy(
-        "Sprünge je Jahr",
-        [C.trace("Sprünge", years, counts, type="bar", color=1),
-         C.trace("Poisson-Erwartung", years, expected, color="muted", dash=True)],
-        x=C.axis("Jahr", type="category"), y=C.axis("Anzahl", fmt="int"), height=300,
-        subtitle=(f"Streuungsindex = {_de(disp, 1)} (Poisson: ≈ 1, Teiljahre gewichtet). Größer heißt: Sprünge "
-                  "kommen gehäuft." if disp is not None else "Keine Sprünge erkannt oder zu kurze Reihe."),
-    ))
+    if counts.sum() > 0:
+        out.chart(C.xy(
+            "Sprünge je Jahr",
+            [C.trace("Sprünge", years, counts, type="bar", color=1),
+             C.trace("Poisson-Erwartung", years, expected, color="muted", dash=True)],
+            x=C.axis("Jahr", type="category"), y=C.axis("Anzahl", fmt="int"), height=300,
+            subtitle=(f"Streuungsindex = {_de(disp, 1)} (Poisson: ≈ 1, Teiljahre gewichtet). Größer heißt: "
+                      "Sprünge kommen gehäuft." if disp is not None else
+                      "Die Reihe umfasst nur ein Jahr – ob Sprünge gehäuft kommen, lässt sich so nicht prüfen."),
+        ))
 
     # Decomposition across thresholds
     out.progress("VaR-Zerlegung für mehrere Schwellen …", 0.5)

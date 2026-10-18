@@ -16,7 +16,7 @@ SPEC = {
     "summary": "Was seltene Sprünge mit VaR und Expected Shortfall machen – normal-, doppelt-exponential- oder "
                "Lévy-verteilt, im direkten Vergleich zum Prozess ohne Sprünge.",
     "description": (
-        "Ein mean-revertierender Prozess **dx = θ(μ − x)dt + σ dW + dJ**: Zwischen den Sprüngen verhält er sich "
+        "Ein zum Mittel zurückkehrender Prozess **dx = θ(μ − x)dt + σ dW + dJ**: Zwischen den Sprüngen verhält er sich "
         "wie ein Ornstein-Uhlenbeck-Prozess, dazu kommen im Schnitt **λ Sprünge pro Jahr** (Poisson). Denk an "
         "die Abweichung einer Position vom fairen Wert – etwa ein Spread oder ein Rohstoffpreis –, die "
         "normalerweise ruhig zurückläuft, aber gelegentlich abrupt springt. x ist eine Log-Abweichung, "
@@ -118,8 +118,8 @@ def run(params, data, out):
                status="critical" if es_j > 2 * es_0 else "serious" if es_j > 1.3 * es_0 else None)
     out.metric("VaR ohne Sprünge", var_0, "pct", hint="reiner OU, dieselben Zufallszahlen")
     out.metric("Expected Shortfall ohne Sprünge", es_0, "pct")
-    out.metric("Sprung-Faktor VaR", var_j / var_0 if var_0 > 0 else None, "x")
-    out.metric("Sprung-Faktor ES", es_j / es_0 if es_0 > 0 else None, "x")
+    out.metric("Sprung-Faktor VaR", var_j / var_0 if var_0 > 0 else None, "x", hint="VaR mit ÷ ohne Sprünge")
+    out.metric("Sprung-Faktor ES", es_j / es_0 if es_0 > 0 else None, "x", hint="ES mit ÷ ohne Sprünge")
     out.metric("Erwartete Sprünge im Horizont", lam * h, "num", digits=3, hint=f"λ·Horizont, λ = {_de(lam, 0)} pro Jahr")
     out.metric("Exzess-Kurtosis der Änderung", stats.kurtosis(change_j), "num", digits=1,
                hint=f"ohne Sprünge: {_de(stats.kurtosis(change_0), 1)}")

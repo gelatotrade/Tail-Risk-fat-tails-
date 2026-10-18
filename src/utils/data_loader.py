@@ -251,16 +251,25 @@ class SyntheticMarketGenerator:
     Generate realistic multi-asset synthetic market data.
     """
 
-    def __init__(self, n_assets: int = 5, seed: Optional[int] = None):
+    def __init__(self, n_assets: int = 5, seed: Optional[int] = None,
+                 base_correlation: float = 0.0):
         """
         Initialize generator.
 
         Args:
             n_assets: Number of assets to generate
             seed: Random seed
+            base_correlation: Common market correlation in [0, 1). The random
+                correlation matrix is blended with a constant one,
+                ``rho + (1 - rho) * C``, so every pair gets at least roughly
+                ``rho`` (real equities: about 0.3-0.5). 0 (default) keeps the
+                original matrix, whose pair correlations centre on zero.
         """
+        if not 0.0 <= base_correlation < 1.0:
+            raise ValueError(f"base_correlation must be in [0, 1), got {base_correlation}")
         self.n_assets = n_assets
         self.seed = seed
+        self.base_correlation = float(base_correlation)
 
         if seed is not None:
             np.random.seed(seed)
@@ -282,6 +291,12 @@ class SyntheticMarketGenerator:
         # Convert to correlation
         D = np.diag(1 / np.sqrt(np.diag(cov)))
         corr = D @ cov @ D
+        if self.base_correlation > 0:
+            # convex blend with a constant-correlation matrix: still a valid
+            # (positive definite) correlation matrix, no extra random draws
+            rho = self.base_correlation
+            corr = rho * np.ones_like(corr) + (1 - rho) * corr
+            np.fill_diagonal(corr, 1.0)
 
         # Generate correlated returns using Cholesky
         L = np.linalg.cholesky(corr)

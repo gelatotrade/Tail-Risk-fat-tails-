@@ -16,7 +16,7 @@ SPEC = {
     "summary": "Wenn die Volatilität selbst zufällig schwankt und springt: Vola-Cluster, fette Ränder und "
                "Drawdowns – obwohl jeder einzelne Tag normalverteilt ist.",
     "description": (
-        "Die Volatilität folgt einem mean-revertierenden Prozess **dσ = κ(θ − σ)dt + η√σ dW + dJ**: Sie kehrt mit "
+        "Die Volatilität folgt einem zum Mittel zurückkehrenden Prozess **dσ = κ(θ − σ)dt + η√σ dW + dJ**: Sie kehrt mit "
         "Geschwindigkeit **κ** zum Niveau **θ** zurück, schwankt mit der Vola-of-Vol **η** und springt im Schnitt "
         "**λ-mal pro Jahr** nach oben (je Sprung im Mittel +10 Prozentpunkte, exponentialverteilt). Der Kurs ist "
         "eine geometrische Brownsche Bewegung mit genau dieser Volatilität.\n\n"
