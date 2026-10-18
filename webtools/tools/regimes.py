@@ -85,6 +85,14 @@ def _fmt_date(s):
     return f"Tag {s}"
 
 
+def _pct0(p):
+    return "unter 1 %" if p < 0.01 else f"{_de(100 * p, 0)} %"
+
+
+def _days(d):
+    return "1 Tag" if round(d) == 1 else f"{d:.0f} Tage"
+
+
 def _var_es(x, conf):
     if len(x) < 20:
         return None, None
@@ -118,13 +126,8 @@ def run(params, data, out):
     names, colors = STATE_NAMES[k], STATE_COLORS[k]
 
     out.progress("Erkenne Volatilitäts-Regime (EM-Algorithmus) …", 0.1)
-    ra = RegimeAwareTailRisk(r, vol_percentile=float(params["vol_percentile"]))
-    if k == 3 and ra.markov.filtered_probs is not None:
-        msm = ra.markov
-    else:
-        out.progress("Passe das 2-Zustands-Modell an …", 0.5)
-        msm = MarkovRegimeSwitching(n_states=k)
-        msm.fit(r)
+    ra = RegimeAwareTailRisk(r, vol_percentile=float(params["vol_percentile"]), markov_states=k)
+    msm: MarkovRegimeSwitching = ra.markov
     if msm.filtered_probs is None:
         raise ToolError("Das Markov-Modell ist nicht konvergiert. Wähle einen anderen Zeitraum.")
 
@@ -158,7 +161,7 @@ def run(params, data, out):
     out.metric("Vola im Stress-Regime", stds[-1] * np.sqrt(DAYS), "pct", digits=1,
                hint=f"ruhig: {_de(100 * stds[0] * np.sqrt(DAYS), 1)} % p. a.")
     out.metric("Ø Dauer des Stress-Regimes", stay[-1], "num", digits=0, unit="Tage",
-               hint=f"ruhig: {stay[0]:.0f} Tage")
+               hint=f"ruhig: {_days(stay[0])}")
     if var_by_state[-1][0] is not None and var_all[0]:
         out.metric(f"VaR {lvl} im Stress ÷ gesamt", var_by_state[-1][0] / var_all[0], "x",
                    hint=f"{_de(100 * var_by_state[-1][0])} % statt {_de(100 * var_all[0])} %")
@@ -192,7 +195,7 @@ def run(params, data, out):
     out.chart(C.heatmap(
         "Übergangsmatrix: P(morgen | heute)", [f"nach {s}" for s in names], [f"von {s}" for s in names], P,
         z=C.axis("Wahrscheinlichkeit", fmt="pct", digits=1), scale="sequential", height=260 + 30 * k,
-        subtitle=f"Diagonale = Beharrung. Ø Verweildauer: " + ", ".join(f"{s} {d:.0f} Tage" for s, d in zip(names, stay)),
+        subtitle="Diagonale = Beharrung. Ø Verweildauer: " + ", ".join(f"{s} {_days(d)}" for s, d in zip(names, stay)),
     ))
 
     # --- chart 4: 3D regime space coloured by Markov state
@@ -250,6 +253,14 @@ def run(params, data, out):
     if off > 0:
         out.note(f"Analysiert werden die letzten {params['max_years']} Jahre ({n} von {len(r_all)} Tagen).", "info")
 
+    persistent = bool(lb["significant"]) and float(np.min(np.diag(P))) > 0.5
+    if not persistent:
+        out.set_verdict("good", "Keine ausgeprägten Volatilitäts-Regime",
+                        f"Der Ljung-Box-Test findet {'kein' if not lb['significant'] else 'nur schwaches'} "
+                        f"Clustering, und mindestens ein Zustand hält im Mittel nur {_days(float(np.min(stay)))}. "
+                        "Das Modell trennt hier eher normale Tage von Sprüngen als echte Marktphasen.")
+        return
+
     p_stress = float(cur_p[-1])
     v_s = var_by_state[-1][0]
     stress_txt = (f" Im Stress-Regime liegt der VaR {lvl} bei {_de(100 * v_s)} % statt {_de(100 * var_all[0])} % im "
@@ -257,11 +268,11 @@ def run(params, data, out):
     if p_stress > 0.5:
         out.set_verdict("serious", f"Der Markt ist im Stress-Regime (P = {_de(100 * p_stress, 0)} %)",
                         f"Die Volatilität liegt bei rund {_de(100 * stds[-1] * np.sqrt(DAYS), 0)} % p. a.; Stressphasen "
-                        f"halten im Mittel {stay[-1]:.0f} Tage." + stress_txt)
+                        f"halten im Mittel {_days(stay[-1])}." + stress_txt)
     elif cur != 0:
         out.set_verdict("warning", f"Erhöhte Volatilität (Regime „{names[cur]}“)",
-                        f"Stress-Wahrscheinlichkeit {_de(100 * p_stress, 0)} %." + stress_txt)
+                        f"Stress-Wahrscheinlichkeit {_pct0(p_stress)}." + stress_txt)
     else:
         out.set_verdict("good", f"Ruhiges Regime (P = {_de(100 * cur_p[0], 0)} %)",
-                        f"Ruhige Phasen halten im Mittel {stay[0]:.0f} Tage. Die Stress-Wahrscheinlichkeit liegt bei "
-                        f"{_de(100 * p_stress, 0)} %." + stress_txt)
+                        f"Ruhige Phasen halten im Mittel {_days(stay[0])}. Die Stress-Wahrscheinlichkeit liegt bei "
+                        f"{_pct0(p_stress)}." + stress_txt)

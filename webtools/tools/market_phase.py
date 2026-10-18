@@ -23,12 +23,16 @@ SPEC = {
         "1 % Bewegung pro Tag) – sonst **Stabil**. Die Tabelle zeigt für jede Regel die aktuellen Werte.\n\n"
         "So liest du die Diagramme: Die Zeitleiste klassifiziert jeden Stichtag nur mit den Daten, die damals "
         "verfügbar waren. Der Phasenraum zeigt drei Koordinaten je Tag: **X** ist ein Varianzverhältnis "
-        "(Suszeptibilität – wie stark sich Schocks aufschaukeln), **Y** die Stärke der Autokorrelation "
-        "(Ordnungsparameter, Herdentrieb), **Z** = 1/(X + 0,1) ein Maß für den Abstand zur Kritikalität. "
-        "Alle drei sind auf ihr Maximum normiert.\n\n"
+        "(„Suszeptibilität“: Varianz des kumulierten Kurses im Fenster ÷ Varianz der Tagesrenditen – groß, wenn "
+        "sich die Tage zu einer Bewegung in eine Richtung aufaddieren), **Y** der Betrag der Autokorrelation der "
+        "Tagesrenditen (Ordnungsparameter, Herdentrieb), **Z** = 1/(X + 0,1) ein Maß für den Abstand zur "
+        "Kritikalität. Alle drei sind auf ihr Maximum normiert.\n\n"
         "Ehrlich gesagt: Z ist eine feste Funktion von X, die Bahn liegt deshalb auf einer gekrümmten Fläche – die "
         "eigentliche Information steckt in X und Y. Die Crash-Regel ist sehr streng (−2 % pro Tag über das ganze "
-        "Fenster) und greift praktisch nur in historischen Extremphasen; „Stabil“ ist die Restkategorie."
+        "Fenster) und greift praktisch nur in historischen Extremphasen; „Stabil“ ist die Restkategorie. Die "
+        "AC(1) des trendbereinigten Log-Kurses liegt fast immer über 0,2 (schon eine Irrfahrt erreicht rund 0,9) – "
+        "die Trendregel hängt deshalb praktisch nur an der Durchschnittsrendite. Die EWS-Warnstufe testet den "
+        "Trend über die **ganze** Reihe, nicht nur über die letzten Tage wie das Werkzeug „Kritisches Verlangsamen“."
     ),
     "needs": ["returns"],
     "params": [
@@ -53,6 +57,7 @@ PHASES = {
     "CRITICAL": ("Kritisch", "serious"),
     "CRASH": ("Crash", "critical"),
 }
+MIN_EXTRA = 20  # days of phase-space coordinates beyond the 2·window warm-up
 TIMELINE_OBS = 40_000  # sum of history lengths classified for the timeline (bounded runtime)
 EWS_DE = {"NORMAL": "Normal", "MODERATE": "Moderat", "ELEVATED": "Erhöht", "CRITICAL": "Kritisch"}
 
@@ -69,9 +74,10 @@ def _date(d):
 def run(params, data, out):
     r = data.returns
     n, w = data.n, params["window"]
-    if n < 2 * w + 30:
-        raise ToolError(f"Für ein Fenster von {w} Tagen braucht der Klassifikator mindestens {2 * w + 30} "
-                        f"Beobachtungen (vorhanden: {n}). Verkleinere das Fenster.")
+    if n < 2 * w + MIN_EXTRA:
+        raise ToolError(f"Für ein Fenster von {w} Tagen braucht der Klassifikator mindestens {2 * w + MIN_EXTRA} "
+                        f"Beobachtungen (vorhanden: {n}). Verkleinere das Fenster auf höchstens "
+                        f"{(n - MIN_EXTRA) // 2} Tage.")
 
     clf = MarketPhaseClassifier()
     res = clf.classify(r, window=w)
@@ -92,9 +98,10 @@ def run(params, data, out):
     out.metric(f"Volatilität p. a. ({w} Tage)", vol_ann, "pct", digits=1)
     out.metric(f"Ø-Rendite je Tag ({w} Tage)", mean_ret, "pct", digits=3)
     out.metric("AC(1) des Log-Kurses", ac1, "num", hint="letzter EWS-Wert (Trendregel: > 0,2)")
-    out.metric("Suszeptibilität", np.sqrt(res["susceptibility"]), "pct",
-               hint="√ der EWS-Varianz des trendbereinigten Log-Kurses")
-    out.metric("EWS-Warnstufe", EWS_DE.get(ews_level, ews_level), "text", hint="Kendall-τ-Trend von AC(1) und Varianz")
+    out.metric("Streuung um den Trend", np.sqrt(res["susceptibility"]), "pct",
+               hint="√ EWS-Varianz des trendbereinigten Log-Kurses (im Klassifikator „Suszeptibilität“)")
+    out.metric("EWS-Warnstufe", EWS_DE.get(ews_level, ews_level), "text",
+               hint="Kendall-τ-Trend von AC(1) und Varianz über die ganze Reihe")
 
     def yes(c):
         return "ja" if c else "nein"
@@ -117,14 +124,15 @@ def run(params, data, out):
         rows.append([label, rule, value, mark])
     out.table("Regeln (erste erfüllte Regel gilt)", ["Phase", "Regel", "aktuell", "erfüllt"], rows,
               formats=["text", "text", "text", "text"],
-              note=f"Fenster {w} Tage. Die EWS-Warnstufe rechnet intern immer mit 50 Tagen und σ = 100.")
+              note=f"Fenster {w} Tage. Die EWS-Warnstufe rechnet intern immer mit 50 Tagen und σ = 100 und testet "
+                   "den Trend über die ganze Reihe.")
 
     x, xa = index_axis(data)
 
     # Timeline: classify each cut-off date with the data available then
     k = params["timeline"]
     if k > 0:
-        start = max(2 * w + 30, 250 if n > 500 else 2 * w + 30)
+        start = max(2 * w + MIN_EXTRA, 250 if n > 500 else 2 * w + MIN_EXTRA)
         # each cut-off re-classifies its whole history: bound the total work for long series
         k_eff = int(max(3, min(k, TIMELINE_OBS // max(1, (start + n) // 2))))
         ends = np.linspace(start, n, min(k, k_eff)).astype(int)
@@ -175,12 +183,18 @@ def run(params, data, out):
     ]
     xs = [x[i] for i in valid]
     out.chart(C.xy(
-        "Phasenraum-Koordinaten über die Zeit",
-        [C.trace("X: Suszeptibilität", xs, X[valid], color=1, width=1.5),
-         C.trace("Y: Ordnung |AC(1)|", xs, Y[valid], color=3, width=1),
-         C.trace("Z: Abstand zur Kritikalität", xs, Z[valid], color="muted", dash=True, width=1)],
-        x=xa, y=C.axis("normiert auf das Maximum", range=(0, 1.02)), height=320,
-        subtitle=f"Rollierend über {w} Tage. Spitzen in X: Schocks schaukeln sich innerhalb des Fensters auf.",
+        "Phasenraum X: Suszeptibilität",
+        [C.trace("X", xs, X[valid], color=1, width=1.5)],
+        x=xa, y=C.axis("X, normiert auf das Maximum", range=(0, 1.02)), height=260,
+        subtitle=f"Rollierend über {w} Tage. Spitzen: Die Tagesbewegungen addieren sich zu einem Trend oder "
+                 "Ausverkauf. Z = 1/(X + 0,1) ist eine feste Funktion davon und fehlt deshalb hier.",
+    ))
+    out.chart(C.xy(
+        "Phasenraum Y: Ordnung |AC(1)|",
+        [C.trace("Y", xs, Y[valid], color=1, width=1)],
+        x=xa, y=C.axis("Y, normiert auf das Maximum", range=(0, 1.02)), height=260,
+        subtitle="Betrag der Lag-1-Autokorrelation der Tagesrenditen. Hoch: Tage hängen voneinander ab "
+                 "(Herdentrieb oder schnelle Umkehr).",
     ))
 
     out.chart(C.scatter3d(

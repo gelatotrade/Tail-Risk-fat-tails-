@@ -6,7 +6,6 @@ from scipy import stats
 from src.physics.ornstein_uhlenbeck import OrnsteinUhlenbeckProcess
 
 from .. import charts as C
-from ..core import ToolError
 
 SPEC = {
     "id": "ou-process",
@@ -24,33 +23,36 @@ SPEC = {
         "So liest du die Diagramme: Der Fächer zeigt simulierte Pfade (exakte Diskretisierung) ab dem Startwert "
         "x₀. Die durchgezogene Kurve ist der exakte Erwartungswert μ + (x₀ − μ)e^(−θt), die gestrichelten Linien "
         "das ±2σ(t)-Band. Die Streuung wächst nicht unbegrenzt wie bei einer Irrfahrt, sondern sättigt bei der "
-        "stationären Standardabweichung σ/√(2θ). Die Voreinstellungen ähneln dem VIX: Mittel 20, Start im Stress bei 35.\n\n"
-        "Der **Fit** schätzt θ, μ und σ per AR(1)-Regression x_{t+1} = a + b·x_t: entweder aus einem simulierten "
-        "VIX-ähnlichen Pfad mit deinen Parametern (so siehst du, wie genau die Schätzung bei gegebener Datenlänge "
-        "ist – θ ist notorisch schwer zu treffen) oder aus dem echten VIX des aktiven Datensatzes."
+        "stationären Standardabweichung σ/√(2θ). Die Voreinstellungen ähneln dem echten VIX (Mittel um 19, "
+        "Halbwertszeit rund vier Wochen), Start im Stress bei 35.\n\n"
+        "Der **Fit** schätzt θ, μ und σ per AR(1)-Regression x_{t+1} = a + b·x_t: aus dem echten VIX deines "
+        "Datensatzes (Voreinstellung) oder aus einem simulierten Pfad mit deinen Parametern – so siehst du, wie "
+        "genau die Schätzung bei gegebener Datenlänge ist (θ ist notorisch schwer zu treffen). Hat der Datensatz "
+        "keinen VIX, nimmt der Fit automatisch den simulierten Pfad."
     ),
-    "needs": [],
+    "needs": ["returns"],
     "params": [
-        {"name": "theta", "type": "float", "default": 5.0, "min": 0.1, "max": 100.0, "step": 0.1,
+        {"name": "theta", "type": "float", "default": 9.0, "min": 0.1, "max": 100.0, "step": 0.1,
          "label": "Rückstellgeschwindigkeit θ", "unit": "pro Jahr"},
         {"name": "mu", "type": "float", "default": 20.0, "min": -50.0, "max": 100.0, "step": 0.5,
          "label": "Langfristiges Mittel μ"},
-        {"name": "sigma", "type": "float", "default": 25.0, "min": 0.1, "max": 200.0, "step": 0.5,
+        {"name": "sigma", "type": "float", "default": 30.0, "min": 0.1, "max": 200.0, "step": 0.5,
          "label": "Volatilität σ", "unit": "pro √Jahr"},
         {"name": "x0", "type": "float", "default": 35.0, "min": -50.0, "max": 150.0, "step": 0.5,
          "label": "Startwert x₀"},
-        {"name": "horizon", "type": "float", "default": 1.0, "min": 0.1, "max": 5.0, "step": 0.1,
+        {"name": "horizon", "type": "float", "default": 0.5, "min": 0.1, "max": 5.0, "step": 0.1,
          "label": "Horizont", "unit": "Jahre"},
-        {"name": "n_steps", "type": "int", "default": 252, "min": 10, "max": 1260, "step": 10,
-         "label": "Zeitschritte"},
+        {"name": "n_steps", "type": "int", "default": 126, "min": 10, "max": 1260, "step": 1,
+         "label": "Zeitschritte", "help": "126 Schritte auf ½ Jahr = ein Schritt je Handelstag."},
         {"name": "n_paths", "type": "int", "default": 500, "min": 10, "max": 2000, "step": 10,
          "label": "Simulierte Pfade"},
-        {"name": "fit_source", "type": "select", "default": "sim", "label": "Parameter-Fit",
-         "options": [{"value": "sim", "label": "Simulierter VIX-ähnlicher Pfad"},
-                     {"value": "vix", "label": "VIX des aktiven Datensatzes"},
+        {"name": "fit_source", "type": "select", "default": "vix", "label": "Parameter-Fit",
+         "options": [{"value": "vix", "label": "VIX des Datensatzes"},
+                     {"value": "sim", "label": "Simulierter Pfad mit deinen Parametern"},
                      {"value": "none", "label": "kein Fit"}]},
         {"name": "fit_years", "type": "float", "default": 4.0, "min": 0.5, "max": 40.0, "step": 0.5,
-         "label": "Länge des simulierten Fit-Pfads", "unit": "Jahre", "help": "Handelstage (dt = 1/252)."},
+         "label": "Länge des simulierten Fit-Pfads", "unit": "Jahre",
+         "help": "Nur für den Fit auf den simulierten Pfad. Ein Schritt je Handelstag (dt = 1/252)."},
         {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 9999, "step": 1, "label": "Zufalls-Seed"},
     ],
     "covers": [
@@ -147,10 +149,12 @@ def run(params, data, out):
 
 
 def _fit(params, data, out, true_ou):
-    if params["fit_source"] == "vix":
-        if data.vix is None:
-            raise ToolError("Der aktive Datensatz enthält keinen VIX. Wähle oben „S&P 500 mit VIX“ "
-                            "oder stelle den Fit auf „Simulierter VIX-ähnlicher Pfad“.")
+    fit_source = params["fit_source"]
+    if fit_source == "vix" and (data is None or data.vix is None):
+        out.note("Dein Datensatz enthält keinen VIX – der Fit nutzt deshalb einen simulierten Pfad mit deinen "
+                 "Parametern. Für den echten VIX wähle als Datensatz „S&P 500“.")
+        fit_source = "sim"
+    if fit_source == "vix":
         series = np.asarray(data.vix, dtype=float)
         label, source = f"VIX ({data.name})", "dem VIX des Datensatzes"
     else:
@@ -173,7 +177,7 @@ def _fit(params, data, out, true_ou):
     rows = [["θ (pro Jahr)", fit.theta], ["μ", fit.mu], ["σ (pro √Jahr)", fit.sigma],
             ["Halbwertszeit (Handelstage)", fit.half_life() * 252], ["stationäre Std", fit.stationary_std()],
             ["AR(1)-Steigung b = e^(−θ·dt)", b]]
-    if params["fit_source"] == "sim":
+    if fit_source == "sim":
         truth = [true_ou.theta, true_ou.mu, true_ou.sigma, true_ou.half_life() * 252, true_ou.stationary_std(),
                  np.exp(-true_ou.theta * DT)]
         rows = [r + [tv, r[1] / tv - 1 if tv else None] for r, tv in zip(rows, truth)]

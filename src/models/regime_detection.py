@@ -364,7 +364,7 @@ class RegimeAwareTailRisk:
     """
 
     def __init__(self, returns: np.ndarray, window: int = 60,
-                 vol_percentile: float = 75):
+                 vol_percentile: float = 75, markov_states: int = 3):
         """
         Initialize regime-aware analyzer.
 
@@ -375,11 +375,17 @@ class RegimeAwareTailRisk:
             vol_percentile: Percentile of realized volatility above which a
                 day counts as HIGH_VOL (below 100 - vol_percentile: LOW_VOL),
                 passed to VolatilityClusteringDetector.detect_vol_regime
+            markov_states: States of the Markov switching model, 3
+                (LOW/MEDIUM/HIGH_VOL) or 2 (LOW/HIGH_VOL)
         """
+        if markov_states not in (2, 3):
+            raise ValueError("markov_states must be 2 or 3")
+
         self.returns = np.asarray(returns)
         self.n = len(returns)
         self.window = window
         self.vol_percentile = vol_percentile
+        self.markov_states = int(markov_states)
 
         # Fit regime model
         self._detect_regimes()
@@ -391,7 +397,7 @@ class RegimeAwareTailRisk:
         self.regimes = detector.detect_vol_regime(self.vol_percentile)
 
         # Also fit Markov model (states are sorted by volatility after fit)
-        self.markov = MarkovRegimeSwitching(n_states=3)
+        self.markov = MarkovRegimeSwitching(n_states=self.markov_states)
         try:
             self.markov.fit(self.returns)
         except Exception as exc:
@@ -401,18 +407,25 @@ class RegimeAwareTailRisk:
     def current_regime(self) -> Dict:
         """Get current regime information."""
         regime_labels = ['LOW_VOL', 'MEDIUM_VOL', 'HIGH_VOL']
+        # Markov states are sorted by volatility; with 2 states there is no MEDIUM_VOL
+        markov_labels = regime_labels if self.markov_states == 3 else ['LOW_VOL', 'HIGH_VOL']
 
         simple_regime = self.regimes[-1]
-        markov_regime = self.markov.current_regime() if self.markov.filtered_probs is not None else 0
-        markov_probs = self.markov.regime_probability() if self.markov.filtered_probs is not None else np.array([0.33, 0.34, 0.33])
+        if self.markov.filtered_probs is not None:
+            markov_regime = self.markov.current_regime()
+            markov_probs = self.markov.regime_probability()
+        else:
+            markov_regime = 0
+            markov_probs = (np.array([0.33, 0.34, 0.33]) if self.markov_states == 3
+                            else np.array([0.5, 0.5]))
 
         return {
             'simple_regime': regime_labels[simple_regime],
-            'markov_regime': regime_labels[markov_regime],
+            'markov_regime': markov_labels[markov_regime],
             'regime_probabilities': {
                 'low_vol': markov_probs[0],
-                'medium_vol': markov_probs[1] if len(markov_probs) > 1 else 0,
-                'high_vol': markov_probs[2] if len(markov_probs) > 2 else markov_probs[-1]
+                'medium_vol': markov_probs[1] if self.markov_states == 3 else 0.0,
+                'high_vol': markov_probs[-1]
             }
         }
 

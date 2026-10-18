@@ -454,6 +454,9 @@ def compute_sentiment_coordinates(vix_series: np.ndarray,
     Low X, negative Y, positive Z = complacency, tail risk building
     """
     n = len(returns)
+    window = int(window)
+    if window < 1:
+        raise ValueError(f"window must be >= 1, got {window}")
     vix_series = np.asarray(vix_series, dtype=float)
     # Resample a VIX series of different length onto the return index 0..n-1
     vix = vix_series if len(vix_series) == n else np.interp(
@@ -464,18 +467,22 @@ def compute_sentiment_coordinates(vix_series: np.ndarray,
     Y = np.zeros(n)  # VIX momentum
     Z = np.zeros(n)  # Correlation
 
-    for i in range(window, n):
-        X[i] = vix[i]
-        Y[i] = vix[i] - np.mean(vix[i-window:i])
-
-        # Correlation between returns and VIX changes
-        vix_changes = np.diff(vix[i-window:i+1])
-        ret_window = returns[i-window+1:i+1]
-        if len(vix_changes) == len(ret_window) and len(vix_changes) > 2:
+    if n > window:
+        # Day i (window <= i < n) uses vix[i-window:i] for the momentum and the
+        # pair (returns[i-window+1:i+1], diff(vix[i-window:i+1])) for the
+        # correlation; all windows at once (same values as a per-day loop).
+        X[window:] = vix[window:]
+        past = np.lib.stride_tricks.sliding_window_view(vix[:-1], window)  # rows: vix[i-window:i]
+        Y[window:] = vix[window:] - past.mean(axis=1)
+        if window > 2:
+            dv = np.lib.stride_tricks.sliding_window_view(np.diff(vix), window)
+            rw = np.lib.stride_tricks.sliding_window_view(np.asarray(returns, dtype=float)[1:], window)
+            a = rw - rw.mean(axis=1, keepdims=True)
+            b = dv - dv.mean(axis=1, keepdims=True)
             # Undefined for a constant window (e.g. a VIX pinned at a bound): use 0
             with np.errstate(invalid='ignore', divide='ignore'):
-                c = np.corrcoef(ret_window, vix_changes)[0, 1]
-            Z[i] = c if np.isfinite(c) else 0.0
+                c = np.sum(a * b, axis=1) / np.sqrt(np.sum(a * a, axis=1) * np.sum(b * b, axis=1))
+            Z[window:] = np.where(np.isfinite(c), np.clip(c, -1.0, 1.0), 0.0)
 
     # Normalize to [0, 1] over the computed part; the first `window` entries
     # are padding (left at 0) and must not set the minimum.
