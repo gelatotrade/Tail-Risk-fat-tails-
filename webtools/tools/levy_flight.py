@@ -203,7 +203,7 @@ def run(params, data, out):
         [C.path3d("Tagesweise Bahn", X, Y, Z, color=1, mode="lines+markers", size=2, text=txt),
          C.path3d("Schlimmster Tag", [X[j]], [Y[j]], [Z[j]], color="critical", mode="markers", size=8, text=[txt[j]])],
         x=C.axis("X: Volatilität (Mittel = 1)"), y=C.axis("Y: 2 / Tail-Index"), z=C.axis("Z: |Rendite| / σ"),
-        subtitle=f"`levy_flight_3d_coordinates` mit Fenster {win} Tage auf den Tagesrenditen des roten Pfads. "
+        subtitle=f"levy_flight_3d_coordinates mit Fenster {win} Tage auf den Tagesrenditen des roten Pfads. "
                  "Ziehen dreht, Mausrad zoomt.",
         height=520,
     ))

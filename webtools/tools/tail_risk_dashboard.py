@@ -217,7 +217,7 @@ def run(params, data, out):
     if rows:
         out.table("Tail-Risk-Bericht (create_summary_report)", ["Abschnitt", "Kennzahl", "Wert", "Einordnung"], rows,
                   formats=["text", "text", "text", "text"],
-                  note=f"Über alle {k} gezeigten Tage. Schwellen des Originalberichts: Kurtosis > 3, Schiefe < −0,5, "
+                  note=f"Über alle {format(k, ',').replace(',', '.')} gezeigten Tage. Schwellen des Originalberichts: Kurtosis > 3, Schiefe < −0,5, "
                        "Faktor > 2, α < 3, ES/VaR > 1,5.")
     rv = dash.regime_var or {}
     if rv:

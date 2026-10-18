@@ -288,7 +288,8 @@ def run(params, data, out):
     rows, zone_stats = [], []
     for i, (hi, name, status, region, action) in enumerate(ZONES):
         lo = ZONES[i - 1][0] if i else 0.0
-        band = f"{_pct(lo, 0)} – {_pct(hi, 0)}" if np.isfinite(hi) else f"≥ {_pct(lo, 0)}"
+        band = f"{100 * lo:.0f}–{_pct(hi, 0)}" if np.isfinite(hi) else f"≥ {_pct(lo, 0)}"
+        band = band.replace(" ", " ")                # keep "5–15 %" on one line
         mk = zone_idx == i
         mf = mk & has_future
         rows.append([f"{name} ({region})", band, action, float(mk.mean()),

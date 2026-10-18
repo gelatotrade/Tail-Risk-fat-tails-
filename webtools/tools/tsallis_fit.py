@@ -127,7 +127,7 @@ def run(params, data, out):
                "Faktor Momente / Gauß"],
               trows, formats=["text", "int", "num", "num", "num", "x"],
               note=f"Tage mit |r − Median| > k·σ unter {n} Tagen; erwartet = Modellwahrscheinlichkeit × {n}. Die "
-                   "Momente-Spalte und der Faktor stammen direkt aus `TsallisTailRiskModel.update`.")
+                   "Momente-Spalte und der Faktor stammen direkt aus TsallisTailRiskModel.update.")
 
     # --- chart 1: histogram vs both fits, log scale
     centers, heights = C.histogram(r, bins=params["bins"], density=True)
@@ -162,7 +162,7 @@ def run(params, data, out):
         [t for t in tail_traces if np.any(np.isfinite(t["y"]))],
         x=C.axis("Abstand x vom Zentrum", type="log", fmt="pct", digits=1),
         y=C.axis("Anteil der Tage", type="log", fmt="pct", range=(y_lo, 1.0)),
-        subtitle="Potenzgesetze sind Geraden. Die Asymptote aus `tail_probability` gilt erst weit draußen.", height=370,
+        subtitle="Potenzgesetze sind Geraden. Die Asymptote aus tail_probability gilt erst weit draußen.", height=370,
     ))
 
     # --- chart 3: QQ plot against the chosen fit (tails kept, centre thinned)

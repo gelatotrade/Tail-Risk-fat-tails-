@@ -218,7 +218,7 @@ def run(params, data, out):
         ["Abstand", "P(X < −x) Stichprobe", "links asymptotisch", "P(X > x) Stichprobe", "rechts asymptotisch",
          "Gauß je Seite", "Faktor links / Gauß"],
         rows, formats=["text", "pct", "pct", "pct", "pct", "pct", "x"],
-        note="Asymptotisch = Potenzgesetz aus `tail_probability` (Samorodnitsky-Taqqu 1.2.15), gilt erst für "
+        note="Asymptotisch = Potenzgesetz aus tail_probability (Samorodnitsky-Taqqu 1.2.15), gilt erst für "
              "große x und ist bei 100 % gekappt. 0 % in der Stichprobe heißt: nicht beobachtet.",
     )
 

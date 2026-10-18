@@ -134,7 +134,7 @@ def run(params, data, out):
         rows.append([f"{k} σ", t["left"], t["right"], t["total"], float(2 * stats.norm.sf(k)), t["ratio_to_gaussian"]])
     out.table("Tail-Kennzahlen der Prognose", ["Schwelle", "links", "rechts", "gesamt", "Gauß gesamt", "Faktor"],
               rows, formats=["text", "pct", "pct", "pct", "pct", "x"],
-              note="Aus `compute_tail_risk_metrics`: Masse jenseits Mittelwert ± k·σ der prognostizierten Dichte.")
+              note="Aus compute_tail_risk_metrics: Masse jenseits Mittelwert ± k·σ der prognostizierten Dichte.")
 
     if not params["surface"]:
         out.note("3D-Risikofläche ausgeschaltet.", "info")

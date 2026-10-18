@@ -342,7 +342,7 @@ def run(params, data, out):
     out.table(f"Status am {label(m - 1)} (Tabelle des Frameworks)",
               ["Indikator", "Wert", "Gewicht", "Signal", "Teil-Score", "Beitrag"], rows,
               formats=["text", "text", "text", "text", "num", "num"],
-              note="Signale nach `create_indicator_summary_table`, ergänzt um Teil-Score und Beitrag (Punkte). "
+              note="Signale nach create_indicator_summary_table, ergänzt um Teil-Score und Beitrag (Punkte). "
                    "Die Originaltabelle gibt es unten als Textdatei.")
     out.download("fruehwarn_status.txt", text.strip("\n") + "\n")
 
