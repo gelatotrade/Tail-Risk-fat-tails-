@@ -102,7 +102,9 @@ def run(params, data, out):
     u, p_u = float(st["threshold"]), float(st["exceedance_probability"])
     var_c, es_c = float(evt.var(conf, "gpd")), float(evt.expected_shortfall(conf))
     var_gev = float(evt.var(conf, "gev"))
-    rl10, rl100 = -float(report["return_levels"]["10_year"]), -float(report["return_levels"]["100_year"])
+    rl10, rl100 = -float(report["return_levels"]["10_year"]), -float(report["return_levels"]["100_year"])  # GEV
+    t10, t100 = 10 * DAYS, 100 * DAYS
+    gpd10, gpd100 = float(evt.gpd_left.var(1 - 1 / t10, p_u)), float(evt.gpd_left.var(1 - 1 / t100, p_u))
     mu, sd = float(np.mean(r)), float(np.std(r))
 
     def gauss_var(c):
@@ -119,8 +121,10 @@ def run(params, data, out):
     out.metric(f"VaR {lvl} · GPD", var_c, "pct", hint=f"Gauß {_de(100 * gauss_var(conf))} %")
     out.metric(f"Expected Shortfall {lvl} · GPD", es_c, "pct")
     out.metric(f"VaR {lvl} · GEV", var_gev, "pct", hint=f"aus {m}-Tage-Blockmaxima")
-    out.metric("10-Jahres-Tagesverlust", rl10, "pct", hint=f"GEV · Gauß: einmal in {_years(gauss_years(rl10))}")
-    out.metric("100-Jahres-Tagesverlust", rl100, "pct", hint=f"GEV · Gauß: einmal in {_years(gauss_years(rl100))}")
+    out.metric("10-Jahres-Tagesverlust · GPD", gpd10, "pct",
+               hint=f"GEV {_de(100 * rl10, 1)} % · Gauß: einmal in {_years(gauss_years(gpd10))}")
+    out.metric("100-Jahres-Tagesverlust · GPD", gpd100, "pct",
+               hint=f"GEV {_de(100 * rl100, 1)} % · Gauß: einmal in {_years(gauss_years(gpd100))}")
 
     # --- chart 1: tail fit, P(loss > x)
     losses = np.sort(-r)[::-1]
@@ -147,16 +151,16 @@ def run(params, data, out):
     gev_rl = -np.asarray(evt.return_level(t_days, "left"), dtype=float)
     gpd_rl = np.array([evt.gpd_left.var(1 - 1 / T, p_u) if 1 / T < p_u else np.nan for T in t_days], dtype=float)
     g_rl = -(mu + sd * stats.norm.ppf(1 / t_days))
-    k = min(200, n)
-    emp_years = (n + 1) / np.arange(1, k + 1) / DAYS
+    ranks = np.unique(np.geomspace(1, min(n, 2000), 45).round().astype(int))  # even on the log axis
+    emp_years = (n + 1) / ranks / DAYS
     out.chart(C.xy(
         "Wiederkehrniveaus: Welcher Tagesverlust kommt einmal in T Jahren?",
         [C.trace(f"GEV ({m}-Tage-Blockmaxima)", years, gev_rl, color=2, width=2.5),
          C.trace("GPD (Peaks over Threshold)", years, gpd_rl, color=1, width=2.5),
          C.trace("Normalverteilung", years, g_rl, color="muted", dash=True),
-         C.trace("Beobachtet", emp_years, losses[:k], type="scatter", color=4, size=6, decimate_to=None)],
+         C.trace("Beobachtet", emp_years, losses[ranks - 1], type="scatter", color=4, size=6, decimate_to=None)],
         x=C.axis("Wiederkehrperiode (Jahre)", type="log"), y=C.axis("Tagesverlust", fmt="pct", digits=0),
-        subtitle="Punkte: tatsächliche Verluste, sortiert nach ihrer Seltenheit in den Daten.",
+        subtitle="Punkte: tatsächliche Verluste; der k-größte Verlust kommt im Mittel einmal in (n + 1)/k Tagen vor.",
         vlines=[C.vline(10, "10 Jahre"), C.vline(100, "100 Jahre")],
     ))
 
@@ -179,17 +183,19 @@ def run(params, data, out):
     inv_xi = 1 / xi_l if xi_l > 0.02 else np.nan
     hlines = [C.hline(inv_xi, f"1/ξ (GPD) = {_de(inv_xi, 1)}", color="critical")] if np.isfinite(inv_xi) else []
     if len(kv) and np.any(np.isfinite(hv)):
-        top = np.nanmax([np.nanmax(hv), inv_xi if np.isfinite(inv_xi) and inv_xi < 3 * np.nanmax(hv) else 0])
+        half = 1.96 * hv / np.sqrt(kv)  # asymptotic standard error of Hill: alpha / sqrt(k)
+        top = np.nanmax([np.nanmax(hv + half), inv_xi if np.isfinite(inv_xi) and inv_xi < 3 * np.nanmax(hv) else 0])
         out.chart(C.xy(
             "Hill-Plot: Tail-Index α der Verluste je Zahl k der Extremwerte",
-            [C.trace("Hill-Schätzer α(k)", kv, hv, color=1)],
-            x=C.axis("k (größte Verluste)", fmt="int"), y=C.axis("Tail-Index α", range=(0, top * 1.2)),
-            subtitle="Ein stabiles Plateau ist der glaubwürdige Tail-Index. α = 1/ξ; α < 4 heißt unendliche Kurtosis.",
+            [C.envelope("95-%-Band", kv, np.maximum(hv - half, 0), hv + half, color=1),
+             C.trace("Hill-Schätzer α(k)", kv, hv, color=1)],
+            x=C.axis("k (größte Verluste)", fmt="int"), y=C.axis("Tail-Index α", range=(0, top * 1.1)),
+            subtitle="Ein stabiles Plateau ist der glaubwürdige Tail-Index; α = 1/ξ, α < 4 heißt unendliche Kurtosis. "
+                     "Hill und GPD-Fit weichen oft deutlich ab – beide sind unsicher, wie das Band zeigt.",
             hlines=hlines, vlines=[C.vline(st["n_exceedances"], f"k = {st['n_exceedances']}")],
         ))
 
     # --- tables
-    t10, t100 = 10 * DAYS, 100 * DAYS
     hist_level = lambda T: float(np.quantile(-r, 1 - 1 / T)) if T <= n else None  # noqa: E731
     rows = [
         ["VaR 99 %", report["var_99"], float(evt.var(0.99, "gev")), float(np.quantile(-r, 0.99)), gauss_var(0.99)],
@@ -197,15 +203,14 @@ def run(params, data, out):
         ["VaR 99,9 %", report["var_999"], float(evt.var(0.999, "gev")), float(np.quantile(-r, 0.999)), gauss_var(0.999)],
         ["Expected Shortfall 99 %", report["es_99"], None, float(np.mean(-r[-r >= np.quantile(-r, 0.99)])),
          -mu + sd * stats.norm.pdf(stats.norm.ppf(0.01)) / 0.01],
-        ["10-Jahres-Tagesverlust", float(evt.gpd_left.var(1 - 1 / t10, p_u)), rl10, hist_level(t10), gauss_var(1 - 1 / t10)],
-        ["100-Jahres-Tagesverlust", float(evt.gpd_left.var(1 - 1 / t100, p_u)), rl100, hist_level(t100),
-         gauss_var(1 - 1 / t100)],
+        ["10-Jahres-Tagesverlust", gpd10, rl10, hist_level(t10), gauss_var(1 - 1 / t10)],
+        ["100-Jahres-Tagesverlust", gpd100, rl100, hist_level(t100), gauss_var(1 - 1 / t100)],
     ]
     out.table("Risikokennzahlen: EVT gegen historisch und Gauß",
               ["Kennzahl", "GPD (POT)", f"GEV ({m} Tage)", "Historisch", "Gauß"], rows,
               formats=["text", "pct", "pct", "pct", "pct"],
-              note="Wiederkehrniveaus in Handelstagen: 10 Jahre = 2.520 Tage. Historische Werte gibt es nur, "
-                   "wenn die Reihe mindestens so lang ist.")
+              note="Wiederkehrniveaus in Handelstagen: 10 Jahre = 2.520 Tage. Historische Werte (–) gibt es nur, "
+                   "wenn die Reihe mindestens so lang ist; der GEV liefert keinen Expected Shortfall.")
 
     gc = report["gaussian_comparison"]
     out.table("Wie stark die Normalverteilung extreme Tage unterschätzt",
@@ -228,12 +233,12 @@ def run(params, data, out):
                  "unterstellt unabhängige Tage. Verluste kommen aber in Clustern, ein Block enthält dann mehrere "
                  "extreme Tage – der GPD-Wert ist hier der verlässlichere.", "info")
 
-    yrs = gauss_years(rl10)
+    yrs = gauss_years(gpd10)
     if xi_l > 0.1:
         out.set_verdict(
             "serious" if xi_l > 0.25 else "warning",
             f"Fetter Verlust-Rand (Fréchet-Bereich, ξ = {_de(xi_l)})",
-            f"Den 10-Jahres-Tagesverlust von {_de(100 * rl10, 1)} % hält die Normalverteilung für ein Ereignis "
+            f"Den 10-Jahres-Tagesverlust von {_de(100 * gpd10, 1)} % (GPD) hält die Normalverteilung für ein Ereignis "
             f"einmal in {_years(yrs)}. Gauß-basierte Stresstests unterschätzen hier die Extreme.",
         )
     elif xi_l > -0.05:

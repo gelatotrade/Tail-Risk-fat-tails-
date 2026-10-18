@@ -6,7 +6,6 @@ from src.models.extreme_value import GeneralizedParetoDistribution
 from src.models.risk_metrics import TailRiskMetrics
 
 from .. import charts as C
-from ..core import ToolError
 from ..data import index_axis
 
 LEVELS = [{"value": v, "label": l} for v, l in
@@ -86,8 +85,7 @@ def run(params, data, out):
     n = len(r)
     conf, q_evt = float(params["confidence"]), float(params["evt_threshold"])
     target = float(params["target_annual"]) / 252.0
-    if n * (1 - q_evt) < 10:
-        raise ToolError("Über der EVT-Schwelle liegen weniger als 10 Verluste. Senke die Schwelle.")
+    evt_ok = n * (1 - q_evt) >= 10  # the GPD needs at least 10 losses above the threshold
     lvl = _label(params["confidence"])
 
     trm = TailRiskMetrics(r)
@@ -95,7 +93,8 @@ def run(params, data, out):
     for c in TABLE_LEVELS:
         table[c] = {
             "hist": float(trm.var_historical(c)), "gauss": float(trm.var_parametric_gaussian(c)),
-            "cf": float(trm.var_cornish_fisher(c)), "evt": float(trm.var_evt(c, threshold_quantile=q_evt)),
+            "cf": float(trm.var_cornish_fisher(c)),
+            "evt": float(trm.var_evt(c, threshold_quantile=q_evt)) if evt_ok else np.nan,
             "es_hist": float(trm.expected_shortfall(c, "historical")),
             "es_gauss": float(trm.expected_shortfall(c, "gaussian")),
             "es_cf": float(trm.expected_shortfall(c, "cornish_fisher")),
@@ -110,39 +109,41 @@ def run(params, data, out):
     out.metric(f"VaR {lvl} · historisch", v["hist"], "pct", hint=f"ES {_de(100 * v['es_hist'])} %")
     out.metric(f"VaR {lvl} · Gauß", v["gauss"], "pct", hint=f"ES {_de(100 * v['es_gauss'])} %")
     out.metric(f"VaR {lvl} · Cornish-Fisher", v["cf"], "pct", hint=f"ES {_de(100 * v['es_cf'])} %")
-    out.metric(f"VaR {lvl} · EVT (GPD)", v["evt"], "pct", hint=f"Schwelle: {_de(100 * q_evt, 1)}-%-Quantil")
+    if evt_ok:
+        out.metric(f"VaR {lvl} · EVT (GPD)", v["evt"], "pct", hint=f"Schwelle: {_de(100 * q_evt, 1)}-%-Quantil")
     out.metric(f"Expected Shortfall {lvl}", v["es_hist"], "pct", hint="historisch: Ø Verlust jenseits des VaR",
                status="serious" if v["es_hist"] > 1.5 * v["es_gauss"] else "warning" if v["es_hist"] > 1.15 * v["es_gauss"] else None)
     out.metric("Maximaler Drawdown", dd["max_drawdown"], "pct", digits=1,
                hint=f"{_fmt_date(_date(data, i0))} → {_fmt_date(_date(data, i1))} · {rec_txt}",
                status="critical" if dd["max_drawdown"] > 0.4 else "serious" if dd["max_drawdown"] > 0.2 else None)
     out.metric("Calmar-Ratio", calmar, "num", hint="Rendite p. a. ÷ max. Drawdown")
-    out.metric("Sortino-Ratio", sortino, "num", hint="annualisiert, nur Abwärts-Volatilität")
+    out.metric("Sortino-Ratio", sortino, "num", hint="annualisiert; Risiko = Schwankung unter der Zielrendite")
     out.metric("Omega-Ratio", omega, "num", hint="Gewinne ÷ Verluste relativ zur Zielrendite")
 
     # --- chart 1: VaR across confidence levels (rarer events to the right)
     tails = np.geomspace(0.1, 0.001, 60)
-    gpd, st = GeneralizedParetoDistribution.fit_pot(-r, quantile=q_evt)  # the fit var_evt uses
-    p_u = st["exceedance_probability"]
+    if evt_ok:
+        gpd, st = GeneralizedParetoDistribution.fit_pot(-r, quantile=q_evt)  # the fit var_evt uses
+        p_u = st["exceedance_probability"]
     curves = {"hist": [], "gauss": [], "cf": [], "evt": []}
     for a in tails:
         c = 1 - a
         curves["hist"].append(trm.var_historical(c))
         curves["gauss"].append(trm.var_parametric_gaussian(c))
         curves["cf"].append(trm.var_cornish_fisher(c))
-        curves["evt"].append(gpd.var(c, p_u) if a < p_u else np.nan)
+        curves["evt"].append(gpd.var(c, p_u) if evt_ok and a < p_u else np.nan)
     sane = [curves[key][-1] for key in ("hist", "gauss", "evt") if np.isfinite(curves[key][-1])]
     y_top = 1.4 * max(sane)  # Cornish-Fisher may overshoot far beyond; it then leaves the chart
     out.chart(C.xy(
         "VaR je Konfidenzniveau: Wo sich die Methoden trennen",
         [C.trace("Historisch", tails, curves["hist"], color=4, type="step"),
          C.trace("Gauß", tails, curves["gauss"], color="muted", dash=True),
-         C.trace("Cornish-Fisher", tails, curves["cf"], color=3),
-         C.trace("EVT (GPD)", tails, curves["evt"], color=1, width=2.5)],
+         C.trace("Cornish-Fisher", tails, curves["cf"], color=3)]
+        + ([C.trace("EVT (GPD)", tails, curves["evt"], color=1, width=2.5)] if evt_ok else []),
         x=C.axis("Überschreitungswahrscheinlichkeit 1 − c (pro Tag)", type="log", fmt="pct", digits=1, range=(0.1, 0.001)),
         y=C.axis("VaR (Tagesverlust)", fmt="pct", digits=1,
                  range=(min(0.0, float(np.nanmin(curves["hist"] + curves["gauss"]))), y_top)),
-        subtitle="Links: häufige Verluste (90 %-VaR), rechts: seltene (99,9 %). Gauß bleibt bei seltenen Ereignissen zurück.",
+        subtitle="Links häufige Verluste (90-%-VaR), rechts seltene (99,9 %). Gauß bleibt bei seltenen Ereignissen zurück.",
         vlines=[C.vline(1 - conf, f"gewählt: {lvl}")],
     ))
 
@@ -184,23 +185,27 @@ def run(params, data, out):
     ))
 
     # --- tables
-    rows = [[_label(c), t["hist"], t["gauss"], t["cf"], t["evt"], t["es_hist"], t["es_gauss"], t["es_cf"]]
-            for c, t in table.items()]
-    out.table("VaR und Expected Shortfall nach Methode",
-              ["Konfidenz", "VaR historisch", "VaR Gauß", "VaR Cornish-Fisher", "VaR EVT", "ES historisch",
-               "ES Gauß", "ES Cornish-Fisher"], rows,
-              formats=["text"] + ["pct"] * 7,
-              note="Tagesverluste. ES Cornish-Fisher = Ø der beobachteten Verluste jenseits des Cornish-Fisher-VaR.")
+    keys = ["hist", "gauss", "cf"] + (["evt"] if evt_ok else []) + ["es_hist", "es_gauss", "es_cf"]
+    names = {"hist": "VaR historisch", "gauss": "VaR Gauß", "cf": "VaR Cornish-Fisher", "evt": "VaR EVT",
+             "es_hist": "ES historisch", "es_gauss": "ES Gauß", "es_cf": "ES Cornish-Fisher"}
+    out.table("VaR und Expected Shortfall nach Methode", ["Konfidenz"] + [names[k] for k in keys],
+              [[_label(c)] + [t[k] for k in keys] for c, t in table.items()],
+              formats=["text"] + ["pct"] * len(keys),
+              note="Tagesverluste. ES Cornish-Fisher = Ø der beobachteten Verluste jenseits des Cornish-Fisher-VaR."
+              + ("" if evt_ok else f" Kein EVT-VaR: Über dem {_de(100 * q_evt, 1)}-%-Quantil liegen weniger als "
+                                   "10 Verluste – senke die EVT-Schwelle oder nimm eine längere Reihe."))
 
     tr_rows = []
     for k in (2, 3, 4, 5):
         t = trm.tail_ratio(k)
+        asym = t["asymmetry"] if np.isfinite(t["asymmetry"]) else ("∞" if t["left_tail_prob"] > 0 else "–")
         tr_rows.append([f"{k} σ", t["left_tail_prob"], t["right_tail_prob"], t["gaussian_tail_prob"],
-                        t["left_ratio"], t["right_ratio"], t["asymmetry"] if np.isfinite(t["asymmetry"]) else None])
+                        t["left_ratio"], t["right_ratio"], asym])
     out.table("Randhäufigkeiten gegen die Normalverteilung", ["Schwelle", "P(Verlust > kσ)", "P(Gewinn > kσ)",
                                                              "Gauß (je Rand)", "Faktor links", "Faktor rechts",
                                                              "Asymmetrie links/rechts"],
-              tr_rows, formats=["text", "pct", "pct", "pct", "x", "x", "num"])
+              tr_rows, formats=["text", "pct", "pct", "pct", "x", "x", "num"],
+              note="Asymmetrie = P(Verlust > kσ) ÷ P(Gewinn > kσ); > 1 heißt: Crashs sind häufiger als Kurssprünge.")
 
     out.table(f"Tail-Abhängigkeit (Quantil {_de(qd)})", ["Kennzahl", "Wert"], [
         ["Untere Tail-Abhängigkeit (beide extrem schlecht)", tdep["lower_tail_dependence"]],
@@ -218,7 +223,8 @@ def run(params, data, out):
                  "und ein höheres Konfidenzniveau liefert einen kleineren VaR. Verlass dich dann auf EVT oder historisch.",
                  "warning")
 
-    best_alt = max(v["hist"], v["evt"])
+    best_alt = np.nanmax([v["hist"], v["evt"]])
+    best_name = "EVT" if evt_ok and v["evt"] >= v["hist"] else "historisch"
     if v["cf"] > 1.5 * best_alt:
         out.note(f"Cornish-Fisher übertreibt hier (Exzess-Kurtosis {_de(float(trm.kurtosis), 1)}): Die Korrektur um "
                  "Schiefe und Kurtosis ist nur für mäßig fette Ränder gedacht. Historischer und EVT-VaR sind "
@@ -236,7 +242,7 @@ def run(params, data, out):
                             f"Bei {lvl} ist die Normalverteilung hier eine brauchbare Näherung – prüfe höhere "
                             "Konfidenzniveaus in der VaR-Kurve.")
         else:
-            facts = (f"VaR {lvl}: {_de(100 * fat)} % gegen Gauß {_de(100 * v['gauss'])} % "
+            facts = (f"VaR {lvl} ({best_name}): {_de(100 * fat)} % gegen Gauß {_de(100 * v['gauss'])} % "
                      f"({'+' if r_var >= 1 else '−'}{_de(100 * abs(r_var - 1), 0)} %). Expected Shortfall: "
                      f"{_de(100 * v['es_hist'])} % gegen {_de(100 * v['es_gauss'])} % (+{_de(100 * (r_es - 1), 0)} %).")
             if r_var >= r_es:
