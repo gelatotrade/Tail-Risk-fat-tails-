@@ -54,10 +54,13 @@ class OrnsteinUhlenbeckProcess:
             mu: Long-term mean level
             sigma: Volatility parameter
         """
-        if theta <= 0:
-            raise ValueError("theta must be positive")
-        if sigma <= 0:
-            raise ValueError("sigma must be positive")
+        # ``not x > 0`` also rejects NaN, which slips through ``x <= 0``.
+        if not (theta > 0 and np.isfinite(theta)):
+            raise ValueError(f"theta must be positive and finite (got {theta})")
+        if not (sigma > 0 and np.isfinite(sigma)):
+            raise ValueError(f"sigma must be positive and finite (got {sigma})")
+        if not np.isfinite(mu):
+            raise ValueError(f"mu must be finite (got {mu})")
 
         self.theta = theta
         self.mu = mu
@@ -128,7 +131,8 @@ class OrnsteinUhlenbeckProcess:
         return paths
 
     @staticmethod
-    def fit(data: np.ndarray, dt: float = 1/252) -> 'OrnsteinUhlenbeckProcess':
+    def fit(data: np.ndarray, dt: float = 1/252,
+            max_theta: Optional[float] = None) -> 'OrnsteinUhlenbeckProcess':
         """
         Fit OU parameters using maximum likelihood.
 
@@ -138,8 +142,26 @@ class OrnsteinUhlenbeckProcess:
         - a = μ(1 - exp(-θdt))
         - b = exp(-θdt)
         - ε ~ N(0, σ²(1-exp(-2θdt))/(2θ))
+
+        An OU process can only produce AR(1) slopes 0 < b < 1:
+
+        - b >= 1 (random walk or trend) means no mean reversion (θ <= 0)
+          and raises ValueError.
+        - b <= 0 (negative lag-1 autocorrelation) would need θ = ∞ and
+          raises ValueError, unless ``max_theta`` is given.  Then θ is capped
+          at ``max_theta`` (b floored at exp(-max_theta·dt), the white-noise
+          limit) and a and the residual variance are re-estimated for that
+          slope.  The cap also applies to valid fits with θ > max_theta.
+        - Constant, too short or non-finite data raises ValueError.
         """
-        data = np.asarray(data)
+        data = np.asarray(data, dtype=float)
+        if data.ndim != 1 or len(data) < 3:
+            raise ValueError("OU fit needs a 1-D series with at least 3 observations")
+        if not np.all(np.isfinite(data)):
+            raise ValueError("OU fit: data contains NaN or inf")
+        if max_theta is not None and not (max_theta > 0 and np.isfinite(max_theta)):
+            raise ValueError(f"max_theta must be positive and finite (got {max_theta})")
+
         x = data[:-1]
         y = data[1:]
 
@@ -150,9 +172,31 @@ class OrnsteinUhlenbeckProcess:
         sum_xy = np.sum(x * y)
         sum_x2 = np.sum(x**2)
 
+        denom = n * sum_x2 - sum_x**2
+        if np.ptp(x) == 0 or not denom > 0:
+            raise ValueError("OU fit: data is constant, the AR(1) slope is undefined")
+
         # OLS estimates
-        b = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x**2)
+        b = (n * sum_xy - sum_x * sum_y) / denom
         a = (sum_y - b * sum_x) / n
+
+        if not np.isfinite(b):
+            raise ValueError("OU fit: AR(1) slope is not finite")
+        if b >= 1:
+            raise ValueError(
+                f"OU fit: AR(1) slope b = {b:.4f} >= 1, no mean reversion "
+                "(random walk or trend), theta would be <= 0")
+
+        b_floor = np.exp(-max_theta * dt) if max_theta is not None else 0.0
+        if b <= b_floor:
+            if max_theta is None:
+                raise ValueError(
+                    f"OU fit: AR(1) slope b = {b:.4f} <= 0 (negative lag-1 "
+                    "autocorrelation); an OU process needs 0 < b < 1, theta "
+                    "would be infinite. Pass max_theta to cap theta.")
+            # Constrained least squares on the boundary b = b_floor
+            b = b_floor
+            a = (sum_y - b * sum_x) / n
 
         # Transform to OU parameters
         theta = -np.log(b) / dt
@@ -240,7 +284,9 @@ class OUWithJumps:
         """
         Simulate OU-jump process.
 
-        Returns paths and jump information.
+        Returns paths and jump information.  ``jump_times``, ``jump_sizes``
+        and ``jump_paths`` have one entry per jump (aligned element-wise):
+        time of the step, jump size and index of the path it hit.
         """
         if seed is not None:
             np.random.seed(seed)
@@ -251,6 +297,7 @@ class OUWithJumps:
 
         jump_times = []
         jump_sizes = []
+        jump_paths = []
 
         # OU parameters
         exp_theta_dt = np.exp(-self.theta * dt)
@@ -268,25 +315,29 @@ class OUWithJumps:
                 if n_jumps > 0:
                     jumps = self.sample_jump_size(n_jumps)
                     paths[path_idx, i] += np.sum(jumps)
-                    jump_times.append(i * dt)
+                    jump_times.extend([i * dt] * n_jumps)
                     jump_sizes.extend(jumps)
+                    jump_paths.extend([path_idx] * n_jumps)
 
         return {
             'paths': paths,
-            'jump_times': np.array(jump_times),
-            'jump_sizes': np.array(jump_sizes),
+            'jump_times': np.array(jump_times, dtype=float),
+            'jump_sizes': np.array(jump_sizes, dtype=float),
+            'jump_paths': np.array(jump_paths, dtype=int),
             'times': np.linspace(0, T, n_steps + 1)
         }
 
     def compute_var(self, x0: float, T: float = 1/252,
                     confidence: float = 0.99,
-                    n_simulations: int = 10000) -> float:
+                    n_simulations: int = 10000,
+                    seed: Optional[int] = None) -> float:
         """
         Compute VaR for the jump-diffusion process.
 
-        Accounts for both continuous and jump risk.
+        Accounts for both continuous and jump risk.  With the same ``seed``,
+        compute_var and compute_expected_shortfall use the same sample.
         """
-        result = self.simulate(x0, T, n_steps=1, n_paths=n_simulations)
+        result = self.simulate(x0, T, n_steps=1, n_paths=n_simulations, seed=seed)
         terminal_values = result['paths'][:, -1]
 
         returns = terminal_values - x0
@@ -296,9 +347,10 @@ class OUWithJumps:
 
     def compute_expected_shortfall(self, x0: float, T: float = 1/252,
                                    confidence: float = 0.99,
-                                   n_simulations: int = 10000) -> float:
+                                   n_simulations: int = 10000,
+                                   seed: Optional[int] = None) -> float:
         """Compute Expected Shortfall (CVaR)."""
-        result = self.simulate(x0, T, n_steps=1, n_paths=n_simulations)
+        result = self.simulate(x0, T, n_steps=1, n_paths=n_simulations, seed=seed)
         terminal_values = result['paths'][:, -1]
 
         returns = terminal_values - x0
@@ -335,8 +387,11 @@ class VolatilityOUModel:
         self.jump_intensity = jump_intensity
 
     def simulate_volatility(self, sigma0: float, T: float,
-                           n_steps: int = 252) -> np.ndarray:
+                           n_steps: int = 252,
+                           seed: Optional[int] = None) -> np.ndarray:
         """Simulate volatility path."""
+        if seed is not None:
+            np.random.seed(seed)
         dt = T / n_steps
         sigma = np.zeros(n_steps + 1)
         sigma[0] = sigma0
@@ -356,13 +411,16 @@ class VolatilityOUModel:
         return sigma
 
     def simulate_price(self, S0: float, sigma0: float, T: float,
-                       n_steps: int = 252, r: float = 0.0) -> Dict[str, np.ndarray]:
+                       n_steps: int = 252, r: float = 0.0,
+                       seed: Optional[int] = None) -> Dict[str, np.ndarray]:
         """
         Simulate price with stochastic volatility.
 
         dS/S = r dt + σ dW_S
         dσ = κ(θ - σ)dt + η√σ dW_σ
         """
+        if seed is not None:
+            np.random.seed(seed)
         dt = T / n_steps
         sigma = self.simulate_volatility(sigma0, T, n_steps)
 
@@ -416,7 +474,8 @@ def compute_ou_coordinates(returns: np.ndarray,
             Y[i] = window_data[-1]  # Current volatility
             Z[i] = ou.theta  # Mean reversion speed
 
-        except:
+        except (ValueError, ArithmeticError):
+            # No OU fit possible (AR(1) slope outside (0, 1) or constant window)
             X[i] = np.mean(window_data)
             Y[i] = window_data[-1]
             Z[i] = 1.0
@@ -437,17 +496,32 @@ class JumpDiffusionRiskAnalyzer:
     tail risk assessment.
     """
 
+    #: Returns are daily observations; OU parameters are per year (dt = 1/252).
+    DT = 1 / 252
+    #: Cap on θ·dt for the OU fit of the continuous returns.  Daily returns are
+    #: close to white noise, so the AR(1) slope b is often <= 0, which no OU
+    #: process can produce (θ = ∞).  The fit then uses the white-noise limit
+    #: b = 0.001 (θ = ln(1000)/dt ≈ 1741 per year, half-life ≈ 0.1 days).
+    MAX_THETA_DT = np.log(1000.0)
+
     def __init__(self):
         self.ou_model = None
         self.jump_intensity = 0
+        self.jump_mean = 0
         self.jump_std = 0
 
     def fit(self, returns: np.ndarray, threshold: float = 3.0) -> Dict:
         """
         Fit jump-diffusion model to returns.
 
-        Separates continuous and jump components.
+        Separates continuous and jump components.  ``jump_intensity`` is the
+        jump frequency per observation (n_jumps / n); ``ou_fit_status`` is
+        'ok', 'theta_capped' (b <= 0.001, white-noise limit), 'no_mean_reversion'
+        (b >= 1 or constant data) or 'too_few_points' (<= 10 continuous points).
         """
+        returns = np.asarray(returns, dtype=float)
+        if returns.size == 0:
+            raise ValueError("returns must not be empty")
         std = np.std(returns)
         mean = np.mean(returns)
 
@@ -456,12 +530,22 @@ class JumpDiffusionRiskAnalyzer:
         jumps = returns[is_jump]
         continuous = returns[~is_jump]
 
-        # Fit OU to continuous part
+        # Fit OU to continuous part (never keep a model from an earlier call)
+        self.ou_model = None
+        ou_fit_status = 'too_few_points'
         if len(continuous) > 10:
-            self.ou_model = OrnsteinUhlenbeckProcess.fit(continuous)
+            max_theta = self.MAX_THETA_DT / self.DT
+            try:
+                self.ou_model = OrnsteinUhlenbeckProcess.fit(
+                    continuous, dt=self.DT, max_theta=max_theta)
+                capped = self.ou_model.theta >= max_theta * (1 - 1e-9)
+                ou_fit_status = 'theta_capped' if capped else 'ok'
+            except ValueError:
+                ou_fit_status = 'no_mean_reversion'
 
         # Jump statistics
         self.jump_intensity = np.sum(is_jump) / len(returns)
+        self.jump_mean = np.mean(jumps) if len(jumps) > 0 else 0
         self.jump_std = np.std(jumps) if len(jumps) > 0 else 0
 
         return {
@@ -469,49 +553,66 @@ class JumpDiffusionRiskAnalyzer:
             'mu': self.ou_model.mu if self.ou_model else 0,
             'sigma': self.ou_model.sigma if self.ou_model else std,
             'jump_intensity': self.jump_intensity,
+            'jump_mean': self.jump_mean,
             'jump_std': self.jump_std,
             'n_jumps': np.sum(is_jump),
-            'jump_contribution': np.sum(np.abs(jumps)) / np.sum(np.abs(returns)) if len(jumps) > 0 else 0
+            'jump_contribution': np.sum(np.abs(jumps)) / np.sum(np.abs(returns)) if len(jumps) > 0 else 0,
+            'ou_fit_status': ou_fit_status,
         }
 
     def tail_risk_decomposition(self, returns: np.ndarray,
-                                confidence: float = 0.99) -> Dict:
+                                confidence: float = 0.99,
+                                threshold: float = 3.0,
+                                n_simulations: int = 10000,
+                                seed: Optional[int] = None) -> Dict:
         """
         Decompose tail risk into continuous and jump components.
+
+        One-day Monte Carlo VaR of the fitted OU-with-jumps model versus the
+        same OU without jumps.  Both runs use the same random numbers for the
+        diffusion part, so ``var_jump = var_total - var_continuous`` is the
+        effect of the jumps, not Monte Carlo noise.  The per-observation jump
+        frequency is converted to the per-year intensity λ = p / dt that
+        OUWithJumps expects, and jumps are N(jump_mean, jump_std).
         """
         # Fit model
-        fit_result = self.fit(returns)
+        fit_result = self.fit(returns, threshold=threshold)
 
         # Simulate to estimate risks
         if self.ou_model:
+            dt = self.DT
             ou_jump = OUWithJumps(
                 theta=fit_result['theta'],
                 mu=fit_result['mu'],
                 sigma=fit_result['sigma'],
-                jump_intensity=fit_result['jump_intensity'],
+                jump_intensity=fit_result['jump_intensity'] / dt,
+                jump_mean=fit_result['jump_mean'],
                 jump_std=fit_result['jump_std']
             )
+            if seed is None:
+                seed = int(np.random.randint(0, 2**31 - 1))
 
             # VaR decomposition
-            result = ou_jump.simulate(0, 1/252, n_steps=1, n_paths=10000)
+            result = ou_jump.simulate(0, dt, n_steps=1, n_paths=n_simulations, seed=seed)
             paths = result['paths'][:, -1]
 
             var_total = -np.percentile(paths, (1 - confidence) * 100)
 
-            # Continuous-only VaR
+            # Continuous-only VaR (common random numbers: same seed, so the
+            # diffusion draws are identical to the run with jumps)
             ou_only = OrnsteinUhlenbeckProcess(
                 fit_result['theta'],
                 fit_result['mu'],
                 fit_result['sigma']
             )
-            continuous_paths = ou_only.simulate(0, 1/252, n_steps=1, n_paths=10000)
+            continuous_paths = ou_only.simulate(0, dt, n_steps=1, n_paths=n_simulations, seed=seed)
             var_continuous = -np.percentile(continuous_paths[:, -1], (1 - confidence) * 100)
 
             var_jump = var_total - var_continuous
 
         else:
-            var_total = np.percentile(-returns, confidence * 100)
-            var_continuous = 0
+            var_total = np.percentile(-np.asarray(returns, dtype=float), confidence * 100)
+            var_continuous = 0.0
             var_jump = var_total
 
         return {

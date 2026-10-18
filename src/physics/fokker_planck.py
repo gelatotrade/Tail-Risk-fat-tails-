@@ -26,8 +26,11 @@ We extend the standard FPE with:
 This creates a "Fractional Fokker-Planck Equation" that generates fat tails.
 """
 
+import math
+
 import numpy as np
 from scipy import sparse, linalg
+import scipy.sparse.linalg  # noqa: F401  (explicit: do not rely on lazy loading)
 from scipy.special import gamma as gamma_func
 from typing import Tuple, Optional, Callable
 import warnings
@@ -100,13 +103,25 @@ class FokkerPlanckSolver:
         return D0 * (1 + lam * np.abs(x)**beta)
 
     def build_operator_matrix(self, t: float = 0,
-                              params: Optional[dict] = None) -> sparse.csr_matrix:
+                              params: Optional[dict] = None,
+                              include_diffusion: bool = True) -> sparse.csr_matrix:
         """
         Build the discrete Fokker-Planck operator as a sparse matrix.
 
-        Uses finite differences:
-        - Drift term: Central differences
-        - Diffusion term: Second-order central differences
+        Uses finite differences of the forward (Kolmogorov) equation in
+        conservative form:
+        - Drift term: Central differences of the flux μP
+        - Diffusion term: Second-order central differences of DP
+
+        Row j:  -(μ_{j+1}P_{j+1} - μ_{j-1}P_{j-1}) / (2dx)
+                + (D_{j+1}P_{j+1} - 2 D_j P_j + D_{j-1}P_{j-1}) / dx²
+        so every interior column sums to zero (probability is conserved).
+
+        Args:
+            t: Time (passed to the coefficient functions)
+            params: Parameters for drift and diffusion
+            include_diffusion: False builds only the drift part -∂(μP)/∂x
+                (used together with the fractional operator)
 
         Returns:
             Sparse matrix L such that dP/dt = L @ P
@@ -116,18 +131,20 @@ class FokkerPlanckSolver:
 
         mu = self.drift_coefficient(self.x, t, params)
         D = self.diffusion_coefficient(self.x, t, params)
+        if not include_diffusion:
+            D = np.zeros_like(self.x, dtype=float)
 
         # Build tridiagonal components
         # dP/dt = -d(μP)/dx + d²(DP)/dx²
 
-        # Main diagonal
+        # Main diagonal: L[j, j]
         main_diag = -2 * D / dx**2
 
-        # Upper diagonal (j+1 terms)
-        upper_diag = D[:-1] / dx**2 + mu[:-1] / (2 * dx)
+        # Upper diagonal: L[j, j+1] acts on P_{j+1} -> coefficients at j+1
+        upper_diag = D[1:] / dx**2 - mu[1:] / (2 * dx)
 
-        # Lower diagonal (j-1 terms)
-        lower_diag = D[1:] / dx**2 - mu[1:] / (2 * dx)
+        # Lower diagonal: L[j, j-1] acts on P_{j-1} -> coefficients at j-1
+        lower_diag = D[:-1] / dx**2 + mu[:-1] / (2 * dx)
 
         # Create sparse matrix
         diagonals = [lower_diag, main_diag, upper_diag]
@@ -140,38 +157,43 @@ class FokkerPlanckSolver:
         """
         Build fractional diffusion operator for fat-tail modeling.
 
-        The fractional Laplacian -(-Δ)^(α/2) is defined via its Fourier transform.
+        The fractional Laplacian -(-Δ)^(α/2) (= Riesz derivative ∂^α/∂|x|^α)
+        is defined via its Fourier transform: symbol -|k|^α.
         In real space, it's a non-local operator capturing long-range correlations.
 
+        Discretisation: fractional centred difference (Ortigueira 2006;
+        Çelik & Duman 2012), valid for 0 < α ≤ 2:
+            ∂^α P/∂|x|^α (x_i) ≈ -dx^(-α) Σ_k g_k P_{i-k},
+            g_k = (-1)^k Γ(α+1) / (Γ(α/2-k+1) Γ(α/2+k+1)).
+        g_0 > 0, g_k ≤ 0 for k ≠ 0 and Σ g_k = 0, so the operator is symmetric,
+        negative semi-definite (diffusive) and mass conserving. α = 2 gives the
+        standard Laplacian (P_{i+1} - 2P_i + P_{i-1}) / dx². The full kernel is
+        used (no truncation), so long Lévy jumps across the grid are kept.
+
         For α < 2, this produces Lévy-type fat tails.
+
+        Returns:
+            Dense (n_grid, n_grid) matrix D_alpha * ∂^α/∂|x|^α
         """
+        if not 0 < alpha <= 2:
+            raise ValueError("alpha must be in (0, 2]")
         n = self.n_grid
         dx = self.dx
 
         params = params or {}
         D_alpha = params.get('D_alpha', 0.01)
 
-        # Build fractional Laplacian matrix (Grünwald-Letnikov approximation)
-        L_frac = np.zeros((n, n))
+        # Coefficients via the recurrence g_{k+1} = g_k (k - α/2) / (k + α/2 + 1)
+        # (exact zeros for k > 1 at α = 2, no Gamma-function poles)
+        g = np.empty(n)
+        g[0] = gamma_func(alpha + 1) / gamma_func(alpha / 2 + 1)**2
+        k = np.arange(n - 1, dtype=float)
+        g[1:] = g[0] * np.cumprod((k - alpha / 2) / (k + alpha / 2 + 1))
 
-        # Coefficients for fractional derivative
-        def grunwald_coeff(k, alpha):
-            """Grünwald-Letnikov coefficients."""
-            if k == 0:
-                return 1.0
-            return (-1)**k * gamma_func(alpha + 1) / (gamma_func(k + 1) * gamma_func(alpha - k + 1))
+        # Symmetric Toeplitz matrix: L[i, j] = -g_|i-j| / dx^α
+        L_frac = -linalg.toeplitz(g)
 
-        # Number of terms in approximation
-        m = min(20, n // 2)
-
-        for i in range(n):
-            for k in range(m):
-                if i - k >= 0:
-                    L_frac[i, i-k] += grunwald_coeff(k, alpha)
-                if i + k < n:
-                    L_frac[i, i+k] += grunwald_coeff(k, alpha)
-
-        L_frac *= D_alpha / (2 * dx**alpha)
+        L_frac *= D_alpha / dx**alpha
 
         return L_frac
 
@@ -184,6 +206,14 @@ class FokkerPlanckSolver:
         Uses Crank-Nicolson scheme for stability:
         (I - dt/2 * L) P^{n+1} = (I + dt/2 * L) P^n
 
+        Standard mode: L = -∂(μ·)/∂x + ∂²(D·)/∂x².
+        Fractional mode (use_fractional and alpha < 2):
+        L = -∂(μ·)/∂x + D_α ∂^α/∂|x|^α.
+
+        The number of steps is round(T / dt) and dt is adjusted slightly so
+        that the last step lands exactly on T. Frames are stored about every
+        n_steps/100 steps; the final state at time T is always the last frame.
+
         Args:
             P0: Initial probability distribution
             T: Final time
@@ -195,32 +225,40 @@ class FokkerPlanckSolver:
             Tuple of (time_points, probability_evolution)
             probability_evolution has shape (n_times, n_grid)
         """
-        n_steps = int(T / dt)
-        P = P0.copy()
+        n_steps = int(round(T / dt)) if dt > 0 else 0
+        if n_steps > 0:
+            dt = T / n_steps
+        P = np.asarray(P0, dtype=float).copy()
 
         # Storage for evolution
         times = [0]
         P_evolution = [P.copy()]
 
+        if n_steps <= 0:
+            return np.array(times, dtype=float), np.array(P_evolution)
+
         # Build operator
         if use_fractional and self.alpha < 2:
-            L = self.build_fractional_operator(self.alpha, params)
-            L = sparse.csr_matrix(L)
+            L_drift = self.build_operator_matrix(0, params, include_diffusion=False)
+            L = self.build_fractional_operator(self.alpha, params) + L_drift.toarray()
         else:
             L = self.build_operator_matrix(0, params)
 
-        # Identity matrix
-        I = sparse.eye(self.n_grid)
+        # Crank-Nicolson matrices; the implicit matrix is factorised once
+        # (SuperLU, also for the dense fractional operator: no BLAS threads)
+        L = sparse.csc_matrix(L)
+        I = sparse.eye(self.n_grid, format='csc')
+        A = (I - dt/2 * L).tocsc()  # Implicit part
+        B = (I + dt/2 * L).tocsr()  # Explicit part
+        solve_A = sparse.linalg.splu(A).solve
 
-        # Crank-Nicolson matrices
-        A = I - dt/2 * L  # Implicit part
-        B = I + dt/2 * L  # Explicit part
+        stride = max(1, n_steps // 100)
 
         # Time stepping
         for step in range(n_steps):
             # Solve linear system
             rhs = B @ P
-            P = sparse.linalg.spsolve(A, rhs)
+            P = solve_A(rhs)
 
             # Ensure non-negativity and normalization
             P = np.maximum(P, 0)
@@ -229,8 +267,8 @@ class FokkerPlanckSolver:
             # Apply boundary conditions (zero at boundaries)
             P[0] = P[-1] = 0
 
-            # Store periodically
-            if step % max(1, n_steps // 100) == 0:
+            # Store periodically (and always the final state at t = T)
+            if step % stride == 0 or step == n_steps - 1:
                 times.append((step + 1) * dt)
                 P_evolution.append(P.copy())
 
@@ -275,6 +313,10 @@ class FokkerPlanckSolver:
         """
         Compute left and right tail probabilities.
 
+        The tail mass is the integral of the (piecewise linear) density beyond
+        mean ± threshold·std, interpolated inside the grid cell that contains
+        the threshold, so it varies continuously with the threshold.
+
         Args:
             P: Probability distribution
             threshold: Number of standard deviations
@@ -289,12 +331,13 @@ class FokkerPlanckSolver:
         x_left = mean - threshold * std
         x_right = mean + threshold * std
 
-        # Integrate tails
-        left_mask = self.x < x_left
-        right_mask = self.x > x_right
+        # Integrate tails: cumulative trapezoid of P, linearly interpolated
+        P = np.asarray(P, dtype=float)
+        cum = np.concatenate(([0.0], np.cumsum((P[1:] + P[:-1]) * 0.5 * self.dx)))
+        total = cum[-1]
 
-        left_prob = np.sum(P[left_mask]) * self.dx
-        right_prob = np.sum(P[right_mask]) * self.dx
+        left_prob = float(np.interp(x_left, self.x, cum))
+        right_prob = float(total - np.interp(x_right, self.x, cum))
 
         return left_prob, right_prob
 
@@ -374,7 +417,7 @@ class FokkerPlanckTailRisk:
                 'left': left,
                 'right': right,
                 'total': left + right,
-                'ratio_to_gaussian': (left + right) / (2 * (1 - 0.5 * (1 + np.math.erf(sigma / np.sqrt(2)))))
+                'ratio_to_gaussian': (left + right) / (2 * (1 - 0.5 * (1 + math.erf(sigma / math.sqrt(2)))))
             }
 
         return {
