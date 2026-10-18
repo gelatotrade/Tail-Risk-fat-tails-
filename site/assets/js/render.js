@@ -60,12 +60,14 @@ export function openLightbox(src, caption) {
 }
 
 function figureCard(fig, i) {
-  const src = `data:${fig.mime || 'image/png'};base64,${fig.png}`;
+  const mime = fig.mime || 'image/png';
+  const src = `data:${mime};base64,${fig.png}`;
+  const ext = { 'image/gif': 'gif', 'image/jpeg': 'jpg', 'image/svg+xml': 'svg' }[mime] || 'png';
   const caption = fig.caption || `Abbildung ${i + 1}`;
   const card = h(`<figure class="card figure-card" style="margin:0">
     <div class="head" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-      <div><h3>${escapeHtml(caption)}</h3><span class="badge">${icon('image', 'width="13" height="13"')} Original-Grafik des Frameworks (Matplotlib, im Browser gerendert)</span></div>
-      <a class="btn ghost sm" download="${slug(caption)}.png" href="${src}" title="PNG speichern">${icon('download')}<span class="sr-only">PNG</span></a></div>
+      <div><h3>${escapeHtml(caption)}</h3><span class="badge">${icon('image', 'width="13" height="13"')} ${mime === 'image/gif' ? 'Animation' : 'Original-Grafik'} des Frameworks (Matplotlib, im Browser gerendert)</span></div>
+      <a class="btn ghost sm" download="${slug(caption)}.${ext}" href="${src}" title="${ext.toUpperCase()} speichern">${icon('download')}<span class="sr-only">${ext.toUpperCase()}</span></a></div>
     <img src="${src}" alt="${escapeHtml(caption)}" loading="lazy"></figure>`);
   card.querySelector('img').addEventListener('click', () => openLightbox(src, caption));
   return card;

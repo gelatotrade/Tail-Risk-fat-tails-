@@ -206,7 +206,7 @@ function gaugeFigure(spec, t) {
     number: { font: { size: 44, color: t.ink }, valueformat: '.0f', suffix: ` / ${spec.max}` },
     gauge: { axis: { range: [0, spec.max], tickcolor: t.axis, tickfont: { color: t.muted } }, bar: { color: t.ink, thickness: 0.22 }, bgcolor: 'rgba(0,0,0,0)', borderwidth: 0, steps } }];
   const layout = baseLayout({ height: 250 }, t);
-  layout.margin = { l: 24, r: 24, t: 10, b: 0 };
+  layout.margin = { l: 36, r: 40, t: 10, b: 0 };
   return { data, layout };
 }
 

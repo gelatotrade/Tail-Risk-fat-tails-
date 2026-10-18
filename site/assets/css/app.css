@@ -302,7 +302,7 @@ details.more[open] summary { margin-bottom: 8px; }
 .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 @media (max-width: 1180px) { .grid-2 { grid-template-columns: minmax(0, 1fr); } }
 .figure-card { padding: 16px; }
-.figure-card img { display: block; width: 100%; height: auto; border-radius: 8px; background: #fff; margin-top: 10px; cursor: zoom-in; border: 1px solid var(--line); }
+.figure-card img { display: block; width: auto; max-width: 100%; margin-left: auto; margin-right: auto; height: auto; border-radius: 8px; background: #fff; margin-top: 10px; cursor: zoom-in; border: 1px solid var(--line); }
 .figure-card .badge { font-size: 11.5px; color: var(--ink-3); display: inline-flex; align-items: center; gap: 6px; }
 .table-card { padding: 16px; min-width: 0; }
 .table-wrap { overflow-x: auto; margin-top: 10px; }
