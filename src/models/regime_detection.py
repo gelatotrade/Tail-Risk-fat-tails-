@@ -363,7 +363,8 @@ class RegimeAwareTailRisk:
     than unconditional estimates suggest.
     """
 
-    def __init__(self, returns: np.ndarray, window: int = 60):
+    def __init__(self, returns: np.ndarray, window: int = 60,
+                 vol_percentile: float = 75):
         """
         Initialize regime-aware analyzer.
 
@@ -371,10 +372,14 @@ class RegimeAwareTailRisk:
             returns: Array of returns
             window: Window for regime detection (stored; the realized-vol
                 classification uses its own 20-day window)
+            vol_percentile: Percentile of realized volatility above which a
+                day counts as HIGH_VOL (below 100 - vol_percentile: LOW_VOL),
+                passed to VolatilityClusteringDetector.detect_vol_regime
         """
         self.returns = np.asarray(returns)
         self.n = len(returns)
         self.window = window
+        self.vol_percentile = vol_percentile
 
         # Fit regime model
         self._detect_regimes()
@@ -383,7 +388,7 @@ class RegimeAwareTailRisk:
         """Detect volatility regimes."""
         # Use simple volatility-based detection
         detector = VolatilityClusteringDetector(self.returns)
-        self.regimes = detector.detect_vol_regime()
+        self.regimes = detector.detect_vol_regime(self.vol_percentile)
 
         # Also fit Markov model (states are sorted by volatility after fit)
         self.markov = MarkovRegimeSwitching(n_states=3)
