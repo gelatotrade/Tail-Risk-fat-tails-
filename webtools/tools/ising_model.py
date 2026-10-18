@@ -139,7 +139,7 @@ def run(params, data, out):
     m_now, e_now, chi_now = model.magnetization(), model.energy(), model.susceptibility()
 
     xi = _correlation_length(J, h, T)
-    exact_abs, _ = _exact_ring(n, J, h, T)
+    exact_abs, exact_chi = _exact_ring(n, J, h, T)
     tc = float(model.T_c)
     out.metric("Magnetisierung M (Ende)", m_now, "num", hint="+1: alle kaufen · −1: alle verkaufen")
     out.metric("Mittlere |M| im Lauf", np.mean(np.abs(M)), "num",
@@ -148,8 +148,9 @@ def run(params, data, out):
                hint="typische Herdengröße (exakt für die 1D-Kette)")
     out.metric("Energie je Händler", e_now / n, "num",
                hint=f"{_de(-(J + abs(h)))}: völlige Ordnung · ≈ 0: Chaos")
-    out.metric("Suszeptibilität χ (Momentaufnahme)", chi_now, "num", digits=1,
-               hint="N(1−M²)/T: Curie-Näherung unabhängiger Händler, kein Fluktuationsmaß wie unten")
+    out.metric("Suszeptibilität χ ohne Herdentrieb", chi_now, "num",
+               hint=f"(1−M²)/T: so empfindlich wären unabhängige Händler bei diesem M. Mit Herdentrieb "
+                    f"(exakt, wie im Phasendiagramm): {_de(exact_chi)}")
     out.metric("T / T_c (2D-Referenz)", T / tc if tc > 0 else None, "num",
                hint="nur Skala: die 1D-Kette hat keinen echten Phasenübergang")
     out.metric("Schwankung des Modellkurses", np.std(ret), "pct",

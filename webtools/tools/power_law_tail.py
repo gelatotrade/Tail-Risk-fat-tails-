@@ -89,6 +89,11 @@ def _years(y):
     return f"{_de(y / 10 ** exp, 1)}·10{str(exp).translate(_SUP)} Jahre"
 
 
+def _se(tail_index, n_tail):
+    """Standard error of the MLE tail index (Clauset et al. 2009, eq. 3.2)."""
+    return tail_index / np.sqrt(n_tail)
+
+
 def _existing(tail_index):
     names = [name for k, name in MOMENTS if tail_index > k]
     return ", ".join(names) if names else "keines"
@@ -115,9 +120,10 @@ def run(params, data, out):
 
     alpha, x_min, n_tail = float(fit["alpha"]), float(fit["x_min"]), int(fit["n_tail"])
     tail_index = alpha - 1.0
+    se = _se(tail_index, n_tail)
     p_val = float(fit["p_value"])
     out.metric("Tail-Index α − 1", tail_index, "num",
-               hint="P(X > x) ∝ x^−(α−1) · kubisches Gesetz ≈ 3",
+               hint=f"± {_de(se)} (Standardfehler) · P(X > x) ∝ x^−(α−1) · kubisches Gesetz ≈ 3",
                status="critical" if tail_index < 2 else "serious" if tail_index < 3 else
                "warning" if tail_index < 4 else None)
     out.metric("Dichte-Exponent α", alpha, "num", hint="Dichte p(x) ∝ x^−α")
@@ -161,11 +167,15 @@ def run(params, data, out):
         hlines=[C.hline(2.0, "darüber: Varianz endlich"), C.hline(4.0, "darüber: Kurtosis endlich")],
         height=300, subtitle="Ein kleinerer Index heißt: dieser Rand ist fetter. Bei Aktien meist die Verlustseite.",
     ))
-    out.table("Vergleich der Ränder", ["Rand", "α", "α − 1", "x_min", "Tage im Rand", "p-Wert", "Existierende Momente"],
-              [[SIDES[k], fits[k][1]["alpha"], fits[k][1]["alpha"] - 1, fits[k][1]["x_min"], fits[k][1]["n_tail"],
+    out.table("Vergleich der Ränder",
+              ["Rand", "α", "α − 1", "± Std.-Fehler", "x_min", "Tage im Rand", "p-Wert", "Existierende Momente"],
+              [[SIDES[k], fits[k][1]["alpha"], fits[k][1]["alpha"] - 1,
+                _se(fits[k][1]["alpha"] - 1, fits[k][1]["n_tail"]), fits[k][1]["x_min"], fits[k][1]["n_tail"],
                 fits[k][1]["p_value"], _existing(fits[k][1]["alpha"] - 1)] for k in order],
-              formats=["text", "num", "num", "pct", "int", "num", "text"],
-              note="Methode: " + ("Clauset (KS-optimales x_min)" if method == "clauset" else "feste Schwelle (größte 10 %)"))
+              formats=["text", "num", "num", "num", "pct", "int", "num", "text"],
+              note="Methode: " + ("Clauset (KS-optimales x_min)" if method == "clauset" else "feste Schwelle (größte 10 %)")
+                   + ". Unterscheiden sich zwei Ränder um weniger als etwa zwei Standardfehler, ist der Unterschied "
+                     "nicht belastbar.")
 
     sample = [_de(100 * mu, 3) + " %", _de(100 * sd, 2) + " % (Volatilität)",
               _de(stats.skew(r)), _de(stats.kurtosis(r), 1) + " (Exzess)"]
@@ -191,6 +201,10 @@ def run(params, data, out):
               note=f"Beobachtet in {n} Handelstagen ({_de(n / 252, 1)} Jahre). Das Potenzgesetz gilt erst ab x_min, "
                    "darunter bleibt es leer.")
 
+    if n_tail < 50:
+        out.note(f"Nur {n_tail} Tage im Rand: Der Tail-Index ist sehr unsicher (± {_de(se)}, grob 95 %: "
+                 f"{_de(tail_index - 2 * se)} bis {_de(tail_index + 2 * se)}). Für belastbare Aussagen brauchst du "
+                 "eine längere Reihe.", "warning")
     if p_val < 0.1:
         out.note(f"Der Bootstrap lehnt ein reines Potenzgesetz ab (p = {_de(p_val)}). Der Exponent ist dann nur "
                  "eine Näherung für die Steigung im Rand.", "warning")
@@ -199,7 +213,7 @@ def run(params, data, out):
                         f"α − 1 = {_de(tail_index)} < 2: Volatilität und varianzbasierte Risikomaße sind hier "
                         "nicht stabil schätzbar.")
     elif tail_index < 4:
-        out.set_verdict("serious", "Fetter Rand: Varianz endlich, Kurtosis nicht",
+        out.set_verdict("serious" if tail_index < 3 else "warning", "Fetter Rand: Varianz endlich, Kurtosis nicht",
                         f"α − 1 = {_de(tail_index)}. Existierende Momente: {_existing(tail_index)}. Die "
                         "Stichproben-Kurtosis ist deshalb kein verlässliches Maß.")
     else:

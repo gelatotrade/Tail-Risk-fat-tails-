@@ -90,13 +90,13 @@ SPEC = {
     "cost": "fast",
 }
 
-# indicator -> (input name, worse direction, grid limit, step, unit, label of the varied quantity)
+# indicator -> (varied input, direction of higher risk, end of the search range, unit, label)
 SCAN = {
-    "gex": ("gex", -1, -20.0, 0.02, "Mrd. $", "Net GEX"),
-    "tdex": ("tdex", +1, 60.0, 0.02, "", "TDEX"),
-    "vix_term": ("ratio", +1, 1.5, 0.0005, "", "M1/M2"),
-    "dix": ("dix", -1, 25.0, 0.02, "%", "DIX"),
-    "smfi": ("last60", -1, -5.0, 0.005, "%", "letzte Stunde"),
+    "gex": ("gex", -1, -20.0, "Mrd. $", "Net GEX"),
+    "tdex": ("tdex", +1, 60.0, "", "TDEX"),
+    "vix_term": ("ratio", +1, 1.5, "", "M1/M2"),
+    "dix": ("dix", -1, 25.0, "%", "DIX"),
+    "smfi": ("last60", -1, -5.0, "%", "letzte Stunde"),
 }
 WHAT_IF = {"gex": ("gex", -15.0, 15.0, "Net GEX (Mrd. $)"), "tdex": ("tdex", 2.0, 40.0, "TailDex"),
            "ratio": ("vix_term", 0.75, 1.3, "VIX-Kurve M1/M2"), "dix": ("dix", 30.0, 56.0, "DIX (%)"),
@@ -268,7 +268,7 @@ def run(params, data, out):
     next_level = {"NORMAL": "ELEVATED", "ELEVATED": "HIGH", "HIGH": "EXTREME"}.get(level)
     trows = []
     for k in KEYS:
-        pname, direction, limit, _, unit, qlabel = SCAN[k]
+        pname, direction, limit, unit, qlabel = SCAN[k]
         now = ratio if pname == "ratio" else p[pname]
         vary = _Vary(p, res, k, pname)
         digits = 3 if pname == "ratio" else 2
@@ -287,8 +287,8 @@ def run(params, data, out):
             comp_txt = "schon höchste Stufe"
         trows.append([
             NAMES[k], fmt_v(now),
-            _state_de(k, hit_state[1]) if hit_state else "–",
-            fmt_v(hit_state[0]) if hit_state else f"nicht bis {fmt_v(limit)}",
+            _state_de(k, hit_state[1]) if hit_state else "keine weitere Stufe",
+            fmt_v(hit_state[0]) if hit_state else "–",
             fmt_v(hit_state[0] - now, True) if hit_state else "–",
             comp_txt,
         ])

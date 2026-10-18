@@ -60,6 +60,7 @@ def test_distribution_morph_rejects_too_short_series():
         DistributionMorphAnimator(_returns(60), window=60).create_animation()
     anim = DistributionMorphAnimator(_returns(61), window=60).create_animation()
     assert list(anim.new_frame_seq()) == [60]
+    _draw(anim, 60)
 
 
 # ------------------------------------------------------------- risk gauge

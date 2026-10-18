@@ -22,12 +22,14 @@ SPEC = {
         "in jedem rollierenden Fenster einen Gauß-geglätteten Trend ab und misst AC(1) und Varianz des Rests. "
         "Die Schiefe kommt aus den Renditen selbst.\n\n"
         "So liest du die Diagramme: Entscheidend ist nicht das Niveau, sondern der **Trend im Analysefenster** "
-        "(grau hinterlegt). Kendall-τ misst ihn: +1 heißt „steigt ständig“, 0 „kein Trend“. Daraus folgt die "
+        "(grau hinterlegt). Schon eine reine Irrfahrt hat hier eine hohe AC(1) – die gestrichelte Linie zeigt "
+        "dieses Vergleichsniveau. Kendall-τ misst ihn: +1 heißt „steigt ständig“, 0 „kein Trend“. Daraus folgt die "
         "Warnstufe: Kritisch, wenn AC(1) **und** Varianz deutlich steigen (τ > 0,3, p < 0,05). Der "
         "Kompositindikator ist der Mittelwert der z-Werte von AC(1) und Varianz über die ganze Reihe.\n\n"
         "Parameter: Das **Fenster** bestimmt, wie viele Tage in jede Messung eingehen (kürzer = schneller, aber "
         "verrauschter). **σ** ist die Breite des Gauß-Trends; ist σ größer als das Fenster, wird praktisch nur "
-        "der Mittelwert abgezogen. Das **Analysefenster** legt fest, über welche letzten Tage der Trend getestet wird."
+        "der Mittelwert abgezogen (die Voreinstellung σ = 100 entspricht dem Klassifikator im Werkzeug „Marktphase“). "
+        "Das **Analysefenster** legt fest, über welche letzten Tage der Trend getestet wird."
     ),
     "needs": ["returns"],
     "params": [
@@ -60,6 +62,7 @@ LEVELS = {
     "CRITICAL": ("critical", "Kritisch", "Kritisches Verlangsamen: AC(1) und Varianz steigen gemeinsam"),
 }
 MAX_TAPS = 3e9  # window x Gaussian kernel length x observations (bounded runtime in the browser)
+N_REFERENCE = 1000  # windows of the random-walk reference for AC(1)
 
 
 def _de(x, digits=2):
@@ -82,9 +85,12 @@ def run(params, data, out):
     n, w, sigma = data.n, params["window"], params["detrend_window"]
     look = min(params["lookback"], n)
     if look - w < 30:
+        if look == n:  # the dataset itself is the limit
+            raise ToolError(f"Der Datensatz hat nur {n} Tage – bei einem Fenster von {w} Tagen bleiben zu wenige "
+                            f"Messpunkte für den Trendtest. Verkleinere das Fenster auf höchstens {n - 30} Tage.")
         raise ToolError(f"Das Analysefenster ({look} Tage) ist zu kurz für ein Fenster von {w} Tagen. "
                         "Verkleinere das Fenster oder vergrößere das Analysefenster.")
-    if (n + look) * w * (8 * sigma + 1) > MAX_TAPS:
+    if (n + look + N_REFERENCE + w) * w * (8 * sigma + 1) > MAX_TAPS:
         raise ToolError("Fenster × Glättungsbreite σ sind für diese Datenlänge zu rechenintensiv. "
                         "Verkleinere σ oder das Fenster.")
 
@@ -95,13 +101,17 @@ def run(params, data, out):
     status, level_de, title = LEVELS[level]
     ac_tau, ac_p = ews["ac1_trend"]["tau"], ews["ac1_trend"]["p_value"]
     var_tau, var_p = ews["var_trend"]["tau"], ews["var_trend"]["p_value"]
+    # Reference: AC(1) of a pure random walk (i.i.d. returns) with the same window and σ
+    walk = np.cumsum(np.random.default_rng(0).standard_normal(N_REFERENCE + w))
+    ac_walk = float(np.median(det.autocorrelation_lag1(walk)[w:]))
 
     out.metric("Warnstufe", level_de, "text", status=status, hint="aus den Kendall-τ-Trends im Analysefenster")
     out.metric("Trend AC(1): Kendall-τ", ac_tau, "num", hint=_p(ac_p),
                status="warning" if ac_tau > 0.2 and ac_p < 0.1 else None)
     out.metric("Trend Varianz: Kendall-τ", var_tau, "num", hint=_p(var_p),
                status="warning" if var_tau > 0.2 and var_p < 0.1 else None)
-    out.metric("AC(1) aktuell", full["autocorrelation"][-1], "num", hint="des trendbereinigten Log-Kurses")
+    out.metric("AC(1) aktuell", full["autocorrelation"][-1], "num",
+               hint=f"des trendbereinigten Log-Kurses · reine Irrfahrt: ≈ {_de(ac_walk)}")
     out.metric("Streuung aktuell", np.sqrt(full["variance"][-1]), "pct",
                hint="√Varianz des trendbereinigten Log-Kurses im letzten Fenster")
     out.metric("Schiefe aktuell", full["skewness"][-1], "num", hint="der Tagesrenditen im letzten Fenster")
@@ -116,18 +126,31 @@ def run(params, data, out):
         bands.append(C.band(int(meta["crisis_start"]), int(meta["crisis_end"]), "Krise (synthetisch)"))
 
     level_path = np.cumsum(r)
-    trend = level_path - det.detrend(level_path)
     out.chart(C.xy(
-        "Zustand: kumulierte Log-Rendite und Gauß-Trend",
-        [C.trace("Kumulierte Log-Rendite", x, level_path, color=1, width=1.5),
-         C.trace(f"Gauß-Trend (σ = {sigma} Tage)", x, trend, color=2, dash=True)],
-        x=xa, y=C.axis("Kumulierte Log-Rendite", fmt="pct", digits=0), bands=bands, height=300,
-        subtitle="So trennt die Trendbereinigung Trend und Schwankung – der Detektor macht das in jedem Fenster neu.",
+        "Zustand: kumulierte Log-Rendite",
+        [C.trace("Kumulierte Log-Rendite", x, level_path, color=1, width=1.5)],
+        x=xa, y=C.axis("Kumulierte Log-Rendite", fmt="pct", digits=0), bands=bands, height=280,
+        subtitle="Der Detektor arbeitet auf diesem Log-Kurs (Schiefe: auf den Tagesrenditen).",
+    ))
+    # What the detector subtracts in its most recent window (entry i uses the days i-w .. i-1)
+    last = level_path[n - 1 - w:n - 1]
+    trend = last - det.detrend(last)
+    flat = sigma >= w
+    out.chart(C.xy(
+        f"Trendbereinigung im letzten Fenster ({w} Tage)",
+        [C.trace("Kumulierte Log-Rendite", x[n - 1 - w:n - 1], last, color=1, width=2),
+         C.trace(f"abgezogener Gauß-Trend (σ = {sigma} Tage)", x[n - 1 - w:n - 1], trend, color=2, dash=True)],
+        x=xa, y=C.axis("Kumulierte Log-Rendite", fmt="pct", digits=1), height=280,
+        subtitle=("σ ist nicht kleiner als das Fenster: Der Trend ist praktisch flach, abgezogen wird nur der "
+                  "Mittelwert. AC(1) und Varianz messen dann die Wanderung des Kurses im Fenster."
+                  if flat else
+                  "AC(1) und Varianz werden auf dem Abstand zwischen Kurs und Trend gemessen – in jedem Fenster neu."),
     ))
     out.chart(C.xy(
         f"Autokorrelation AC(1) – rollierend über {w} Tage",
         [C.trace("AC(1)", x, _padded(full["autocorrelation"], w), color=1, width=1.5)],
         x=xa, y=C.axis("AC(1)"), bands=bands, height=280,
+        hlines=[C.hline(ac_walk, "reine Irrfahrt")],
         subtitle=f"Kendall-τ im Analysefenster: {_de(ac_tau)} ({_p(ac_p)}). "
                  "Steigt AC(1), erholt sich der Markt langsamer.",
     ))
