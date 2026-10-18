@@ -67,6 +67,19 @@ def trace(name: str, x: Sequence, y: Sequence, *, type: str = "line", color: Any
             "text": list(text) if text is not None else None, "size": size}
 
 
+def envelope(name: str, x: Sequence, lower: Sequence, upper: Sequence, *, color: Any = 1,
+             decimate_to: Optional[int] = MAX_POINTS) -> Dict[str, Any]:
+    """A shaded band between two curves (confidence or percentile fan)."""
+    lo = np.asarray(lower, dtype=float)
+    hi = np.asarray(upper, dtype=float)
+    x = list(x)
+    if decimate_to and len(x) > decimate_to:
+        idx = np.linspace(0, len(x) - 1, decimate_to).round().astype(int)
+        x, lo, hi = [x[i] for i in idx], lo[idx], hi[idx]
+    return {"name": name, "type": "envelope", "x": x, "y": hi, "y0": lo, "color": color,
+            "dash": False, "width": 0, "fill": True, "text": None, "size": None}
+
+
 def band(x0: Any, x1: Any, label: str = "", color: Any = "critical") -> Dict[str, Any]:
     """Shaded x-range (crisis window, warning period)."""
     return {"x0": x0, "x1": x1, "label": label, "color": color}

@@ -82,9 +82,16 @@ function baseLayout(spec, t) {
 }
 
 function xyFigure(spec, t) {
-  const data = spec.traces.map((tr) => {
+  const data = spec.traces.flatMap((tr) => {
     const c = color(tr.color, t);
     const common = { name: tr.name, x: tr.x, y: tr.y, hovertemplate: undefined };
+    if (tr.type === 'envelope') {
+      // lower edge (invisible) + upper edge filled down to it
+      return [
+        { x: tr.x, y: tr.y0, type: 'scatter', mode: 'lines', line: { width: 0, color: c }, hoverinfo: 'skip', showlegend: false, legendgroup: tr.name },
+        { ...common, type: 'scatter', mode: 'lines', line: { width: 0, color: c }, fill: 'tonexty', fillcolor: withAlpha(c, 0.16), legendgroup: tr.name },
+      ];
+    }
     if (tr.type === 'bar') {
       return { ...common, type: 'bar', marker: { color: tr.color === 'muted' ? t.muted : withAlpha(c, 0.55), line: { width: 0 } } };
     }
@@ -110,14 +117,21 @@ function xyFigure(spec, t) {
     shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: b.x0, x1: b.x1, y0: 0, y1: 1, fillcolor: withAlpha(color(b.color, t), 0.10), line: { width: 0 }, layer: 'below' });
     if (b.label) annotations.push({ x: b.x0, xref: 'x', y: 1, yref: 'paper', text: escapeHtml(b.label), showarrow: false, xanchor: 'left', yanchor: 'top', font: { size: 11, color: t.ink2 }, bgcolor: withAlpha(t.surface.length === 7 ? t.surface : '#ffffff', 0.7) });
   }
-  for (const h of spec.hlines || []) {
+  // labels of nearby reference lines alternate between the right and the left edge so they never overlap
+  const hl = [...(spec.hlines || [])].sort((a, b) => a.y - b.y);
+  hl.forEach((h, i) => {
     shapes.push({ type: 'line', xref: 'paper', x0: 0, x1: 1, y0: h.y, y1: h.y, line: { color: color(h.color, t), width: 1.2, dash: h.dash ? 'dot' : 'solid' } });
-    if (h.label) annotations.push({ xref: 'paper', x: 1, y: h.y, text: escapeHtml(h.label), showarrow: false, xanchor: 'right', yanchor: 'bottom', font: { size: 11, color: t.ink2 } });
-  }
-  for (const v of spec.vlines || []) {
+    if (h.label) {
+      const right = i % 2 === 0;
+      annotations.push({ xref: 'paper', x: right ? 1 : 0, y: h.y, text: escapeHtml(h.label), showarrow: false, xanchor: right ? 'right' : 'left', yanchor: 'bottom', font: { size: 11, color: t.ink2 }, bgcolor: withAlpha(t.surface, 0.75) });
+    }
+  });
+  const logX = spec.x.type === 'log';
+  (spec.vlines || []).forEach((v, i) => {
     shapes.push({ type: 'line', yref: 'paper', y0: 0, y1: 1, x0: v.x, x1: v.x, line: { color: color(v.color, t), width: 1.2, dash: v.dash ? 'dot' : 'solid' } });
-    if (v.label) annotations.push({ x: v.x, yref: 'paper', y: 1, text: escapeHtml(v.label), showarrow: false, xanchor: 'left', yanchor: 'bottom', font: { size: 11, color: t.ink2 } });
-  }
+    // annotations sit inside the plot (never clipped by the top margin); on log axes Plotly wants log10(x)
+    if (v.label) annotations.push({ x: logX && typeof v.x === 'number' ? Math.log10(v.x) : v.x, yref: 'paper', y: 1 - (i % 3) * 0.07, text: escapeHtml(v.label), showarrow: false, xanchor: 'left', yanchor: 'top', xshift: 3, font: { size: 11, color: t.ink2 }, bgcolor: withAlpha(t.surface, 0.75) });
+  });
   layout.shapes = shapes;
   layout.annotations = annotations;
   return { data, layout };
@@ -216,7 +230,10 @@ export function chartRows(spec) {
   if (spec.kind === 'xy') {
     const cols = ['Reihe', spec.x.label || (spec.x.type === 'date' ? 'Datum' : 'x'), spec.y.label || 'y'];
     const rows = [];
-    for (const tr of spec.traces) tr.x.forEach((x, i) => rows.push([tr.name, x, tr.y[i]]));
+    for (const tr of spec.traces) {
+      if (tr.type === 'envelope') tr.x.forEach((x, i) => { rows.push([`${tr.name} (unten)`, x, tr.y0[i]]); rows.push([`${tr.name} (oben)`, x, tr.y[i]]); });
+      else tr.x.forEach((x, i) => rows.push([tr.name, x, tr.y[i]]));
+    }
     return { cols, rows, fmts: ['text', spec.x.type === 'date' ? 'text' : spec.x.fmt, spec.y.fmt] };
   }
   if (spec.kind === 'surface' || spec.kind === 'heatmap') {

@@ -74,7 +74,8 @@ def run(params, data, out):
   `color=1..8` für Reihen in fester Reihenfolge, `"muted"` für Referenzen (z. B. die Gauß-Kurve),
   Statusfarben `good/warning/serious/critical` nur, wenn die Farbe einen Risikozustand *bedeutet*.
   Prozentachsen mit `fmt="pct"` (Werte als Dezimalbruch). Lange Reihen werden automatisch
-  min/max-erhaltend ausgedünnt.
+  min/max-erhaltend ausgedünnt. Fächer und Konfidenzbänder mit `C.envelope(name, x, unten, oben)`,
+  Referenzlinien mit `C.hline` / `C.vline` (Beschriftungen weichen sich automatisch aus).
 * `set_verdict` nur, wenn das Werkzeug eine echte Einschätzung liefert.
 * Matplotlib-Figuren aus `src/visualization` sind willkommen (`out.figure`), interaktive
   Plotly-Specs (`out.chart`) sind die Hauptdarstellung.

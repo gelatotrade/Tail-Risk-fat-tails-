@@ -12,7 +12,7 @@ export function statusBadge(status, label) {
 
 function tableHtml(columns, rows, formats, { limit = 2000 } = {}) {
   const f = formats || columns.map(() => null);
-  const head = columns.map((c) => `<th scope="col">${escapeHtml(c)}</th>`).join('');
+  const head = columns.map((c, i) => `<th scope="col"${i > 0 && f[i] === 'text' ? ' class="t"' : ''}>${escapeHtml(c)}</th>`).join('');
   const body = rows.slice(0, limit).map((r) => `<tr>${r.map((v, i) => {
     const code = f[i] || (typeof v === 'number' ? 'num' : 'text');
     const text = code === 'text' || typeof v === 'string' ? escapeHtml(v ?? '–') : fmt(v, code, code === 'num' ? undefined : 2);

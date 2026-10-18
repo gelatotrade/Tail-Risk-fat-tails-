@@ -309,7 +309,7 @@ details.more[open] summary { margin-bottom: 8px; }
 table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
 table.data th, table.data td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
 table.data th:first-child, table.data td:first-child { text-align: left; }
-table.data td.t { text-align: left; white-space: normal; }
+table.data td.t, table.data th.t { text-align: left; white-space: normal; }
 table.data th { font-weight: 600; color: var(--ink-2); font-size: 12.5px; background: var(--surface-2); position: sticky; top: 0; }
 table.data tbody tr:hover { background: var(--surface-2); }
 .table-note { font-size: 12.5px; color: var(--ink-3); margin-top: 8px; }
