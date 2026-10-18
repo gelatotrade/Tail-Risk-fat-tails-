@@ -210,15 +210,20 @@ class TailRiskMetrics:
         """
         Sortino ratio: like Sharpe but using downside deviation.
 
-        Only penalizes negative volatility.
+        Only penalizes negative volatility. The downside deviation is the
+        target semideviation of Sortino & Price (1994),
+        sqrt(mean(min(r - target, 0)^2)) over *all* observations: days above
+        the target count as zero shortfall. (Averaging over the below-target
+        days only inflates the deviation by about sqrt(n / n_below) and pushes
+        the ratio below the Sharpe ratio of a symmetric series.)
         """
         excess_return = np.mean(self.returns) - target
-        downside_returns = self.returns[self.returns < target]
+        shortfall = np.minimum(self.returns - target, 0.0)
 
-        if len(downside_returns) == 0:
+        if not np.any(shortfall < 0):
             return np.inf
 
-        downside_std = np.sqrt(np.mean((downside_returns - target)**2))
+        downside_std = np.sqrt(np.mean(shortfall**2))
 
         return excess_return / downside_std * np.sqrt(self.annualization)
 
