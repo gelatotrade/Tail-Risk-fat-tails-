@@ -56,7 +56,7 @@ SPEC = {
     "cost": "fast",
 }
 
-N_SHOW = 12
+N_SHOW = 8
 MAX_STEPS = 300_000  # paths x days (two pure-Python loops per path)
 LAGS = np.arange(1, 41)
 QUANTS = [0.05, 0.25, 0.5, 0.75, 0.95]
@@ -133,20 +133,22 @@ def run(params, data, out):
     show = min(N_SHOW, n_paths)
     gx, gy = _gapped(t, prices[:show])
     q05, q50, q95 = np.percentile(prices, [5, 50, 95], axis=0)
+    band = [C.envelope("5–95 % aller Pfade", t, q05, q95, color=2)] if n_paths >= 20 else []
     out.chart(C.xy(
         "Kurspfade",
-        [C.trace(f"{show} Beispielpfade", gx, gy, color=1, width=1, decimate_to=None),
-         C.trace("Median aller Pfade", t, q50, color=2, width=2.5),
-         C.trace("5-%-Quantil", t, q05, color=2, dash=True),
-         C.trace("95-%-Quantil", t, q95, color=2, dash=True)],
+        band + [C.trace(f"{show} Beispielpfade", gx, gy, color=1, width=1, decimate_to=None),
+                C.trace("Median aller Pfade", t, q50, color=2, width=2.5)],
         x=C.axis("Zeit (Jahre)"), y=C.axis("Kurs (Start 100)"), hlines=[C.hline(100.0)], height=360,
-        subtitle=f"{n_paths} Pfade, ein Schritt je Handelstag.",
+        subtitle=f"{n_paths} Pfade, ein Schritt je Handelstag."
+                 + (" Die Fläche umfasst an jedem Tag die mittleren 90 % aller Pfade." if band else ""),
     ))
     gx, gy = _gapped(t, vols[:show])
+    v05, v95 = np.percentile(vols, [5, 95], axis=0)
+    vband = [C.envelope("5–95 % aller Pfade", t, v05, v95, color=2)] if n_paths >= 20 else []
     out.chart(C.xy(
         "Volatilität σ_t",
-        [C.trace(f"{show} Beispielpfade", gx, gy, color=1, width=1, decimate_to=None),
-         C.trace("Mittel aller Pfade", t, vols.mean(axis=0), color=2, width=2.5)],
+        vband + [C.trace(f"{show} Beispielpfade", gx, gy, color=1, width=1, decimate_to=None),
+                 C.trace("Mittel aller Pfade", t, vols.mean(axis=0), color=2, width=2.5)],
         x=C.axis("Zeit (Jahre)"), y=C.axis("Volatilität p. a.", fmt="pct", digits=0),
         hlines=[C.hline(params["theta"], "θ"), C.hline(level_jumps, "θ + λ·0,1/κ")], height=340,
         subtitle="Senkrechte Sprünge sind Vola-Schocks; danach klingt σ mit Geschwindigkeit κ ab.",

@@ -1,7 +1,7 @@
 """Jump-diffusion risk: split returns into jumps and diffusion, decompose the VaR, OU coordinates of |r|."""
 
 import numpy as np
-from scipy import stats
+from scipy import optimize, stats
 
 from src.physics.ornstein_uhlenbeck import JumpDiffusionRiskAnalyzer, compute_ou_coordinates
 
@@ -27,6 +27,8 @@ SPEC = {
         "Die OU-Koordinaten fitten in jedem rollierenden Fenster einen OU-Prozess auf |Rendite|: X ist das "
         "Vola-Niveau, Z die Rückstellgeschwindigkeit (Y, der letzte Ausschlag |r|, steckt schon im ersten "
         "Diagramm).\n\n"
+        "Zur Kontrolle rechnet das Werkzeug den Modell-VaR zusätzlich analytisch aus (Poisson-Mischung von "
+        "Normalverteilungen) – weicht die Monte-Carlo-Zahl davon ab, ist das reiner Simulationszufall.\n\n"
         "Hinweis: Tagesrenditen haben kaum Gedächtnis. Der OU-Fit landet deshalb meist im Grenzfall "
         "„weißes Rauschen“ (θ wird gedeckelt, Halbwertszeit ≈ 0,1 Tage) – die Diffusion entspricht dann einer "
         "Normalverteilung mit der Streuung der ruhigen Tage."
@@ -37,8 +39,9 @@ SPEC = {
          "label": "Sprungschwelle", "unit": "σ", "help": "Tage jenseits von Mittel ± Schwelle·σ gelten als Sprung."},
         {"name": "confidence", "type": "float", "default": 0.99, "min": 0.9, "max": 0.999, "step": 0.001,
          "label": "Konfidenzniveau"},
-        {"name": "n_simulations", "type": "int", "default": 10000, "min": 2000, "max": 50000, "step": 1000,
-         "label": "Monte-Carlo-Szenarien"},
+        {"name": "n_simulations", "type": "int", "default": 50000, "min": 5000, "max": 200000, "step": 5000,
+         "label": "Monte-Carlo-Szenarien", "help": "Der Sprung-Anteil am VaR hängt an wenigen Szenarien – mehr "
+                                                   "Szenarien machen ihn stabiler."},
         {"name": "window", "type": "int", "default": 30, "min": 10, "max": 120, "step": 5,
          "label": "Fenster der OU-Koordinaten", "unit": "Tage"},
         {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 9999, "step": 1, "label": "Zufalls-Seed"},
@@ -74,6 +77,24 @@ def _level(conf):
     return f"{100 * conf:.1f}".rstrip("0").rstrip(".").replace(".", ",") + " %"
 
 
+def _model_var(model, dt, p, jump_mean, jump_std, conf):
+    """Exact one-day VaR of the simulated model: OU step from 0 plus Poisson(p) jumps N(jump_mean, jump_std²).
+
+    The k-jump scenario is normal with mean m0 + k·jump_mean and variance v0 + k·jump_std², so the
+    distribution is a Poisson mixture of normals; its (1 − conf)-quantile is found numerically.
+    """
+    m0, v0 = float(model.expected_value(0.0, dt)), float(model.variance_at_time(dt))
+    ks = np.arange(0, 12)
+    w = stats.poisson.pmf(ks, p)
+    mk, sk = m0 + ks * jump_mean, np.sqrt(v0 + ks * jump_std ** 2)
+
+    def cdf(x):
+        return float(np.sum(w * stats.norm.cdf((x - mk) / sk)))
+
+    lo, hi = m0 - 50 * np.sqrt(v0) - 50 * jump_std - 1.0, m0 + 1.0
+    return -optimize.brentq(lambda x: cdf(x) - (1 - conf), lo, hi, xtol=1e-10)
+
+
 def run(params, data, out):
     r = data.returns
     n = data.n
@@ -87,8 +108,11 @@ def run(params, data, out):
     var_gauss = -(mean + stats.norm.ppf(1 - conf) * std)
     lvl = _level(conf)
     share = dec["var_jump"] / dec["var_total"] if dec["var_total"] > 0 else None
+    exact = (_model_var(ja.ou_model, ja.DT, dec["jump_intensity"], dec["jump_mean"], dec["jump_std"], conf)
+             if has_model else None)
 
-    out.metric(f"VaR {lvl} Modell gesamt", dec["var_total"], "pct", hint="OU + Sprünge, 1 Tag")
+    out.metric(f"VaR {lvl} Modell gesamt", dec["var_total"], "pct",
+               hint="OU + Sprünge, 1 Tag" + (f" · analytisch: {_de(100 * exact)} %" if exact is not None else ""))
     out.metric("davon Diffusion", dec["var_continuous"], "pct", hint="dasselbe Modell ohne Sprünge")
     out.metric("davon Sprünge", dec["var_jump"], "pct",
                hint=f"{_de(100 * share, 0)} % des VaR" if share is not None else "",
@@ -97,8 +121,11 @@ def run(params, data, out):
     out.metric("Erkannte Sprünge", int(dec["n_jumps"]), "int",
                hint=f"{_de(dec['jump_intensity'] * 252, 1)} pro Jahr ({_de(100 * dec['jump_intensity'], 2)} % der Tage)")
     n_jumps = int(dec["n_jumps"])
-    out.metric("Ø-Sprung", dec["jump_mean"] if n_jumps else None, "pct",
-               hint=f"Streuung {_de(100 * dec['jump_std'])} %" if n_jumps > 1 else "zu wenige Sprünge für eine Streuung")
+    if n_jumps:
+        out.metric("Ø-Sprung", dec["jump_mean"], "pct",
+                   hint=f"Streuung {_de(100 * dec['jump_std'])} %" if n_jumps > 1 else "zu wenige Sprünge für eine Streuung")
+    else:
+        out.metric("Ø-Sprung", "–", "text", hint=f"kein Tag jenseits von {_de(thr, 1)} σ")
     out.metric("Anteil der Sprünge an Σ|r|", dec["jump_contribution"], "pct", digits=1,
                hint="so viel der gesamten Bewegung steckt in den Sprungtagen")
     if has_model:
@@ -166,13 +193,21 @@ def run(params, data, out):
         X, _, Z = compute_ou_coordinates(r, window=w)
         valid = np.arange(2 * w, n)
         xs = [x[i] for i in valid]
+        xv = X[valid]
+        q99 = float(np.percentile(xv, 99))
+        clip = q99 > 0 and float(xv.max()) > 2.5 * q99  # one estimation spike would flatten everything else
+        top = min(1.02, 1.6 * q99) if clip else 1.02
+        n_cut = int(np.sum(xv > top))
+        peak = _date(xs[int(np.argmax(xv))])
         out.chart(C.xy(
             f"OU-Koordinate X: Vola-Niveau (Fenster {w} Tage)",
-            [C.trace("X: Niveau μ von |Rendite|", xs, X[valid], color=1, width=1.5)],
-            x=xa, y=C.axis("normiert (0 = Minimum, 1 = Maximum)", range=(0, 1.02)), height=260,
-            subtitle="Langfristiges Niveau μ des OU-Fits auf |Rendite| im Fenster. Vorsicht: Liegt die AR(1)-Steigung "
-                     "b nahe 1 (etwa weil ein Schock am Fensterende steht), wird μ = a/(1 − b) instabil – einzelne "
-                     "Spitzen sind dann Schätzfehler, kein echtes Vola-Niveau.",
+            [C.trace("X: Niveau μ von |Rendite|", xs, xv, color=1, width=1.5)],
+            x=xa, y=C.axis("normiert (0 = Minimum, 1 = Maximum)", range=(0, top)), height=260,
+            subtitle="Langfristiges Niveau μ des OU-Fits auf |Rendite| im Fenster. Liegt die AR(1)-Steigung b nahe 1 "
+                     "(etwa weil ein Schock am Fensterende steht), wird μ = a/(1 − b) instabil – solche Spitzen sind "
+                     "Schätzfehler, kein echtes Vola-Niveau."
+                     + (f" {n_cut} Tag{'e' if n_cut != 1 else ''} ragen über den Rand hinaus (Maximum 1 am {peak}); "
+                        "Doppelklick zeigt alles." if clip else ""),
         ))
         out.chart(C.xy(
             f"OU-Koordinate Z: Rückstellgeschwindigkeit θ (Fenster {w} Tage)",
@@ -185,11 +220,16 @@ def run(params, data, out):
         out.note(f"Für die OU-Koordinaten mit einem Fenster von {w} Tagen ist die Reihe zu kurz (mindestens "
                  f"{2 * w + 20} Tage). Verkleinere das Fenster auf höchstens {(n - 20) // 2} Tage.")
 
-    rows = [["Modell: OU + Sprünge", dec["var_total"]], ["nur Diffusion (OU)", dec["var_continuous"]],
-            ["Sprung-Aufschlag", dec["var_jump"]], ["Historisch (empirisches Quantil)", var_hist],
-            ["Normalverteilung (μ − z·σ)", var_gauss]]
+    rows = [["Modell: OU + Sprünge (Monte Carlo)", dec["var_total"]]]
+    if exact is not None:
+        rows.append(["Modell: OU + Sprünge (analytisch, Kontrolle)", exact])
+    rows += [["nur Diffusion (OU)", dec["var_continuous"]],
+             ["Sprung-Aufschlag", dec["var_jump"]], ["Historisch (empirisches Quantil)", var_hist],
+             ["Normalverteilung (μ − z·σ)", var_gauss]]
     out.table(f"Tages-VaR {lvl} im Vergleich", ["Methode", "VaR"], rows, formats=["text", "pct"],
-              note=f"{n_sim} Szenarien, Seed {seed}. OU-Fit: {FIT_STATUS[dec['ou_fit_status']]}.")
+              note=f"{n_sim:,}".replace(",", ".") + f" Szenarien, Seed {seed}. OU-Fit: "
+                   f"{FIT_STATUS[dec['ou_fit_status']]}. Analytisch = exakte Poisson-Mischung von Normalverteilungen "
+                   "desselben Modells; der Abstand zur Monte-Carlo-Zahl ist Simulationszufall.")
     order = np.argsort(-np.abs(r - mean))
     top = [i for i in order if is_jump[i]][:15]
     if top:

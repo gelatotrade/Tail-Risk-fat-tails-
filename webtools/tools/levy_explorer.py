@@ -60,11 +60,24 @@ def _de(x, digits=2):
     return f"{x:.{digits}f}".replace(".", ",")
 
 
-def _tiny(p):
-    """Probability cell: values far below anything observable become text instead of 1e-200 %."""
+_SUP = str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹")
+
+
+def _tiny(p, underflow=False):
+    """Probability cell in %: values far below anything observable become text instead of 1e-200 %.
+
+    ``underflow=True``: an exact 0 is a floating-point underflow (Gaussian tail far out), not a true zero.
+    """
     if p is None or not np.isfinite(p):
         return None
-    return "< 10⁻¹²" if p < 1e-12 else float(p)
+    if p == 0 and not underflow:
+        return 0.0
+    if p < 1e-12:
+        return "< 10⁻¹⁰ %"
+    if 0 < p < 1e-6:
+        mant, exp = f"{100 * p:.1e}".split("e")
+        return mant.replace(".", ",") + "·10" + str(int(exp)).translate(_SUP) + " %"
+    return float(p)
 
 
 def _ratio(a, b):
@@ -109,7 +122,8 @@ def run(params, data, out):
     p_left5, g5 = float(left(k5)), float(stats.norm.sf(k5 / g_sd))
     if alpha < 2:
         out.metric("Varianz", "∞", "text", hint="Für jedes α < 2 ist die Varianz unendlich",
-                   status="serious" if alpha < 1.5 else "warning")
+                   status="serious" if alpha < 1.5 else "warning",
+                   badge="sehr fette Ränder" if alpha < 1.5 else "fette Ränder")
         out.metric("Endliche Momente E|X|^p", f"p < {_de(alpha)}", "text",
                    hint="Mittelwert existiert nur für α > 1" if alpha > 1 else "Auch der Mittelwert existiert nicht")
         out.metric("Dichte-Exponent", 1 + alpha, "num", hint="f(x) ~ |x|^−(1+α) weit draußen")
@@ -178,7 +192,7 @@ def run(params, data, out):
     ))
 
     # --- chart 4: characteristic function (the definition of the law)
-    t = np.linspace(-6.0, 6.0, 401)
+    t = np.linspace(-3.0, 3.0, 401)
     phi = dist.characteristic_function(t)
     phi_g = gauss.characteristic_function(t)
     out.chart(C.xy(
@@ -198,7 +212,7 @@ def run(params, data, out):
         al = float(dist.tail_probability(-k, "left"))
         ar = float(dist.tail_probability(k, "right"))
         g = float(stats.norm.sf(k / g_sd))
-        rows.append([f"{k} γ", pl, _tiny(al), pr, _tiny(ar), _tiny(g), _ratio(pl, g)])
+        rows.append([f"{k} γ", pl, _tiny(al), pr, _tiny(ar), _tiny(g, underflow=True), _ratio(pl, g)])
     out.table(
         "Tail-Wahrscheinlichkeiten",
         ["Abstand", "P(X < −x) Stichprobe", "links asymptotisch", "P(X > x) Stichprobe", "rechts asymptotisch",

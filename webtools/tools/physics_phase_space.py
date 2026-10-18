@@ -23,8 +23,8 @@ SPEC = {
         "Z = heutige |Rendite| in Standardabweichungen – Crash-Tage ragen als Spitzen heraus. **Tsallis-Raum** "
         "(`compute_tsallis_coordinates`): X = entropischer Index q, Y = Tsallis-Entropie S_q, Z = Temperatur 1/β "
         "(wächst mit der Varianz). **Fokker-Planck-Raum** (`compute_fokker_planck_coordinates`): X = Drift "
-        "(mittlere Tagesrendite), Y = Diffusion (Varianz), Z = Ordnung α̂ = 6/Kurtosis, begrenzt auf [1, 2] "
-        "(kleiner = fettere Ränder).\n\n"
+        "(mittlere Tagesrendite), Y = Diffusion (Varianz der Tagesrenditen), Z = Ordnung α̂ = 6/Kurtosis mit der "
+        "gewöhnlichen Kurtosis (Gauß: 3, also α̂ = 2), begrenzt auf [1, 2] (kleiner = fettere Ränder).\n\n"
         "So liest du die Bilder: Graue Punkte sind die Vergangenheit, die farbige Linie sind die letzten Tage, der "
         "rote Punkt ist heute. Ruhige Phasen bilden eine dichte Wolke, Krisen ziehen lange Ausläufer nach außen. "
         "Ziehen dreht die Ansicht, das Mausrad zoomt, beim Überfahren siehst du das Datum. Die Tabelle ordnet jede "
@@ -61,6 +61,14 @@ def _de(x, digits=2):
     return f"{x:.{digits}f}".replace(".", ",")
 
 
+_SUP = str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹")
+
+
+def _date_de(d):
+    s = str(d)
+    return f"{s[8:10]}.{s[5:7]}.{s[:4]}" if len(s) == 10 and s[4] == "-" else s
+
+
 def _show(v, fmt):
     """German number text: daily drift in %, everything else with 3 significant digits."""
     if not np.isfinite(v):
@@ -70,7 +78,7 @@ def _show(v, fmt):
     txt = f"{v:.3g}"
     if "e" in txt:
         mant, exp = txt.split("e")
-        txt = f"{mant}·10^{int(exp)}"
+        return mant.replace(".", ",").replace("-", "−") + "·10" + str(int(exp)).translate(_SUP)
     return txt.replace(".", ",").replace("-", "−")
 
 
@@ -94,7 +102,7 @@ def run(params, data, out):
     if m < w + 30:
         raise ToolError(f"Für ein Fenster von {w} Tagen ist die Reihe zu kurz ({m} Tage). Verkleinere das Fenster.")
     r = np.asarray(data.returns[-m:], dtype=float)
-    days_all = list(data.dates[-m:]) if data.dates else [f"Tag {i}" for i in range(data.n - m, data.n)]
+    days_all = [_date_de(d) for d in data.dates[-m:]] if data.dates else [f"Tag {i + 1}" for i in range(data.n - m, data.n)]
 
     out.progress("Lévy-Koordinaten …", 0.05)
     lev = levy_flight_3d_coordinates(r, window=w)
@@ -143,7 +151,8 @@ def run(params, data, out):
               note=f"Perzentil = Anteil der {len(days)} Tage mit kleinerem Wert (Gleichstände zur Hälfte).")
 
     vol_pct = rows[0][4]
-    out.metric("Datum heute", str(days[-1]), "text", hint=f"Fenster {w} Tage, {len(days)} Punkte je Raum")
+    out.metric("Heute" if data.dates else "Letzter Tag", str(days[-1]), "text",
+               hint=f"Fenster {w} Tage, {len(days)} Punkte je Raum")
     out.metric("Lévy-Volatilität X", float(lev[0][-1]), "num", hint=f"Perzentil {_de(100 * vol_pct, 0)} %; 1 = Durchschnitt",
                status="serious" if vol_pct >= 0.95 else "warning" if vol_pct >= 0.8 else None)
     out.metric("Tail-Schwere 2/α (Lévy Y)", float(lev[1][-1]), "num", hint=f"Perzentil {_de(100 * rows[1][4], 0)} %")

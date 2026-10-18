@@ -91,7 +91,8 @@ def run(params, data, out):
 
     status = color if isinstance(color, str) else "warning"
     out.metric("Aktuelle Phase", name, "text", status=status)
-    out.metric("Konfidenz", res["confidence"], "pct", digits=0, hint="regelabhängig, siehe Tabelle")
+    out.metric("Konfidenz", res["confidence"], "pct", digits=0,
+               hint="feste Regel-Formel, keine statistische Sicherheit – siehe Tabelle")
     out.metric("Volatilitäts-Perzentil", vol_pct / 100, "pct", digits=0,
                hint=f"Volatilität der letzten {w} Tage im Vergleich zur ganzen Geschichte",
                status="serious" if vol_pct > 95 else "warning" if vol_pct > 90 else None)
@@ -109,21 +110,22 @@ def run(params, data, out):
     pct_txt, ret_txt = f"{_de(vol_pct, 0)}. Perzentil", f"{_de(100 * mean_ret, 2)} %/Tag"
     rules = [
         ("Crash", "Vol-Perzentil > 95 UND Ø-Rendite < −2 %/Tag", f"{pct_txt} · {ret_txt}",
-         vol_pct > 95 and mean_ret < -0.02),
-        ("Kritisch", "EWS-Warnstufe = Kritisch", EWS_DE.get(ews_level, ews_level), ews_level == "CRITICAL"),
-        ("Erholung", "Vol-Perzentil > 90 UND Ø-Rendite > 0", f"{pct_txt} · {ret_txt}", vol_pct > 90 and mean_ret > 0),
+         vol_pct > 95 and mean_ret < -0.02, "Vol-Perzentil"),
+        ("Kritisch", "EWS-Warnstufe = Kritisch", EWS_DE.get(ews_level, ews_level), ews_level == "CRITICAL", "80 % (fest)"),
+        ("Erholung", "Vol-Perzentil > 90 UND Ø-Rendite > 0", f"{pct_txt} · {ret_txt}", vol_pct > 90 and mean_ret > 0,
+         "70 % (fest)"),
         ("Trend", "AC(1) > 0,2 UND |Ø-Rendite| > 1 %/Tag", f"AC(1) {_de(ac1)} · {ret_txt}",
-         ac1 > 0.2 and abs(mean_ret) > 0.01),
-        ("Stabil", "keine der Regeln oben", "–", True),
+         ac1 > 0.2 and abs(mean_ret) > 0.01, "AC(1)"),
+        ("Stabil", "keine der Regeln oben", "–", True, "100 % − Vol-Perzentil"),
     ]
     rows, hit = [], False
-    for label, rule, value, cond in rules:
+    for label, rule, value, cond, conf_rule in rules:
         mark = yes(cond)
         if cond and not hit:
             mark, hit = "ja → Ergebnis", True
-        rows.append([label, rule, value, mark])
-    out.table("Regeln (erste erfüllte Regel gilt)", ["Phase", "Regel", "aktuell", "erfüllt"], rows,
-              formats=["text", "text", "text", "text"],
+        rows.append([label, rule, value, mark, conf_rule])
+    out.table("Regeln (erste erfüllte Regel gilt)", ["Phase", "Regel", "aktuell", "erfüllt", "Konfidenz"], rows,
+              formats=["text", "text", "text", "text", "text"],
               note=f"Fenster {w} Tage. Die EWS-Warnstufe rechnet intern immer mit 50 Tagen und σ = 100 und testet "
                    "den Trend über die ganze Reihe.")
 

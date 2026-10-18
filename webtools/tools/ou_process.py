@@ -21,8 +21,8 @@ SPEC = {
         "Mittel, **σ** die Stärke der Zufallsstöße. Die **Halbwertszeit** ln 2/θ sagt, nach welcher Zeit die "
         "Hälfte einer Abweichung abgebaut ist.\n\n"
         "So liest du die Diagramme: Der Fächer zeigt simulierte Pfade (exakte Diskretisierung) ab dem Startwert "
-        "x₀. Die durchgezogene Kurve ist der exakte Erwartungswert μ + (x₀ − μ)e^(−θt), die gestrichelten Linien "
-        "das ±2σ(t)-Band. Die Streuung wächst nicht unbegrenzt wie bei einer Irrfahrt, sondern sättigt bei der "
+        "x₀. Die durchgezogene Kurve ist der exakte Erwartungswert μ + (x₀ − μ)e^(−θt), die Fläche "
+        "das exakte ±2σ(t)-Band. Die Streuung wächst nicht unbegrenzt wie bei einer Irrfahrt, sondern sättigt bei der "
         "stationären Standardabweichung σ/√(2θ). Die Voreinstellungen ähneln dem echten VIX (Mittel um 19, "
         "Halbwertszeit rund vier Wochen), Start im Stress bei 35.\n\n"
         "Der **Fit** schätzt θ, μ und σ per AR(1)-Regression x_{t+1} = a + b·x_t: aus dem echten VIX deines "
@@ -105,19 +105,17 @@ def run(params, data, out):
                hint="e^(−θT): so viel von x₀ − μ ist im Erwartungswert noch übrig")
 
     gx, gy = _gapped(t, paths[:N_SHOW])
-    bx, by = _gapped(t, [mean_t + 2 * sd_t, mean_t - 2 * sd_t])
-    fan = [C.trace(f"{min(N_SHOW, len(paths))} simulierte Pfade", gx, gy, color=1, width=1, decimate_to=None),
+    inside = float(np.mean(np.abs(paths[:, -1] - mean_t[-1]) <= 2 * sd_t[-1]))
+    fan = [C.envelope("±2σ(t) (exakt)", t, mean_t - 2 * sd_t, mean_t + 2 * sd_t, color=2),
+           C.trace(f"{min(N_SHOW, len(paths))} simulierte Pfade", gx, gy, color=1, width=1, decimate_to=None),
            C.trace("Erwartungswert (exakt)", t, mean_t, color=2, width=3),
-           C.trace("±2σ(t) (exakt)", bx, by, color=2, dash=True, decimate_to=None),
            C.trace(f"Mittel aller {params['n_paths']} Pfade", t, mc_mean, color=3, dash=True)]
-    if ou.half_life() < T:
-        lo, hi = float(np.min(paths[:N_SHOW])), float(np.max(paths[:N_SHOW]))
-        fan.append(C.trace("nach 1 Halbwertszeit", [ou.half_life()] * 2, [lo, hi], color="muted", dash=True,
-                           width=1.5, decimate_to=None))
+    vlines = [C.vline(ou.half_life(), "1 Halbwertszeit")] if ou.half_life() < T else []
     out.chart(C.xy(
         "Pfad-Fächer mit exaktem Erwartungsband", fan,
-        x=C.axis("Zeit (Jahre)"), y=C.axis("x"), hlines=[C.hline(ou.mu, "μ")], height=380,
-        subtitle="Die Abweichung vom Mittel schrumpft exponentiell; ±2σ(t) enthält rund 95 % der Pfade.",
+        x=C.axis("Zeit (Jahre)"), y=C.axis("x"), hlines=[C.hline(ou.mu, "μ")], vlines=vlines, height=380,
+        subtitle=f"Die Abweichung vom Mittel schrumpft exponentiell. Im ±2σ(t)-Band liegen am Horizont "
+                 f"{_de(100 * inside, 0)} % der {params['n_paths']} Pfade (exakt: 95,4 %).",
     ))
     out.chart(C.xy(
         "Streuung: wächst und sättigt",
@@ -198,12 +196,11 @@ def _fit(params, data, out, true_ou):
     tf = f_days * DT
     f_mean = fit.expected_value(series[-1], tf)
     f_sd = np.sqrt(fit.variance_at_time(tf))
-    cx, cy = _gapped(f_days, [f_mean + 2 * f_sd, f_mean - 2 * f_sd])
     out.chart(C.xy(
         f"Fit und Prognosekegel – {label}",
-        [C.trace(f"Beobachtet (letzte {len(hist)} Tage)", h_days, hist, color=1, width=1.5),
-         C.trace("Prognose E[X]", f_days, f_mean, color=2, width=2.5),
-         C.trace("±2σ", cx, cy, color=2, dash=True, decimate_to=None)],
+        [C.envelope("±2σ-Prognoseband", f_days, f_mean - 2 * f_sd, f_mean + 2 * f_sd, color=2),
+         C.trace(f"Beobachtet (letzte {len(hist)} Tage)", h_days, hist, color=1, width=1.5),
+         C.trace("Prognose E[X]", f_days, f_mean, color=2, width=2.5)],
         x=C.axis("Handelstage relativ zum letzten Wert (0 = heute)", fmt="int"),
         y=C.axis("VIX" if fit_source == "vix" else "x"),
         hlines=[C.hline(fit.mu, "geschätztes μ")], height=340,

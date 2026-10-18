@@ -84,6 +84,7 @@ def run(params, data, out):
     x = list(data.dates[-m:]) if data.dates else list(range(data.n - m, data.n))
     xa = C.axis("", type="date") if data.dates else C.axis("Handelstag", fmt="int")
     vix = np.asarray(data.vix[-m:], dtype=float) / 100.0 if data.vix is not None else None
+    vix_name = "VIX" if data.meta.get("source") not in ("synthetic", "crisis") else "VIX (aus Renditen abgeleitet)"
 
     analyzer = TsallisEntropyAnalyzer()
     out.progress("Rollierende Tsallis-Entropie …", 0.1)
@@ -109,7 +110,7 @@ def run(params, data, out):
     rho_s, rho_q, rho_p = _rho(S, future), _rho(q, future), _rho(past, future)
     out.metric("Tsallis-Entropie heute", s_now, "num", hint=f"höher als an {_de(100 * pct_s, 0)} % der Tage")
     out.metric("q heute (Hill)", q_now, "num", hint=f"höher als an {_de(100 * pct_q, 0)} % der Tage")
-    out.metric("Realisierte Vola heute", float(past[-1]), "pct", digits=1, hint=f"letzte {w} Tage, annualisiert")
+    out.metric("Realisierte Vola heute", float(past[-1]), "pct", digits=1, hint=f"{w} Tage bis gestern, annualisiert – wie das Entropie-Fenster")
     out.metric(f"Rangkorrelation Entropie → Vola {h} T.", rho_s, "num",
                hint="Spearman ρ mit der zukünftigen Vola")
     out.metric(f"Zum Vergleich: Vola → Vola {h} T.", rho_p, "num", hint="vergangene Vola als einfachster Prognostiker")
@@ -130,7 +131,7 @@ def run(params, data, out):
     ))
     vol_traces = [C.trace(f"Realisierte Vola ({w} T.)", x, past, color=1, width=1.5)]
     if vix is not None:
-        vol_traces.append(C.trace("VIX", x, vix, color=2, width=1.2))
+        vol_traces.append(C.trace(vix_name, x, vix, color=2, width=1.2))
     out.chart(C.xy(
         "Volatilität: realisiert" + (" und VIX" if vix is not None else ""), vol_traces, x=xa,
         y=C.axis("Annualisierte Volatilität", fmt="pct", digits=0),

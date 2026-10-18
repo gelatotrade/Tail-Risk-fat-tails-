@@ -212,8 +212,12 @@ def run(params, data, out):
         out.set_verdict("critical", "Unendliche Varianz im Rand",
                         f"α − 1 = {_de(tail_index)} < 2: Volatilität und varianzbasierte Risikomaße sind hier "
                         "nicht stabil schätzbar.")
+    elif tail_index < 3:
+        out.set_verdict("serious", "Fetter Rand: Varianz endlich, Schiefe und Kurtosis nicht",
+                        f"α − 1 = {_de(tail_index)}. Existierende Momente: {_existing(tail_index)}. Stichproben-"
+                        "Schiefe und -Kurtosis sind deshalb keine verlässlichen Maße.")
     elif tail_index < 4:
-        out.set_verdict("serious" if tail_index < 3 else "warning", "Fetter Rand: Varianz endlich, Kurtosis nicht",
+        out.set_verdict("warning", "Fetter Rand: Varianz und Schiefe endlich, Kurtosis nicht",
                         f"α − 1 = {_de(tail_index)}. Existierende Momente: {_existing(tail_index)}. Die "
                         "Stichproben-Kurtosis ist deshalb kein verlässliches Maß.")
     else:

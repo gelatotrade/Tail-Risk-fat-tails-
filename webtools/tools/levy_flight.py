@@ -45,8 +45,8 @@ SPEC = {
          "label": "Volatilität σ p. a.", "help": "Nur der Brown'sche Anteil, ohne Sprünge."},
         {"name": "years", "type": "float", "default": 1.0, "min": 0.25, "max": 5.0, "step": 0.25,
          "label": "Laufzeit (Jahre)", "help": "252 Handelstage pro Jahr."},
-        {"name": "n_paths", "type": "int", "default": 1000, "min": 100, "max": 5000, "step": 100,
-         "label": "Anzahl Pfade"},
+        {"name": "n_paths", "type": "int", "default": 2000, "min": 100, "max": 5000, "step": 100,
+         "label": "Anzahl Pfade", "help": "Für VaR und Expected Shortfall 99 % zählen nur die schlechtesten 1 % der Pfade."},
         {"name": "confidence", "type": "select", "default": 0.99, "label": "VaR-Niveau",
          "options": [{"value": 0.95, "label": "95 %"}, {"value": 0.99, "label": "99 %"},
                      {"value": 0.995, "label": "99,5 %"}]},
@@ -146,7 +146,8 @@ def run(params, data, out):
     ))
 
     # --- chart 2: drawdown exceedance curve
-    levels = np.linspace(0, 0.9, 91)
+    dd_top = float(np.quantile(-np.r_[dd, dd0], 0.999))
+    levels = np.linspace(0, float(np.clip(np.ceil(dd_top * 10) / 10, 0.3, 0.95)), 91)  # axis ends where paths end
     share = np.array([np.mean(-dd >= v) for v in levels])
     share0 = np.array([np.mean(-dd0 >= v) for v in levels])
     out.chart(C.xy(

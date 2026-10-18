@@ -61,7 +61,8 @@ LEVELS = {
     "ELEVATED": ("serious", "Erhöht", "Erhöhte Frühwarnstufe: ein Signal steigt deutlich"),
     "CRITICAL": ("critical", "Kritisch", "Kritisches Verlangsamen: AC(1) und Varianz steigen gemeinsam"),
 }
-MAX_TAPS = 3e9  # window x Gaussian kernel length x observations (bounded runtime in the browser)
+# The detector detrends each window with a (window x window) kernel matrix: cost ~ observations x window².
+MAX_WORK = 6e9  # ~6 s native at the limit (two passes plus the reference walk), bounded runtime in the browser
 N_REFERENCE = 1000  # windows of the random-walk reference for AC(1)
 
 
@@ -90,9 +91,9 @@ def run(params, data, out):
                             f"Messpunkte für den Trendtest. Verkleinere das Fenster auf höchstens {n - 30} Tage.")
         raise ToolError(f"Das Analysefenster ({look} Tage) ist zu kurz für ein Fenster von {w} Tagen. "
                         "Verkleinere das Fenster oder vergrößere das Analysefenster.")
-    if (n + look + N_REFERENCE + w) * w * (8 * sigma + 1) > MAX_TAPS:
-        raise ToolError("Fenster × Glättungsbreite σ sind für diese Datenlänge zu rechenintensiv. "
-                        "Verkleinere σ oder das Fenster.")
+    if (n + look + N_REFERENCE + w) * w * w > MAX_WORK:
+        raise ToolError(f"Ein Fenster von {w} Tagen ist für {n} Beobachtungen zu rechenintensiv. "
+                        "Verkleinere das Fenster oder das Analysefenster.")
 
     det = CriticalSlowingDownDetector(window=w, detrend_window=sigma)
     full = det.compute_ews(r)                                   # charts: the whole history
@@ -172,7 +173,8 @@ def run(params, data, out):
         [C.trace("½ z(AC1) + ½ z(Varianz)", x, _padded(full["composite"], w), color=1, width=1.5)],
         x=xa, y=C.axis("z-Wert"), bands=bands, height=280,
         hlines=[C.hline(0.0), C.hline(2.0, "+2", color="warning")],
-        subtitle="Über +2: AC(1) und Varianz liegen gemeinsam weit über ihrem historischen Mittel.",
+        subtitle="Über +2: AC(1) und Varianz liegen gemeinsam weit über ihrem Mittel. Mittel und Streuung stammen "
+                 "aus der ganzen Reihe – frühere Werte sind also mit späteren Daten normiert.",
     ))
 
     def ok(cond):

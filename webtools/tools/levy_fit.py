@@ -64,6 +64,11 @@ def _pct(x, digits=1):
     return _de(100 * x, digits) + " %"
 
 
+def _lvl(c):
+    """Confidence level as text: 0.99 -> '99 %', 0.975 -> '97,5 %'."""
+    return f"{100 * c:.1f}".rstrip("0").rstrip(".").replace(".", ",") + " %"
+
+
 def _hist_var_es(rh, c):
     var = -float(np.quantile(rh, 1 - c))
     tail = rh[rh <= -var]
@@ -108,7 +113,7 @@ def run(params, data, out):
     var_h, es_h = _hist_var_es(rh, c)
     var_g, es_g = _gauss_var_es(mu_h, sd_h, c)
 
-    lvl = f"{_de(100 * c, 1 if c in (0.975, 0.995, 0.999) else 0)} %"
+    lvl = _lvl(c)
     out.metric("Lévy α (Quantil-Fit)", dist.alpha, "num", hint="2 = Gauß · < 2: unendliche Varianz")
     out.metric("Lévy β (Schiefe)", dist.beta, "num", hint="< 0: linker Rand schwerer")
     out.metric("Lévy-Skala γ", dist.gamma, "pct", hint="täglich; Gauß hätte γ = σ/√2")
@@ -159,13 +164,15 @@ def run(params, data, out):
     gauss = 2 * stats.norm.sf(xs / sd)
     y_lo = 0.5 / n
     pos = lambda y: np.where(np.asarray(y) >= y_lo, y, np.nan)  # noqa: E731
+    tail_traces = [
+        C.trace("Beobachtet", xs, pos(np.where(emp > 0, emp, np.nan)), type="step", color=1, width=2.5),
+        C.trace(f"Hill (α = {_de(hill)})", xs[xs >= a[k]], pos(hill_line[xs >= a[k]]), color=3, dash=True),
+        C.trace(f"Lévy (α = {_de(dist.alpha)})", xs, pos(np.where(lev_mc > 0, lev_mc, np.nan)), color=2),
+        C.trace("Lévy-Asymptote", xs, pos(np.where(lev_asym < 1, lev_asym, np.nan)), color=2, dash=True, width=1.5),
+        C.trace("Gauß", xs, pos(gauss), color="muted", dash=True)]
     out.chart(C.xy(
         "Ränder im Log-Log-Plot: P(|r| > x)",
-        [C.trace("Beobachtet", xs, pos(np.where(emp > 0, emp, np.nan)), type="step", color=1, width=2.5),
-         C.trace(f"Hill (α = {_de(hill)})", xs[xs >= a[k]], pos(hill_line[xs >= a[k]]), color=3, dash=True),
-         C.trace(f"Lévy (α = {_de(dist.alpha)})", xs, pos(np.where(lev_mc > 0, lev_mc, np.nan)), color=2),
-         C.trace("Lévy-Asymptote", xs, pos(np.where(lev_asym < 1, lev_asym, np.nan)), color=2, dash=True, width=1.5),
-         C.trace("Gauß", xs, pos(gauss), color="muted", dash=True)],
+        [t for t in tail_traces if np.any(np.isfinite(t["y"]))],
         x=C.axis("Absolute Tagesrendite x", type="log", fmt="pct", digits=1),
         y=C.axis("Anteil der Tage", type="log", fmt="pct", range=(y_lo, 1.0)),
         subtitle="Steigung = −Tail-Index. Die Lévy-Linie ist eine Simulation aus dem Fit. Ist sie flacher als die "
@@ -193,12 +200,12 @@ def run(params, data, out):
     for lev in TABLE_LEVELS:
         vh, eh = _hist_var_es(rh, lev)
         vg, eg = _gauss_var_es(mu_h, sd_h, lev)
-        rows.append([lev, float(proc.compute_var(lev, h, nsim, seed=seed)), vh, vg,
+        rows.append([_lvl(lev), float(proc.compute_var(lev, h, nsim, seed=seed)), vh, vg,
                      float(proc.compute_cvar(lev, h, nsim, seed=seed)) if es_finite else "∞", eh, eg])
     out.table(
         f"VaR und Expected Shortfall ({h} Tag{'e' if h > 1 else ''})",
         ["Niveau", "VaR Lévy", "VaR historisch", "VaR Gauß", "ES Lévy", "ES historisch", "ES Gauß"],
-        rows, formats=["pct", "pct", "pct", "pct", "pct", "pct", "pct"],
+        rows, formats=["text", "pct", "pct", "pct", "pct", "pct", "pct"],
         note="Lévy: Monte-Carlo aus S1(α, β, h^(1/α)·γ, h·δ). Historisch: empirisches Quantil der "
              + ("überlappenden h-Tages-Summen." if h > 1 else "Tagesrenditen.") + " Gauß: μ·h und σ·√h.",
     )
@@ -222,7 +229,7 @@ def run(params, data, out):
         [["Hill (Top 10 % der |Renditen|)", hill, hill_se, k_hill, hill_text(hill)],
          ["Pickands (X₍ₖ₎, X₍₂ₖ₎, X₍₄ₖ₎)", pick_cell, None, k_pick, pick_text],
          ["Lévy α (Quantil-Fit nach McCulloch)", dist.alpha, None, None,
-          "stabile Gesetze haben immer α ≤ 2 – α = 2 ist die Normalverteilung"]],
+          "stabile Gesetze haben immer α ≤ 2; α = 2 ist die Normalverteilung"]],
         formats=["text", "num", "num", "int", "text"],
         note="Hill: Std.-Fehler ≈ α/√k. Pickands nutzt nur die k-, 2k- und 4k-größte |Rendite|; mit k = 10 % der "
              "Reihe liegt X₍₄ₖ₎ beim 60-%-Quantil, also im Kern – daher die wilden Ausschläge. Das Lévy-α beschreibt die "
@@ -234,12 +241,12 @@ def run(params, data, out):
         for lev in (0.95, 0.99, 0.995):
             vl = float(proc.compute_var(lev, 1, nsim, seed=seed))
             vg = _gauss_var_es(mu, sd, lev)[0]
-            exc_rows.append([lev, 1 - lev, float(np.mean(r < -vl)), float(np.mean(r < -vg)),
+            exc_rows.append([_lvl(lev), 1 - lev, float(np.mean(r < -vl)), float(np.mean(r < -vg)),
                              int(round((1 - lev) * n)), int(np.sum(r < -vl)), int(np.sum(r < -vg))])
         out.table(
             "Überschreitungen im Datensatz",
             ["Niveau", "Soll-Quote", "Quote Lévy", "Quote Gauß", "Soll-Tage", "Tage Lévy", "Tage Gauß"],
-            exc_rows, formats=["pct", "pct", "pct", "pct", "int", "int", "int"],
+            exc_rows, formats=["text", "pct", "pct", "pct", "int", "int", "int"],
             note="In-sample: Anteil der Tage, an denen der Verlust den VaR überstieg. Weniger als die Soll-Quote "
                  "= zu vorsichtig, mehr = Risiko unterschätzt.",
         )

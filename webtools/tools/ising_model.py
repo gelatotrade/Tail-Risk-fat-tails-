@@ -120,8 +120,8 @@ def run(params, data, out):
         raise ToolError("Für das Phasendiagramm muss „T von“ kleiner sein als „T bis“.")
     flips = n * (n_steps + N_VIEW + (n_T * (EQUILIBRATION + params["n_samples"]) if params["phase"] else 0))
     if flips > MAX_FLIPS:
-        raise ToolError(f"Das wären {flips / 1e6:.1f} Mio. Einzelentscheidungen – zu viel für den Browser "
-                        f"(Grenze {MAX_FLIPS / 1e6:.1f} Mio.). Verringere Händler, Sweeps, Temperaturen oder "
+        raise ToolError(f"Das wären {_de(flips / 1e6, 1)} Mio. Einzelentscheidungen – zu viel für den Browser "
+                        f"(Grenze {_de(MAX_FLIPS / 1e6, 1)} Mio.). Verringere Händler, Sweeps, Temperaturen oder "
                         "Messungen, oder schalte das Phasendiagramm ab.")
 
     np.random.seed(params["seed"])
@@ -147,11 +147,15 @@ def run(params, data, out):
     out.metric("Korrelationslänge ξ", xi, "num", digits=1, unit="Händler",
                hint="typische Herdengröße (exakt für die 1D-Kette)")
     out.metric("Energie je Händler", e_now / n, "num",
-               hint=f"{_de(-(J + abs(h)))}: völlige Ordnung · ≈ 0: Chaos")
-    out.metric("Suszeptibilität χ ohne Herdentrieb", chi_now, "num",
-               hint=f"(1−M²)/T für unabhängige Händler · mit Herdentrieb (exakt): {_de(exact_chi)}")
-    out.metric("T / T_c (2D-Referenz)", T / tc if tc > 0 else None, "num",
-               hint="nur Skala: die 1D-Kette hat keinen echten Phasenübergang")
+               hint=f"−{_de(J + abs(h))}: völlige Ordnung · ≈ 0: Chaos" if J + abs(h) > 0 else
+               "ohne Herdentrieb und Stimmung (J = h = 0) ist die Energie immer 0")
+    out.metric("Suszeptibilität χ", exact_chi, "num",
+               hint=f"exakt für die Kette, N·Var(|M|)/T · Momentaufnahme ohne Herdentrieb (1−M²)/T: {_de(chi_now)}")
+    if tc > 0:
+        out.metric("T / T_c (2D-Referenz)", T / tc, "num",
+                   hint="nur Skala: die 1D-Kette hat keinen echten Phasenübergang")
+    else:
+        out.metric("T / T_c (2D-Referenz)", "–", "text", hint="J = 0: ohne Herdentrieb gibt es kein T_c")
     out.metric("Schwankung des Modellkurses", np.std(ret), "pct",
                hint="Standardabweichung der Log-Rendite je Aufzeichnung")
     out.metric("Kursänderung gesamt", price[-1] / 100.0 - 1.0, "pct", digits=1)
@@ -178,7 +182,7 @@ def run(params, data, out):
         f"Raum-Zeit-Bild: die nächsten {N_VIEW} Sweeps" + (f" (Händler 1–{rows} von {n})" if rows < n else ""),
         list(range(n_steps + 1, n_steps + N_VIEW + 1)), list(range(1, rows + 1)), history[:, :rows].T,
         x=C.axis("Monte-Carlo-Sweep", fmt="int"), y=C.axis("Händler", fmt="int"),
-        z=C.axis("Position (+1 kauft, −1 verkauft)"), scale="diverging", height=400,
+        z=C.axis("Position (+1 kauft, −1 verkauft)", range=(-1, 1)), scale="diverging", height=400, gap=0,
         subtitle="Jede Zeile ist ein Händler: rot kauft, blau verkauft. Gleichfarbige Blöcke sind Herden – "
                  "ihre Höhe ≈ ξ, ihre Lebensdauer wächst mit ξ².",
     ))

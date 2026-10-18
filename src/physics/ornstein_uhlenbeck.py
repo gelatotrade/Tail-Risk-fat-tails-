@@ -327,6 +327,36 @@ class OUWithJumps:
             'times': np.linspace(0, T, n_steps + 1)
         }
 
+    def sample_terminal(self, x0: float, T: float, n_simulations: int = 10000,
+                        seed: Optional[int] = None) -> np.ndarray:
+        """
+        Exact sample of X_T given X_0 = x0, for any horizon T.
+
+        The diffusion uses the exact OU transition over T.  Jumps arrive as
+        a Poisson(λT) number at uniform times U in [0, T]; mean reversion
+        acts on them too, so a jump J that arrives at U contributes
+        J·exp(-θ(T - U)) at T.  (A single ``simulate`` step instead adds every
+        jump of the step undecayed at its end, which overstates the jump risk
+        when θT is not small.)
+
+        With a seed, the diffusion draws come first, so a model without jumps
+        and the same seed has exactly the same diffusion part (common random
+        numbers).  Vectorised over the scenarios.
+        """
+        if seed is not None:
+            np.random.seed(seed)
+        n_simulations = int(n_simulations)
+        x = (self.base_ou.expected_value(x0, T)
+             + np.sqrt(self.base_ou.variance_at_time(T)) * np.random.normal(0, 1, n_simulations))
+        counts = np.random.poisson(self.jump_intensity * T, n_simulations)
+        total = int(counts.sum())
+        if total:
+            sizes = np.asarray(self.sample_jump_size(total), dtype=float)
+            arrival = np.random.uniform(0, T, total)
+            owner = np.repeat(np.arange(n_simulations), counts)
+            np.add.at(x, owner, sizes * np.exp(-self.theta * (T - arrival)))
+        return x
+
     def compute_var(self, x0: float, T: float = 1/252,
                     confidence: float = 0.99,
                     n_simulations: int = 10000,
@@ -334,11 +364,11 @@ class OUWithJumps:
         """
         Compute VaR for the jump-diffusion process.
 
-        Accounts for both continuous and jump risk.  With the same ``seed``,
+        Accounts for both continuous and jump risk over the horizon T
+        (exact terminal law, see sample_terminal).  With the same ``seed``,
         compute_var and compute_expected_shortfall use the same sample.
         """
-        result = self.simulate(x0, T, n_steps=1, n_paths=n_simulations, seed=seed)
-        terminal_values = result['paths'][:, -1]
+        terminal_values = self.sample_terminal(x0, T, n_simulations, seed=seed)
 
         returns = terminal_values - x0
         var = -np.percentile(returns, (1 - confidence) * 100)
@@ -349,9 +379,8 @@ class OUWithJumps:
                                    confidence: float = 0.99,
                                    n_simulations: int = 10000,
                                    seed: Optional[int] = None) -> float:
-        """Compute Expected Shortfall (CVaR)."""
-        result = self.simulate(x0, T, n_steps=1, n_paths=n_simulations, seed=seed)
-        terminal_values = result['paths'][:, -1]
+        """Compute Expected Shortfall (CVaR) over the horizon T (same sample as compute_var)."""
+        terminal_values = self.sample_terminal(x0, T, n_simulations, seed=seed)
 
         returns = terminal_values - x0
         var = -np.percentile(returns, (1 - confidence) * 100)

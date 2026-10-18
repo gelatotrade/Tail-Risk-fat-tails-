@@ -121,7 +121,7 @@ def run(params, data, out):
     out.metric("Exzess-Kurtosis bei T", end["kurtosis"], "num", digits=1, hint="Normalverteilung = 0",
                status="critical" if end["kurtosis"] > 6 else "serious" if end["kurtosis"] > 3 else None)
     out.metric("Masse jenseits 3σ", tails3[-1], "pct", hint=f"Gauß: {_de(100 * G3)} %")
-    out.metric("Faktor ggü. Gauß (4σ)", tails4[-1] / G4, "x", hint="Masse jenseits 4σ ÷ Gauß-Wert",
+    out.metric("Faktor gegenüber Gauß (4σ)", tails4[-1] / G4, "x", hint="Masse jenseits 4σ ÷ Gauß-Wert",
                status="critical" if tails4[-1] / G4 > 20 else "serious" if tails4[-1] / G4 > 3 else None)
     out.metric("Rückstellkraft μ(x₀)", drift0, "num", hint="Drift am Startpunkt: −θ(x₀ − μ∞)")
 
@@ -138,7 +138,7 @@ def run(params, data, out):
         "Wahrscheinlichkeitsdichte P(x, t)",
         np.round(x[::xstep], 3), np.round(times[rows], 3), logP,
         x=C.axis("x (standardisierte Rendite)"), y=C.axis("Zeit t", type="linear"),
-        z=C.axis("log₁₀ Dichte"), scale="sequential", height=420,
+        z=C.axis("log₁₀ Dichte"), scale="sequential", height=420, gap=0,
         subtitle="Zeit läuft nach unten, Farbe = log₁₀ Dichte über 6 Dekaden (dunkel = hoch). Je weiter die kräftige "
                  "Färbung nach außen reicht, desto fetter die Ränder.",
     ))
@@ -160,7 +160,7 @@ def run(params, data, out):
     # --- chart 3: tail mass over time, as a multiple of the Gaussian value
     r3, r4 = tails3 / G3, tails4 / G4
     out.chart(C.xy(
-        "Fette Ränder über die Zeit: Faktor ggü. Gauß",
+        "Fette Ränder über die Zeit: Faktor gegenüber Gauß",
         [C.trace("Masse jenseits 3σ", times, np.where(r3 > 0, r3, np.nan), color=1),
          C.trace("Masse jenseits 4σ", times, np.where(r4 > 1e-6, r4, np.nan), color=2),
          C.trace("Normalverteilung = 1", [times[0], times[-1]], [1.0, 1.0], color="muted", dash=True)],
@@ -217,7 +217,8 @@ def run(params, data, out):
     ], formats=["text", "text"],
         note="Eine Spaltensumme nahe 0 heißt: Der diskrete Operator erhält die Wahrscheinlichkeit. Beim fraktionalen "
              "Operator fehlt der Anteil der Sprünge, die über den Gitterrand hinausführen würden.")
-    out.metric("Masse am Gitterrand", edge_mass, "pct", hint="Anteil bei |x| > 8 zu t = T",
+    out.metric("Masse am Gitterrand", edge_mass if edge_mass >= 1e-6 else "< 0,0001 %",
+               "pct" if edge_mass >= 1e-6 else "text", hint="Anteil bei |x| > 8 zu t = T",
                status="warning" if edge_mass > 1e-3 else None)
     if edge_mass > 1e-3:
         out.note(f"{_de(100 * edge_mass, 1)} % der Masse liegt bei |x| > 8 – die Ränder stoßen an das Gitter. "

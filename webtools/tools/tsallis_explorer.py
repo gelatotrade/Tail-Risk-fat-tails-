@@ -9,7 +9,7 @@ from .. import charts as C
 
 SPEC = {
     "id": "tsallis-explorer",
-    "title": "Tsallis-q-Gauß erkunden",
+    "title": "Tsallis-Verteilung (q-Gauß) erkunden",
     "group": "physics",
     "order": 60,
     "summary": "Wie der entropische Index q aus der Gauß-Glocke eine Verteilung mit Potenzgesetz-Rändern macht – "
@@ -61,10 +61,19 @@ def _de(x, digits=2):
     return f"{x:.{digits}f}".replace(".", ",")
 
 
+_SUP = str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹")
+
+
 def _tiny(p):
+    """Probability cell: below 10⁻⁶ as German scientific text in % (2,0·10⁻⁷ % instead of 0,0000002 %)."""
     if p is None or not np.isfinite(p):
         return None
-    return "< 10⁻¹²" if 0 < p < 1e-12 else float(p)
+    if p < 1e-12:  # includes exact 0 from underflow (Gaussian tail far out)
+        return "< 10⁻¹⁰ %"
+    if 0 < p < 1e-6:
+        mant, exp = f"{100 * p:.1e}".split("e")
+        return mant.replace(".", ",") + "·10" + str(int(exp)).translate(_SUP) + " %"
+    return float(p)
 
 
 def run(params, data, out):
@@ -169,8 +178,8 @@ def run(params, data, out):
                       "> 10⁵" if ratio is not None and ratio > 1e5 else ratio])
     out.table("Tail-Wahrscheinlichkeit P(|X| > kσ)", ["Schwelle", "exakt", "asymptotisch", "Stichprobe", "Gauß", "Faktor"],
               trows, formats=["text", "pct", "pct", "pct", "pct", "x"],
-              note=f"σ = Standardabweichung der Referenz ({_de(g_sd, 3)}). Die Asymptote C·d^(1−α)/(α−1) gilt "
-                   "nur weit draußen und ist bei 100 % gekappt.")
+              note=f"σ = Standardabweichung der Referenz ({_de(g_sd, 3)}). Die Asymptote C·d^(1−α)/(α−1) mit dem "
+                   "Dichte-Exponenten α = 2/(q − 1) gilt nur weit draußen und ist bei 100 % gekappt.")
 
     # --- table: entropy of the discretised densities (50 classes)
     analyzer = TsallisEntropyAnalyzer()

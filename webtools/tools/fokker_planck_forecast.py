@@ -100,7 +100,7 @@ def run(params, data, out):
     out.metric("Masse jenseits 3σ", tp["3sigma"]["total"], "pct", hint=f"Gauß: {_de(200 * stats.norm.sf(3))} %")
     for key, k in (("4sigma", 4), ("5sigma", 5)):
         ratio = tp[key]["ratio_to_gaussian"]
-        out.metric(f"Faktor ggü. Gauß ({k}σ)", ratio, "x", hint=f"Tail-Masse jenseits {k}σ ÷ Gauß-Wert",
+        out.metric(f"Faktor gegenüber Gauß ({k}σ)", ratio, "x", hint=f"Tail-Masse jenseits {k}σ ÷ Gauß-Wert",
                    status="critical" if ratio > 20 else "serious" if ratio > 3 else None)
     out.metric("Fat-Tail-Faktor 2/α", m["fat_tail_factor"], "num", hint=f"Tail-Index α = {_de(m['tail_index'])}")
 
@@ -121,7 +121,7 @@ def run(params, data, out):
     tails = np.array([sum(solver.tail_probability(P, k)) for k in ks])
     ratio = tails / (2 * stats.norm.sf(ks))
     out.chart(C.xy(
-        "Tail-Masse ggü. Gauß nach Abstand",
+        "Tail-Masse gegenüber Gauß nach Abstand",
         [C.trace("Fokker-Planck-Prognose", ks, np.where(tails > 1e-12, ratio, np.nan), color=1, width=2.5),
          C.trace("Normalverteilung = 1", [ks[0], ks[-1]], [1.0, 1.0], color="muted", dash=True)],
         x=C.axis("Abstand k (in σ der Prognose)"), y=C.axis("P(|X − μ| > kσ) ÷ Gauß-Wert", type="log"),

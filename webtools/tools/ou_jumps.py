@@ -28,7 +28,10 @@ SPEC = {
         "Sprungverteilungen: **Normal** N(Mittel, Std), **doppelt-exponential** (Kou-Modell: gleich wahrscheinlich "
         "nach oben und unten, exponentiell verteilt) und **Lévy** (Student-t mit ν = 1,7 als Näherung – unendliche "
         "Varianz, einzelne Sprünge können absurd groß werden). Der Expected Shortfall reagiert stärker als der "
-        "VaR, weil er den ganzen Rand jenseits des VaR mittelt."
+        "VaR, weil er den ganzen Rand jenseits des VaR mittelt.\n\n"
+        "Über mehrere Tage zieht die Rückstellkraft auch die Sprünge wieder zurück: Ein Sprung am Anfang des "
+        "VaR-Horizonts zählt am Ende weniger als einer kurz davor. Die Simulation rechnet das exakt. VaR und ES "
+        "sind Monte-Carlo-Schätzungen – das angegebene Band zeigt, wie stark sie allein durch den Zufall schwanken."
     ),
     "needs": [],
     "params": [
@@ -50,8 +53,8 @@ SPEC = {
          "label": "VaR-Horizont", "unit": "Handelstage"},
         {"name": "confidence", "type": "float", "default": 0.99, "min": 0.9, "max": 0.999, "step": 0.001,
          "label": "Konfidenzniveau"},
-        {"name": "n_simulations", "type": "int", "default": 10000, "min": 2000, "max": 50000, "step": 1000,
-         "label": "Simulationen für VaR/ES"},
+        {"name": "n_simulations", "type": "int", "default": 50000, "min": 5000, "max": 200000, "step": 5000,
+         "label": "Simulationen für VaR/ES", "help": "Mehr Szenarien = engeres Monte-Carlo-Band um VaR und ES."},
         {"name": "path_years", "type": "float", "default": 1.0, "min": 0.25, "max": 5.0, "step": 0.25,
          "label": "Länge der Beispielpfade", "unit": "Jahre"},
         {"name": "n_paths", "type": "int", "default": 200, "min": 10, "max": 500, "step": 10,
@@ -62,6 +65,7 @@ SPEC = {
         "src.physics.ornstein_uhlenbeck.OUWithJumps",
         "src.physics.ornstein_uhlenbeck.OUWithJumps.sample_jump_size",
         "src.physics.ornstein_uhlenbeck.OUWithJumps.simulate",
+        "src.physics.ornstein_uhlenbeck.OUWithJumps.sample_terminal",
         "src.physics.ornstein_uhlenbeck.OUWithJumps.compute_var",
         "src.physics.ornstein_uhlenbeck.OUWithJumps.compute_expected_shortfall",
     ],
@@ -89,6 +93,20 @@ def _var_es(change, conf):
     return var, (-np.mean(tail) if len(tail) else var)
 
 
+def _var_band(change, conf):
+    """95 % Monte-Carlo band of the VaR from the order statistics (binomial count below the quantile)."""
+    n, a = len(change), 1 - conf
+    half = 1.96 * np.sqrt(n * a * (1 - a))
+    srt = np.sort(change)
+    lo_i, hi_i = int(max(0, np.floor(n * a - half))), int(min(n - 1, np.ceil(n * a + half)))
+    return -srt[hi_i], -srt[lo_i]  # VaR = -quantile: a higher quantile gives the lower VaR
+
+
+def _pp(x):
+    """Width in percentage points, German."""
+    return f"{_de(100 * x)} Prozentpunkte"
+
+
 def run(params, data, out):
     kw = dict(theta=params["theta"], mu=0.0, sigma=params["sigma"], jump_mean=params["jump_mean"],
               jump_std=params["jump_std"], jump_distribution=params["jump_distribution"])
@@ -107,17 +125,24 @@ def run(params, data, out):
     es_j = model.compute_expected_shortfall(0.0, h, conf, n_sim, seed=seed)
     var_0 = plain.compute_var(0.0, h, conf, n_sim, seed=seed)
     es_0 = plain.compute_expected_shortfall(0.0, h, conf, n_sim, seed=seed)
-    change_j = model.simulate(0.0, h, n_steps=1, n_paths=n_sim, seed=seed)["paths"][:, -1]
-    change_0 = plain.simulate(0.0, h, n_steps=1, n_paths=n_sim, seed=seed)["paths"][:, -1]
+    change_j = model.sample_terminal(0.0, h, n_sim, seed=seed)  # the sample behind var_j / es_j
+    change_0 = plain.sample_terminal(0.0, h, n_sim, seed=seed)
+    band_lo, band_hi = _var_band(change_j, conf)
+    # exact reference without jumps: the OU change over h is normal
+    sd_0 = float(np.sqrt(plain.base_ou.variance_at_time(h)))
+    z = stats.norm.ppf(1 - conf)
+    var_0_exact, es_0_exact = -z * sd_0, sd_0 * stats.norm.pdf(z) / (1 - conf)
 
     hz = f"{params['horizon_days']} Tag" + ("" if params["horizon_days"] == 1 else "e")
     lvl = _level(conf)
-    out.metric(f"VaR {lvl} mit Sprüngen", var_j, "pct", hint=f"Verlust über {hz}",
+    out.metric(f"VaR {lvl} mit Sprüngen", var_j, "pct",
+               hint=f"Verlust über {hz} · Monte-Carlo-Band (95 %): {_de(100 * band_lo)} – {_de(100 * band_hi)} %",
                status="serious" if var_j > 1.5 * var_0 else None)
     out.metric(f"Expected Shortfall {lvl} mit Sprüngen", es_j, "pct", hint="Ø-Verlust jenseits des VaR",
                status="critical" if es_j > 2 * es_0 else "serious" if es_j > 1.3 * es_0 else None)
-    out.metric("VaR ohne Sprünge", var_0, "pct", hint="reiner OU, dieselben Zufallszahlen")
-    out.metric("Expected Shortfall ohne Sprünge", es_0, "pct")
+    out.metric("VaR ohne Sprünge", var_0, "pct",
+               hint=f"reiner OU, dieselben Zufallszahlen · exakt (normalverteilt): {_de(100 * var_0_exact)} %")
+    out.metric("Expected Shortfall ohne Sprünge", es_0, "pct", hint=f"exakt: {_de(100 * es_0_exact)} %")
     out.metric("Sprung-Faktor VaR", var_j / var_0 if var_0 > 0 else None, "x", hint="VaR mit ÷ ohne Sprünge")
     out.metric("Sprung-Faktor ES", es_j / es_0 if es_0 > 0 else None, "x", hint="ES mit ÷ ohne Sprünge")
     out.metric("Erwartete Sprünge im Horizont", lam * h, "num", digits=3, hint=f"λ·Horizont, λ = {_de(lam, 0)} pro Jahr")
@@ -128,7 +153,10 @@ def run(params, data, out):
               [["VaR " + lvl, var_j, var_0, var_j - var_0, var_j / var_0 if var_0 > 0 else None],
                ["Expected Shortfall " + lvl, es_j, es_0, es_j - es_0, es_j / es_0 if es_0 > 0 else None]],
               formats=["text", "pct", "pct", "pct", "x"],
-              note=f"{n_sim} Monte-Carlo-Szenarien über {hz}, Start auf dem Mittel (x₀ = μ = 0).")
+              note=f"{n_sim:,}".replace(",", ".") + f" Monte-Carlo-Szenarien über {hz}, Start auf dem Mittel "
+                   "(x₀ = μ = 0). "
+                   + f"Allein der Monte-Carlo-Zufall verschiebt den VaR mit Sprüngen um bis zu ±{_pp((band_hi - band_lo) / 2)} "
+                     "(95 %); mehr Szenarien machen das Band enger.")
 
     # Example paths with jump markers
     sim = model.simulate(0.0, params["path_years"], n_steps=path_steps, n_paths=params["n_paths"], seed=seed + 1)

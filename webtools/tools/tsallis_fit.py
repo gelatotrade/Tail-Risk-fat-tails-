@@ -93,8 +93,9 @@ def run(params, data, out):
                badge=f"Stufe {STEP.get(u['risk_level'], '?')} von 4",
                hint=f"aus q = {_de(u['q'])} und S_q = {_de(u['tsallis_entropy'])}")
     ratio4 = float(u["fat_tail_ratio"]["4sigma"])
-    out.metric("4σ-Tage ggü. Gauß", ratio4, "x", hint="Modell-Wahrscheinlichkeit ÷ Gauß-Wert",
-               status="critical" if ratio4 > 50 else "serious" if ratio4 > 5 else None)
+    out.metric("4σ-Tage gegenüber Gauß", ratio4, "x", hint="Wahrscheinlichkeit laut Momenten-Fit ÷ Gauß-Wert",
+               status="serious" if ratio4 > 5 else None,
+               badge="Gauß unterschätzt" if ratio4 > 5 else "")
 
     # --- table: the estimators side by side
     def ll(d):
@@ -151,12 +152,14 @@ def run(params, data, out):
     asym = np.asarray(chosen.tail_probability(chosen.mu + xs, "both"), dtype=float)
     y_lo = 0.5 / n
     pos = lambda y: np.where((np.asarray(y) >= y_lo) & (np.asarray(y) < 1), y, np.nan)  # noqa: E731
+    tail_traces = [
+        C.trace("Beobachtet", xs, pos(np.where(emp > 0, emp, np.nan)), type="step", color=1, width=2.5),
+        C.trace(f"q-Gauß {cname}", xs, pos(exact), color=2),
+        C.trace("Asymptote", xs, pos(asym), color=2, dash=True, width=1.5),
+        C.trace("Gauß", xs, pos(2 * stats.norm.sf(xs / sd)), color="muted", dash=True)]
     out.chart(C.xy(
         "Ränder im Log-Log-Plot: P(|r − μ| > x)",
-        [C.trace("Beobachtet", xs, pos(np.where(emp > 0, emp, np.nan)), type="step", color=1, width=2.5),
-         C.trace(f"q-Gauß {cname}", xs, pos(exact), color=2),
-         C.trace("Asymptote", xs, pos(asym), color=2, dash=True, width=1.5),
-         C.trace("Gauß", xs, pos(2 * stats.norm.sf(xs / sd)), color="muted", dash=True)],
+        [t for t in tail_traces if np.any(np.isfinite(t["y"]))],
         x=C.axis("Abstand x vom Zentrum", type="log", fmt="pct", digits=1),
         y=C.axis("Anteil der Tage", type="log", fmt="pct", range=(y_lo, 1.0)),
         subtitle="Potenzgesetze sind Geraden. Die Asymptote aus `tail_probability` gilt erst weit draußen.", height=370,
