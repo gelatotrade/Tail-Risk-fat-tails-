@@ -61,7 +61,7 @@ export async function exportXlsx({ spec, result, dataset, params }) {
     ['Parameter', 'Value'],
     ...spec.params.map((p) => [p.label, params[p.name] ?? p.default]),
   ];
-  if (result.verdict) overview.push([], ['Assessment', `${result.verdict.title}${result.verdict.text ? ' – ' + result.verdict.text : ''}`]);
+  if (result.verdict) overview.push([], ['Assessment', `${result.verdict.title}${result.verdict.text ? '. ' + result.verdict.text : ''}`]);
   if (contents.length) overview.push([], ['Sheet', 'Contents'], ...contents);
   XLSX.utils.book_append_sheet(wb, sheetFrom(XLSX, ['Field', 'Value'], overview), 'Overview');
   for (const [name, ws] of sheets) XLSX.utils.book_append_sheet(wb, ws, name);
