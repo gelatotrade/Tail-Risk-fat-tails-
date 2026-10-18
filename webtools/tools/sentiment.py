@@ -65,11 +65,16 @@ SIGNAL = {"HIGH_FEAR_REVERSAL_LIKELY": "Angst-Umkehr wahrscheinlich", "COMPLACEN
 H = 20  # forward window of the outcome tables (trading days)
 
 
+def _date_de(d):
+    d = str(d)
+    return f"{d[8:10]}.{d[5:7]}.{d[:4]}" if len(d) >= 10 and d[4] == "-" and d[7] == "-" else d
+
+
 def run(params, data, out):
     r = np.asarray(data.returns, dtype=float)
     n = data.n
     x, xa = index_axis(data)
-    label = (lambda i: x[i]) if data.dates else (lambda i: f"Tag {i}")
+    label = (lambda i: _date_de(x[i])) if data.dates else (lambda i: f"Tag {i}")
     real = data.vix is not None
     vix = np.asarray(data.vix, dtype=float) if real else np.asarray(generate_vix_from_returns(r), dtype=float)
 
@@ -131,7 +136,7 @@ def run(params, data, out):
     out.chart(C.xy(
         "VIX mit Regimegrenzen und Spikes",
         [C.trace("VIX" if real else "VIX (aus Renditen abgeleitet)", x, vix, color=1, width=1.2),
-         C.trace("Spike", [x[i] for i in spikes], vix[spikes], type="scatter", color="critical", size=6,
+         C.trace("Spike", [x[i] for i in spikes], vix[spikes], type="scatter", color="critical", size=5,
                  decimate_to=None)],
         x=xa, y=C.axis("VIX-Punkte"),
         hlines=[C.hline(th["complacent"], "sorglos < 15"), C.hline(th["normal"], "erhöht ab 25", "warning"),

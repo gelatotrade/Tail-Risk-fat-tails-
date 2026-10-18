@@ -188,7 +188,7 @@ def run(params, data, out):
     th = res["ews"].thresholds
 
     out.set_verdict(status, f"{level_de}: Komposit {de(score, 0)} von 100 – {action_de}",
-                    assessment_de(res["ews"].get_risk_assessment(score)))
+                    "Lesart des Frameworks für diese Stufe: " + assessment_de(res["ews"].get_risk_assessment(score)))
     out.metric("Komposit-Score", score, "num", digits=0, unit="/ 100", status=status, hint=f"{level_de} · {action_de}")
     out.metric("Net GEX", p["gex"], "num", digits=1, unit="Mrd. $", hint=GEX_REGIME[res["gex"]["regime"]],
                status=status_of(res["gex"]["warning_score"]))
@@ -206,14 +206,14 @@ def run(params, data, out):
     # ---- gauge + score bars --------------------------------------------------------------------------
     out.chart(C.gauge("Komposit-Score", score, thresholds=(th["elevated"], th["high"], th["extreme"]),
                       labels=("Normal", "Erhöht", "Hoch", "Extrem"), subtitle=f"Stufe {level_de}: {action_de}"))
-    cats = [f"{NAMES[k].split(' (')[0]} · {int(round(comp['components'][k]['weight'] * 100))} %" for k in KEYS]
+    cats = ["GEX", "TDEX", "VIX-Kurve", "DIX", "SMFI"]
     out.chart(C.xy(
         "Warnscore je Indikator",
         [C.trace("Score (0–100)", cats, [comp["components"][k]["score"] for k in KEYS], type="bar", color=1),
          C.trace("Beitrag zum Komposit", cats, [comp["components"][k]["contribution"] for k in KEYS], type="bar",
                  color=2)],
         x=C.axis("", type="category"), y=C.axis("Punkte", range=(0, 100)),
-        subtitle="Beitrag = Score × Gewicht. Die Beiträge ergeben zusammen den Komposit.",
+        subtitle="Beitrag = Score × Gewicht (35 / 25 / 20 / 10 / 10 %); zusammen ergeben sie den Komposit.",
     ))
 
     # ---- what-if ---------------------------------------------------------------------------------------

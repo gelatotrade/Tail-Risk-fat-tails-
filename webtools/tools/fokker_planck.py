@@ -23,7 +23,8 @@ SPEC = {
         "**fraktionalen Modell** ersetzt der Riesz-Operator D_α ∂^α/∂|x|^α die Diffusion: Wahrscheinlichkeit "
         "springt dann über weite Strecken (Lévy-Flüge), und für α < 2 entstehen Potenzgesetz-Ränder.\n\n"
         "So liest du die Diagramme: In der Heatmap läuft die Zeit nach unten, die Farbe ist die logarithmische "
-        "Dichte – die fetten Ränder sind die hellen Ausläufer links und rechts. Die Dichte-Kurven vergleichen "
+        "Dichte (dunkel = hoch). Je weiter die kräftige Färbung nach links und rechts reicht, desto fetter sind die "
+        "Ränder; eine Gauß-Glocke bliebe außen blass. Die Dichte-Kurven vergleichen "
         "das Ergebnis mit einer Normalverteilung gleicher Varianz, der dritte Plot verfolgt die Masse jenseits von "
         "3σ und 4σ über die Zeit. x ist eine standardisierte Rendite, die Zeit ist dimensionslos.\n\n"
         "Numerik: Crank-Nicolson mit einmal faktorisierter Matrix, Gitter [−10, 10], Ränder absorbierend, die Masse "
@@ -80,6 +81,17 @@ def _de(x, digits=2):
     return f"{x:.{digits}f}".replace(".", ",")
 
 
+_SUP = str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹")
+
+
+def _sci(x, digits=1):
+    """German scientific notation for the numerics table: 2,3·10⁻⁴."""
+    if not np.isfinite(x) or x == 0:
+        return _de(float(x), digits)
+    mant, exp = f"{x:.{digits}e}".split("e")
+    return mant.replace(".", ",") + "·10" + str(int(exp)).translate(_SUP)
+
+
 def run(params, data, out):
     frac = params["model"] == "fractional"
     n, T, dt = params["n_grid"], params["T"], params["dt"]
@@ -127,7 +139,8 @@ def run(params, data, out):
         np.round(x[::xstep], 3), np.round(times[rows], 3), logP,
         x=C.axis("x (standardisierte Rendite)"), y=C.axis("Zeit t", type="linear"),
         z=C.axis("log₁₀ Dichte"), scale="sequential", height=420,
-        subtitle="Zeit läuft nach unten. Helle Ausläufer an den Seiten sind die fetten Ränder (log-Skala, 6 Dekaden).",
+        subtitle="Zeit läuft nach unten, Farbe = log₁₀ Dichte über 6 Dekaden (dunkel = hoch). Je weiter die kräftige "
+                 "Färbung nach außen reicht, desto fetter die Ränder.",
     ))
 
     # --- chart 2: snapshots on a log scale vs a Gaussian with the same variance
@@ -200,7 +213,7 @@ def run(params, data, out):
     out.table("Numerik", ["Größe", "Wert"], [
         ["Gitter", f"{n} Punkte auf [−10, 10], dx = {_de(float(solver.dx), 4)}"],
         ["Zeitschritte", f"{n_steps} × dt = {_de(T / max(n_steps, 1), 4)}"],
-        ["Massenbilanz: |Spaltensumme| ÷ |Diagonale| (Gittermitte, max.)", f"{balance:.1e}".replace(".", ",")],
+        ["Massenbilanz: |Spaltensumme| ÷ |Diagonale| (Gittermitte, max.)", _sci(balance)],
     ], formats=["text", "text"],
         note="Eine Spaltensumme nahe 0 heißt: Der diskrete Operator erhält die Wahrscheinlichkeit. Beim fraktionalen "
              "Operator fehlt der Anteil der Sprünge, die über den Gitterrand hinausführen würden.")

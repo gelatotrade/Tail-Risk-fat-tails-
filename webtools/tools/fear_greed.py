@@ -118,7 +118,7 @@ def run(params, data, out):
     out.set_verdict(status, f"{level_de} ({_de(comp, 0, sign=True)}) · Tail-Risiko {tail_de}",
                     f"{TEXT.get(tail['direction'], tail['direction'])}. Empfehlung des Frameworks: "
                     f"{TEXT.get(tail['action'], tail['action'])}.")
-    out.metric("Stimmung", comp, "num", digits=0, hint=f"{level_de} · −100 Angst … +100 Gier", status=status)
+    out.metric("Stimmung", comp, "num", digits=0, hint=f"{level_de} · Skala −100 Angst … +100 Gier")
     out.metric("Tail-Risiko-Signal", tail_de, "text", hint=TEXT.get(tail["direction"], tail["direction"]), status=status)
     contra = ind.pc_analyzer.contrarian_signal()
     out.metric("Put/Call konträr", CONTRA.get(contra["signal"], contra["signal"]), "text",
@@ -128,7 +128,7 @@ def run(params, data, out):
 
     # ---- sub-scores ---------------------------------------------------------------------------------
     keys = [k for k in ("vix", "put_call", "breadth", "momentum") if k in res["components"]]
-    cats = [f"{INPUTS[k][0]} · {int(ind.weights[k] * 100)} %" for k in keys] + ["Komposit"]
+    cats = [{"vix": "VIX", "put_call": "Put/Call", "breadth": "Breite", "momentum": "Momentum"}[k] for k in keys] + ["Komposit"]
     vals = [float(res["components"][k]) for k in keys] + [comp]
     out.chart(C.xy(
         "Teil-Scores und Komposit",
@@ -136,7 +136,7 @@ def run(params, data, out):
          C.trace("Komposit (gewichtet)", cats[-1:], vals[-1:], type="bar", color=2)],
         x=C.axis("", type="category"), y=C.axis("Score (−100 Angst … +100 Gier)", range=(-100, 100)),
         hlines=[C.hline(75, "extreme Gier"), C.hline(25, "Gier"), C.hline(-25, "Angst"), C.hline(-75, "extreme Angst")],
-        subtitle="Gewichteter Mittelwert der Teil-Scores; die Linien sind die Stufengrenzen.",
+        subtitle="Gewichte: VIX 30 %, Put/Call 25 %, Breite 25 %, Momentum 20 %. Linien = Stufengrenzen.",
     ))
 
     # ---- what-if --------------------------------------------------------------------------------------

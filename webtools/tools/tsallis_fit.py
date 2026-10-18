@@ -50,6 +50,12 @@ SPEC = {
 
 LEVELS = {"NORMAL": ("good", "Normal"), "ELEVATED": ("warning", "Erhöht"),
           "HIGH": ("serious", "Hoch"), "EXTREME": ("critical", "Extrem")}
+STEP = {"NORMAL": 1, "ELEVATED": 2, "HIGH": 3, "EXTREME": 4}
+
+
+def _days(x):
+    """Expected number of days: tiny Gaussian expectations as text instead of 4,96e-6."""
+    return "< 0,001" if x < 1e-3 else float(x)
 
 
 def _de(x, digits=2):
@@ -84,6 +90,7 @@ def run(params, data, out):
                hint=f"2/(q − 1), {cname}-Fit; < 3 hieße unendliche Varianz")
     out.metric("Tsallis-Entropie S_q", u["tsallis_entropy"], "num", hint="Histogramm mit 50 Klassen, q aus Momenten")
     out.metric("Risikostufe (Tsallis-Modell)", label, "text", status=level,
+               badge=f"Stufe {STEP.get(u['risk_level'], '?')} von 4",
                hint=f"aus q = {_de(u['q'])} und S_q = {_de(u['tsallis_entropy'])}")
     ratio4 = float(u["fat_tail_ratio"]["4sigma"])
     out.metric("4σ-Tage ggü. Gauß", ratio4, "x", hint="Modell-Wahrscheinlichkeit ÷ Gauß-Wert",
@@ -112,8 +119,8 @@ def run(params, data, out):
         obs = int(np.sum(np.abs(r - med) > k * sd))
         p_mle = float(mle.tail_probability(mle.mu + k * sd, "both", exact=True))
         ratio = float(u["fat_tail_ratio"][key])
-        trows.append([f"{k} σ", obs, p_mle * n, float(u["extreme_probabilities"][key]) * n,
-                      float(2 * stats.norm.sf(k)) * n, "> 10⁵" if ratio > 1e5 else ratio])
+        trows.append([f"{k} σ", obs, _days(p_mle * n), _days(float(u["extreme_probabilities"][key]) * n),
+                      _days(float(2 * stats.norm.sf(k)) * n), "> 10⁵" if ratio > 1e5 else ratio])
     out.table("Extreme Tage: Modell vs. Daten",
               ["Schwelle", "Tage beobachtet", "erwartet q-Gauß (MLE)", "erwartet q-Gauß (Momente)", "erwartet Gauß",
                "Faktor Momente / Gauß"],

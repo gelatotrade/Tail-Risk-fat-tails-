@@ -166,7 +166,7 @@ def run(params, data, out):
         gg = float(2 * stats.norm.sf(k))
         ratio = ex / gg if gg > 1e-300 else None
         trows.append([f"{k} σ", ex, asy, float(np.mean(np.abs(s) > dd)), _tiny(gg),
-                      "> 10⁶" if ratio is not None and ratio > 1e6 else ratio])
+                      "> 10⁵" if ratio is not None and ratio > 1e5 else ratio])
     out.table("Tail-Wahrscheinlichkeit P(|X| > kσ)", ["Schwelle", "exakt", "asymptotisch", "Stichprobe", "Gauß", "Faktor"],
               trows, formats=["text", "pct", "pct", "pct", "pct", "x"],
               note=f"σ = Standardabweichung der Referenz ({_de(g_sd, 3)}). Die Asymptote C·d^(1−α)/(α−1) gilt "
@@ -176,17 +176,22 @@ def run(params, data, out):
     analyzer = TsallisEntropyAnalyzer()
     ebins = np.linspace(-xr, xr, 51)
     mid = 0.5 * (ebins[:-1] + ebins[1:])
-    erows = []
+    erows, s_vals = [], []
     for name, p in ((f"q-Gauß (q = {_de(q)})", dist.pdf(mid)), (ref_label, stats.norm.pdf(mid, 0, g_sd))):
         p = np.asarray(p, dtype=float)
         p = p[p > 0] / p[p > 0].sum()
         s_q = float(analyzer.compute_tsallis_entropy(p, q))
         via_log = float(np.sum(p * dist.q_logarithm(1.0 / p)))
         erows.append([name, s_q, via_log, float(analyzer.compute_tsallis_entropy(p, 1.0))])
+        s_vals.append(s_q)
+    why = ""
+    if q > 1 and s_vals[1] >= s_vals[0]:
+        why = (" Dass die Gauß-Glocke hier das größere S_q hat, ist kein Widerspruch: Der q-Gauß maximiert S_q bei "
+               "fester q-Varianz (Escort-Mittel Σpᵢ^q·xᵢ² / Σpᵢ^q), nicht bei fester gewöhnlicher Varianz.")
     out.table(f"Tsallis-Entropie S_q (q = {_de(q)}), 50 Klassen auf ±{xr:.0f}", ["Verteilung", "S_q",
               "Σ p·ln_q(1/p)", "Shannon S₁"], erows, formats=["text", "num", "num", "num"],
               note="S_q = (1 − Σpᵢ^q)/(q − 1) = Σ pᵢ·ln_q(1/pᵢ) mit dem q-Logarithmus ln_q(x) = (x^(1−q) − 1)/(1 − q). "
-                   "Für q → 1 wird daraus die Shannon-Entropie.")
+                   "Für q → 1 wird daraus die Shannon-Entropie." + why)
 
     if q >= 2:
         out.note("Für q ≥ 2 ist ν ≤ 1: Auch der Mittelwert existiert nicht mehr (Cauchy-artig).", "warning")

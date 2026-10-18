@@ -19,8 +19,10 @@ SPEC = {
         "`FokkerPlanckTailRisk` startet mit einer Gauß-Glocke um die heutige Lage und lässt sie h Handelstage lang "
         "nach der fraktionalen Fokker-Planck-Gleichung fließen: Mean-Reversion θ zur Mitte, dazu Lévy-Diffusion "
         "der Ordnung **α** mit einer Stärke, die mit dem Quadrat des **Vola-Regimes** wächst (D_α = 0,01·Regime² "
-        "pro Jahr). Bei α = 2 läuft stattdessen gewöhnliche Diffusion. Die Einheit von x ist die heutige "
-        "Standardabweichung σ.\n\n"
+        "pro Jahr). Bei α = 2 läuft stattdessen gewöhnliche Diffusion. x ist die Tagesrendite in Einheiten der "
+        "heutigen Standardabweichung σ: Die Prognose zeigt, wie die Verteilung der Tagesrendite in h Tagen aussieht – "
+        "nicht die über h Tage aufsummierte Rendite. Weil die Diffusion im Modell klein ist, zieht die Mean-Reversion "
+        "die Glocke mit wachsendem Horizont sogar leicht zusammen.\n\n"
         "So liest du das Ergebnis: Der Kern der Verteilung ändert sich über wenige Wochen kaum, aber weit draußen "
         "wächst Masse nach, die eine Normalverteilung nie hätte. Die Faktoren in der Tabelle teilen die "
         "Tail-Masse jenseits von kσ durch den Gauß-Wert – bei 2σ sind sie ≈ 1, bei 5σ oft zweistellig.\n\n"
@@ -91,7 +93,8 @@ def run(params, data, out):
     mo, tp = m["moments"], m["tail_probabilities"]
     m0 = solver.compute_moments(P0)
 
-    out.metric("Streuung in h Tagen", mo["std"], "num", hint=f"in heutigen σ; Start {_de(m0['std'])}")
+    out.metric(f"Streuung in {h} Tagen", mo["std"], "num",
+               hint=f"in heutigen σ; Start {_de(m0['std'])}. θ zieht zusammen, die Lévy-Diffusion weitet")
     out.metric("Exzess-Kurtosis", mo["kurtosis"], "num", hint="Normalverteilung = 0",
                status="critical" if mo["kurtosis"] > 6 else "serious" if mo["kurtosis"] > 1 else None)
     out.metric("Masse jenseits 3σ", tp["3sigma"]["total"], "pct", hint=f"Gauß: {_de(200 * stats.norm.sf(3))} %")

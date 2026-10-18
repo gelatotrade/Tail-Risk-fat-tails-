@@ -59,10 +59,10 @@ SPEC = {
 
 # Zones of the README's reading table; the upper bound is the contour that ends the zone.
 ZONES = [
-    (0.05, "Ruhiges Plateau", "good", "grünes Plateau (niedrige Vola, α ≈ 2)", "Standardpositionierung"),
-    (0.15, "Stress-Rampe", "warning", "gelbe Rampe", "Absicherungen erhöhen"),
-    (0.50, "Crash-Klippe", "serious", "orange-roter Grat", "Exposure reduzieren, Tail-Hedges"),
-    (np.inf, "Black-Swan-Zone", "critical", "violette Spitze", "Defensive Positionierung"),
+    (0.05, "Ruhiges Plateau", "good", "grün", "Standardpositionierung"),
+    (0.15, "Stress-Rampe", "warning", "gelb", "Absicherungen erhöhen"),
+    (0.50, "Crash-Klippe", "serious", "orange-rot", "Exposure reduzieren, Tail-Hedges"),
+    (np.inf, "Black-Swan-Zone", "critical", "violett", "Defensive Positionierung"),
 ]
 # The floor contours of the README with the escalation of the script's reading guide.
 CONTOURS = [
@@ -161,14 +161,21 @@ def run(params, data, out):
     # --- metrics ------------------------------------------------------------------------
     thr_txt = _pct(thr, 1 if thr * 1000 % 10 else 0)
     est_name = "Hill" if estimator == "hill" else "McCulloch"
-    out.metric(f"Crash-Wahrscheinlichkeit ({horizon} T)", p_now, "pct", digits=1, status=zstatus,
+    out.metric(f"Crash-Wahrscheinlichkeit ({horizon} T)", p_now, "pct", digits=1, status=zstatus, badge=zname,
                hint=f"P(mind. ein Tagesverlust > {thr_txt} in {horizon} Handelstagen) laut Fläche")
-    out.metric("Zone auf der Fläche", zname, "text", status=zstatus, hint=zaction)
     out.metric("Volatilität p. a.", v_now, "pct", digits=1, hint=f"rollierend über {w} Tage")
     edge_hint = (f"{est_name}-Schätzer · auf der Fläche {_de(a_now_s)} (Gauß-Rand)" if a_now > a_hi else
                  f"{est_name}-Schätzer · auf der Fläche {_de(a_now_s)} (Achsenende)" if a_now < a_lo else
                  f"{est_name}-Schätzer über {w} Tage · kleiner = fettere Ränder")
     out.metric("Tail-Index α", a_now, "num", digits=2, hint=edge_hint)
+    if next_level is not None:
+        lvl_txt = f"{round(next_level * 100)}-%-Kontur"
+        if alpha_needed is not None and alpha_needed < a_now_s - 1e-9:
+            out.metric(f"α-Schwelle zur {lvl_txt}", alpha_needed, "num", digits=2,
+                       hint=f"fällt α bei gleicher Vola unter diesen Wert, kreuzt der Markt die {lvl_txt}")
+        if vol_needed is not None:
+            out.metric(f"Vola-Schwelle zur {lvl_txt}", vol_needed, "pct", digits=0,
+                       hint=f"bei gleichem α ({_de(a_now_s)})")
     out.metric("Höchster Wert der Historie", float(prob[i_max]), "pct", digits=1,
                hint=(f"am {_date_de(dates[i_max])} · Vola {_pct(vol[i_max])}, α {_de(alpha[i_max])}"
                      if prob[i_max] > 0.001 else "die Bahn verlässt das Plateau nie"))
@@ -280,13 +287,13 @@ def run(params, data, out):
         band = f"{_pct(lo, 0)} – {_pct(hi, 0)}" if np.isfinite(hi) else f"≥ {_pct(lo, 0)}"
         mk = zone_idx == i
         mf = mk & has_future
-        rows.append([name, band, region, action, float(mk.mean()),
+        rows.append([f"{name} ({region})", band, action, float(mk.mean()),
                      float(prob[mf].mean()) if mf.any() else None,
                      float(realized[mf].mean()) if mf.any() else None, int(mf.sum())])
     out.table("Zonen der Fläche – und was danach wirklich passierte", [
-        "Zone", "Wahrscheinlichkeit", "Region", "Handlung (README)", "Anteil Tage",
-        "Ø Fläche", f"tatsächlich Verlust > {thr_txt} in {horizon} T", "Tage mit Zukunft"],
-        rows, formats=["text", "text", "text", "text", "pct", "pct", "pct", "int"],
+        "Zone", "Bereich", "Handlung (README)", "Anteil Tage",
+        "Ø Fläche", f"tatsächlich Verlust > {thr_txt} in {horizon} T", "Tage"],
+        rows, formats=["text", "text", "text", "pct", "pct", "pct", "int"],
         note=f"„tatsächlich“: Anteil der Tage, nach denen innerhalb von {horizon} Handelstagen wirklich ein Tagesverlust "
              f"über {thr_txt} folgte. Liegt er weit unter „Ø Fläche“, überschätzt das Modell, liegt er darüber, "
              "unterschätzt es. Überlappende Zeiträume: die Tage sind nicht unabhängig.")
@@ -310,11 +317,9 @@ def run(params, data, out):
         out.note(f"Kalibrierung über die ganze Historie: Im Mittel zeigt die Fläche **{_pct(pred)}**, tatsächlich "
                  f"folgte in **{_pct(real)}** der Fälle ein Tagesverlust über {thr_txt} innerhalb von {horizon} "
                  f"Tagen – das Modell {verdict}. Die Fläche ist eine Lesehilfe für die Richtung "
-                 "(Plateau → Klippe), keine kalibrierte Prognose.")
-    out.note("Modell: `crash_probability` aus `generate_tail_risk_surface.py` – nur der Potenzgesetz-Rand einer "
-             "Lévy-stabilen Verteilung, Tageswahrscheinlichkeit auf 45 % begrenzt. Werte außerhalb der Achsen "
-             f"(Vola {_pct(v_lo, 0)}–{_pct(v_hi, 0)}, α {_de(a_lo)}–{_de(a_hi)}) werden auf den Rand gesetzt."
-             + (f" Lange Reihe: ausgewertet wird jeder {stride}. Tag." if stride > 1 else ""))
+                 "(Plateau → Klippe), keine kalibrierte Prognose. Werte außerhalb der Achsen "
+                 f"(Vola {_pct(v_lo, 0)}–{_pct(v_hi, 0)}, α {_de(a_lo)}–{_de(a_hi)}) sitzen auf dem Rand."
+                 + (f" Lange Reihe: ausgewertet wird jeder {stride}. Tag." if stride > 1 else ""))
 
 
 def _thin(prob, max_points):

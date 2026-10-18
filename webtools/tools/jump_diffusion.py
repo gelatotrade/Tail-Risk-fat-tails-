@@ -170,7 +170,9 @@ def run(params, data, out):
             f"OU-Koordinate X: Vola-Niveau (Fenster {w} Tage)",
             [C.trace("X: Niveau μ von |Rendite|", xs, X[valid], color=1, width=1.5)],
             x=xa, y=C.axis("normiert (0 = Minimum, 1 = Maximum)", range=(0, 1.02)), height=260,
-            subtitle="Langfristiges Niveau des OU-Fits auf |Rendite| im Fenster – ein geglättetes Vola-Maß.",
+            subtitle="Langfristiges Niveau μ des OU-Fits auf |Rendite| im Fenster. Vorsicht: Liegt die AR(1)-Steigung "
+                     "b nahe 1 (etwa weil ein Schock am Fensterende steht), wird μ = a/(1 − b) instabil – einzelne "
+                     "Spitzen sind dann Schätzfehler, kein echtes Vola-Niveau.",
         ))
         out.chart(C.xy(
             f"OU-Koordinate Z: Rückstellgeschwindigkeit θ (Fenster {w} Tage)",

@@ -19,10 +19,12 @@ SPEC = {
         "je Zeitschritt (μ − σ²/2)·dt + σ·dW und zusätzlich eine Poisson-Zahl von Sprüngen (im Mittel **λ pro "
         "Jahr**), deren Größe einer Lévy-stabilen Verteilung folgt. Die **Sprung-Skala γ** ist die typische "
         "Sprunggröße in Prozent; **α** steuert, wie oft aus einem typischen Sprung ein Crash wird.\n\n"
-        "Zum Vergleich läuft derselbe Prozess mit gleichem Seed **ohne Sprünge** (λ = 0) mit. So siehst du genau, "
-        "was die Sprünge beitragen. Der Kursfächer zeigt Median und Quantilbänder, die Drawdown-Kurve den Anteil der "
-        "Pfade, die mindestens x % vom Hoch verlieren. Der Value at Risk bezieht sich auf die einfache Rendite über "
-        "die gesamte Laufzeit.\n\n"
+        "Zum Vergleich läuft derselbe Prozess **ohne Sprünge** (λ = 0) mit gleich vielen Pfaden mit. Verglichen "
+        "werden die Verteilungen über alle Pfade: Die Sprünge verbrauchen eigene Zufallszahlen, deshalb sind die "
+        "Brown'schen Pfade trotz gleichem Seed nicht Pfad für Pfad identisch. Der Kursfächer zeigt Median und "
+        "Quantilbänder, die Drawdown- und die Crash-Kurve den Anteil der Pfade, die mindestens x % vom Hoch bzw. an "
+        "einem einzigen Tag verlieren. Der Value at Risk bezieht sich auf die einfache Rendite über die gesamte "
+        "Laufzeit.\n\n"
         "Der 3D-Plot verwandelt die Tagesrenditen des Pfads mit dem tiefsten Einbruch in Koordinaten des "
         "Lévy-Phasenraums: X = rollierende Volatilität (Mittel = 1), Y = 2/Hill-Tail-Index (höher = fettere "
         "Ränder), Z = |Rendite|/σ. Ruhige Phasen liegen nahe am Ursprung, ein Black-Swan-Sprung ragt weit nach oben."
@@ -102,6 +104,8 @@ def run(params, data, out):
     _, total0, dd0, var0, es0 = _stats(ref, c)
     daily = np.diff(logp, axis=1)
     worst_day = daily.min(axis=1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        worst_day0 = np.diff(np.log(ref), axis=1).min(axis=1)
 
     lvl = f"{_de(100 * c, 1 if c == 0.995 else 0)} %"
     horizon = f"{_de(years, 2).rstrip('0').rstrip(',')} J."
@@ -172,7 +176,21 @@ def run(params, data, out):
                  "sind am Rand gesammelt.",
     ))
 
-    # --- chart 4: Lévy phase space of the crash example (the first `win` points are placeholders)
+    # --- chart 4: how often a single day crashes by at least x
+    crash_levels = np.linspace(0.0, 0.3, 61)
+    crash_share = np.array([np.mean(np.expm1(worst_day) <= -v) for v in crash_levels])
+    crash_share0 = np.array([np.mean(np.expm1(worst_day0) <= -v) for v in crash_levels])
+    out.chart(C.xy(
+        "Crash-Tage: schlechtester Tag je Pfad",
+        [C.trace("Mit Lévy-Sprüngen", crash_levels, crash_share, color=2, width=2.5),
+         C.trace("Ohne Sprünge", crash_levels, crash_share0, color="muted", dash=True)],
+        x=C.axis("Tagesverlust mindestens", fmt="pct", digits=0), y=C.axis("Anteil der Pfade", fmt="pct", digits=0),
+        vlines=[C.vline(0.10, "−10 %")],
+        subtitle="Anteil der Pfade mit mindestens einem Tag, der so viel oder mehr verliert. Ohne Sprünge fällt die "
+                 f"Kurve jenseits von etwa 4 Tages-σ (≈ {_de(400 * sigma / np.sqrt(252), 1)} %) praktisch auf null.",
+    ))
+
+    # --- chart 5: Lévy phase space of the crash example (the first `win` points are placeholders)
     rets = daily[i_crash]
     win = int(min(20, max(5, len(rets) // 4)))
     X, Y, Z = (np.asarray(v, dtype=float)[win:] for v in levy_flight_3d_coordinates(rets, window=win))
@@ -197,9 +215,10 @@ def run(params, data, out):
          ["Median-Rendite", float(np.median(total)), float(np.median(total0))],
          ["Median Max-Drawdown", -float(np.median(dd)), -float(np.median(dd0))],
          ["Schlechtester Tag (Median der Pfade)", float(np.expm1(np.median(worst_day))),
-          float(np.expm1(np.median(np.diff(np.log(ref), axis=1).min(axis=1))))]],
+          float(np.expm1(np.median(worst_day0)))]],
         formats=["text", "pct", "pct"],
-        note="Gleicher Seed: Der Brown'sche Anteil ist in beiden Simulationen identisch, nur die Sprünge fehlen rechts.",
+        note="Verglichen werden Verteilungen über alle Pfade. Die Sprünge verbrauchen eigene Zufallszahlen, deshalb "
+             "sind die Brown'schen Pfade trotz gleichem Seed nicht identisch – nur ihre Statistik ist es.",
     )
     if exploded:
         out.note(f"{exploded} von {n_paths} Pfaden sind numerisch explodiert oder auf null gefallen – bei α ≤ 1 "

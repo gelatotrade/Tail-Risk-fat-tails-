@@ -23,7 +23,8 @@ SPEC = {
         "Der **Hill-Schätzer** misst den Tail-Index direkt an den 10 % größten absoluten Renditen. Das ist der "
         "Prüfstein: Lévy-stabil verlangt α < 2 (unendliche Varianz). Aktienindizes zeigen nach Hill meist α ≈ 2,5–4, "
         "also fette Ränder bei endlicher Varianz. Dann überzeichnet das Lévy-Modell die extremsten Verluste, "
-        "während die Normalverteilung sie unterschätzt. Pickands ist ein zweiter, sehr verrauschter Schätzer.\n\n"
+        "während die Normalverteilung sie unterschätzt. Die Tabelle der Schätzer stellt Hill, Pickands und das "
+        "Lévy-α nebeneinander; Pickands nutzt nur drei Ordnungsstatistiken und ist deshalb sehr verrauscht.\n\n"
         "So liest du die Diagramme: Im Log-Log-Plot ist jedes Potenzgesetz eine Gerade. Die Hill-Gerade folgt den "
         "Daten, die Lévy-Gerade ist flacher (Steigung −α). Die VaR-Kurve zeigt, ab welchem Konfidenzniveau sich "
         "die Modelle trennen. Renditen sind tägliche Log-Renditen; VaR und ES sind Verluste als positive Dezimalzahl."
@@ -86,11 +87,15 @@ def run(params, data, out):
     except ValueError as exc:
         raise ToolError(f"Der Lévy-Fit ist nicht möglich: Die Renditen sind (fast) konstant ({exc}).")
     hill = float(estimate_tail_index(r, "hill"))
+    n_pos = int(np.count_nonzero(r != 0))
+    k_hill = min(max(10, int(0.1 * n)), n - 1, n_pos - 1)  # as in estimate_tail_index
+    hill_se = hill / np.sqrt(k_hill)                      # asymptotic standard error of Hill
     try:
         pick = float(estimate_tail_index(r, "pickands"))
     except ValueError:
         pick = float("nan")
     proc = LevyFlightProcess(dist)
+    es_finite = dist.alpha > 1  # for alpha <= 1 even E|X| is infinite, so ES does not exist
 
     # h-day returns: Lévy aggregates exactly, historical = overlapping sums, Gauss = sqrt(h)
     rh = np.convolve(r, np.ones(h), mode="valid") if h > 1 else r
@@ -107,12 +112,16 @@ def run(params, data, out):
     out.metric("Lévy α (Quantil-Fit)", dist.alpha, "num", hint="2 = Gauß · < 2: unendliche Varianz")
     out.metric("Lévy β (Schiefe)", dist.beta, "num", hint="< 0: linker Rand schwerer")
     out.metric("Lévy-Skala γ", dist.gamma, "pct", hint="täglich; Gauß hätte γ = σ/√2")
-    out.metric("Tail-Index (Hill)", hill, "num", hint="Top 10 % der |Renditen|; < 2 hieße unendliche Varianz",
+    out.metric("Tail-Index (Hill)", hill, "num",
+               hint=f"± {_de(hill_se)} (Std.-Fehler), Top 10 % der |Renditen|; < 2 hieße unendliche Varianz",
                status="critical" if hill < 2 else "serious" if hill < 3 else "warning" if hill < 4 else "good")
-    out.metric("Tail-Index (Pickands)", pick if np.isfinite(pick) else "n. v.", "num" if np.isfinite(pick) else "text",
-               hint="sehr verrauscht, oft unplausibel")
     out.metric(f"VaR {lvl} · Lévy", var_l, "pct", hint=f"{h} Tag{'e' if h > 1 else ''} · {nsim:,} Ziehungen".replace(",", "."))
-    out.metric(f"Expected Shortfall {lvl} · Lévy", es_l, "pct")
+    if es_finite:
+        out.metric(f"Expected Shortfall {lvl} · Lévy", es_l, "pct",
+                   hint="Monte-Carlo; bei α nahe 1 sehr unsicher" if dist.alpha < 1.3 else "Monte-Carlo")
+    else:
+        out.metric(f"Expected Shortfall {lvl} · Lévy", "∞", "text", status="critical",
+                   hint="α ≤ 1: Der Verlust hat keinen endlichen Erwartungswert")
     out.metric(f"VaR {lvl} · historisch", var_h, "pct", hint=f"ES {_pct(es_h)}")
     out.metric(f"VaR {lvl} · Gauß", var_g, "pct", hint=f"ES {_pct(es_g)}")
 
@@ -185,7 +194,7 @@ def run(params, data, out):
         vh, eh = _hist_var_es(rh, lev)
         vg, eg = _gauss_var_es(mu_h, sd_h, lev)
         rows.append([lev, float(proc.compute_var(lev, h, nsim, seed=seed)), vh, vg,
-                     float(proc.compute_cvar(lev, h, nsim, seed=seed)), eh, eg])
+                     float(proc.compute_cvar(lev, h, nsim, seed=seed)) if es_finite else "∞", eh, eg])
     out.table(
         f"VaR und Expected Shortfall ({h} Tag{'e' if h > 1 else ''})",
         ["Niveau", "VaR Lévy", "VaR historisch", "VaR Gauß", "ES Lévy", "ES historisch", "ES Gauß"],
@@ -193,6 +202,33 @@ def run(params, data, out):
         note="Lévy: Monte-Carlo aus S1(α, β, h^(1/α)·γ, h·δ). Historisch: empirisches Quantil der "
              + ("überlappenden h-Tages-Summen." if h > 1 else "Tagesrenditen.") + " Gauß: μ·h und σ·√h.",
     )
+    # --- table: three views on the tail index
+    def hill_text(a):
+        return ("< 2: unendliche Varianz" if a < 2 else "2–4: fette Ränder, endliche Varianz" if a < 4
+                else "> 4: nur mäßig fette Ränder")
+
+    k_pick = int(0.1 * n)
+    if not np.isfinite(pick):
+        pick_cell, pick_text = "n. v.", "nicht berechenbar (zu wenige Beobachtungen oder Gleichstände)"
+    elif pick <= 0:
+        pick_cell, pick_text = pick, "≤ 0: kein Potenzgesetz-Rand erkennbar – der Schätzer ist hier instabil"
+    elif pick > 10:
+        pick_cell, pick_text = pick, "unplausibel groß: X₍₄ₖ₎ liegt schon im Kern der Verteilung"
+    else:
+        pick_cell, pick_text = pick, hill_text(pick) + " (stark verrauscht)"
+    out.table(
+        "Tail-Index: drei Schätzer im Vergleich",
+        ["Schätzer", "Tail-Index", "Std.-Fehler", "Randbeobachtungen k", "Einordnung"],
+        [["Hill (Top 10 % der |Renditen|)", hill, hill_se, k_hill, hill_text(hill)],
+         ["Pickands (X₍ₖ₎, X₍₂ₖ₎, X₍₄ₖ₎)", pick_cell, None, k_pick, pick_text],
+         ["Lévy α (Quantil-Fit nach McCulloch)", dist.alpha, None, None,
+          "stabile Gesetze haben immer α ≤ 2 – α = 2 ist die Normalverteilung"]],
+        formats=["text", "num", "num", "int", "text"],
+        note="Hill: Std.-Fehler ≈ α/√k. Pickands nutzt nur die k-, 2k- und 4k-größte |Rendite|; mit k = 10 % der "
+             "Reihe liegt X₍₄ₖ₎ beim 60-%-Quantil, also im Kern – daher die wilden Ausschläge. Das Lévy-α beschreibt die "
+             "Form der ganzen Verteilung und kann 2 nie überschreiten, auch wenn die Daten endliche Varianz haben.",
+    )
+
     if h == 1:
         exc_rows = []
         for lev in (0.95, 0.99, 0.995):
@@ -224,6 +260,13 @@ def run(params, data, out):
     out.set_verdict(level, title,
                     f"99,9-%-VaR historisch {_pct(vh9)} · Lévy-stabil (α = {_de(dist.alpha)}) {_pct(vl9)}, "
                     f"{verb(vl9, vh9)} · Normalverteilung {_pct(vg9)}, {verb(vg9, vh9)}.")
+    if not es_finite:
+        out.note(f"Der Quantil-Fit liefert α = {_de(dist.alpha)} ≤ 1: Ein solches Lévy-Gesetz hat keinen endlichen "
+                 "Mittelwert, der Expected Shortfall ist unendlich. Monte-Carlo-Werte wären reiner Zufall und werden "
+                 "deshalb als ∞ gezeigt.", "warning")
+    if n < 500:
+        out.note(f"Nur {n} Renditen: α und β des Quantil-Fits hängen an den 5-%- und 95-%-Quantilen, der Hill-Schätzer "
+                 f"an k = {k_hill} Randbeobachtungen. Beides ist bei so kurzen Reihen sehr unsicher.", "info")
     if len(rh) * 0.001 < 3:
         out.note("Für das 99,9-%-Niveau gibt es in dieser Reihe nur eine Handvoll Beobachtungen – der historische "
                  "Wert ist entsprechend unsicher.", "info")

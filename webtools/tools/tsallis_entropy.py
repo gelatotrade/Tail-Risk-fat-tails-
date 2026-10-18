@@ -75,9 +75,12 @@ def run(params, data, out):
     w, bins, h = params["window"], params["n_bins"], params["horizon"]
     m = min(params["last_n"], data.n)
     r = np.asarray(data.returns[-m:], dtype=float)
+    if data.n < 30 + 5 + 60:
+        raise ToolError(f"Die Reihe ist mit {data.n} Renditen zu kurz: Fenster, Vorlauf-Test und genug Vergleichstage "
+                        "brauchen mindestens 95 Handelstage. Wähle einen längeren Datensatz.")
     if m < w + h + 60:
         raise ToolError(f"Für ein Fenster von {w} Tagen und {h} Tage Vorlauf ist die Reihe zu kurz ({m} Tage). "
-                        "Verkleinere Fenster oder Vorlauf.")
+                        "Verkleinere Fenster oder Vorlauf" + (" oder vergrößere den Zeitraum." if m < data.n else "."))
     x = list(data.dates[-m:]) if data.dates else list(range(data.n - m, data.n))
     xa = C.axis("", type="date") if data.dates else C.axis("Handelstag", fmt="int")
     vix = np.asarray(data.vix[-m:], dtype=float) / 100.0 if data.vix is not None else None
@@ -147,12 +150,15 @@ def run(params, data, out):
                  "Frühwarnsignal steigt von Q1 nach Q5 deutlich an.",
     ))
 
-    rows = [["Entropie S_q", rho_s, _rho(S, past), _rho(S, vix) if vix is not None else None],
-            ["q (Hill)", rho_q, _rho(q, past), _rho(q, vix) if vix is not None else None],
-            [f"Vergangene Vola ({w} T.)", rho_p, 1.0, _rho(past, vix) if vix is not None else None]]
-    out.table("Rangkorrelationen (Spearman)", ["Signal am Tag t", f"mit Vola t … t+{h}", f"mit Vola t−{w} … t",
-                                                 "mit VIX"],
-              rows, formats=["text", "num", "num", "num"],
+    rows = [["Entropie S_q", rho_s, _rho(S, past)], ["q (Hill)", rho_q, _rho(q, past)],
+            [f"Vergangene Vola ({w} T.)", rho_p, 1.0]]
+    cols = ["Signal am Tag t", f"mit Vola t … t+{h}", f"mit Vola t−{w} … t"]
+    if vix is not None:
+        for row, sig in zip(rows, (S, q, past)):
+            row.append(_rho(sig, vix))
+        cols.append("mit VIX")
+    out.table("Rangkorrelationen (Spearman)", cols,
+              rows, formats=["text"] + ["num"] * (len(cols) - 1),
               note=f"{int(np.sum(np.isfinite(S) & np.isfinite(future)))} Tage. Die erste Spalte ist der eigentliche "
                    "Vorlauf-Test: Nur Daten bis t−1 fließen ins Signal, die Vola danach ist echte Zukunft.")
 

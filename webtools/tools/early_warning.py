@@ -18,7 +18,7 @@ from .. import charts as C
 from ..data import index_axis
 from ._ews_common import (
     ACTION, DIVERGENCE, DIX_LEVEL, GEX_DESCRIPTION, GEX_REGIME, KEYS, LEVEL, NAMES, STRUCTURE, TDEX_LEVEL,
-    WARNING_LEVEL, assessment_de, de, gex_snapshot,
+    WARNING_LEVEL, de, gex_snapshot,
 )
 
 SPEC = {
@@ -67,7 +67,6 @@ SPEC = {
         "src.analysis.early_warning.CompositeEarlyWarningSystem",
         "src.analysis.early_warning.CompositeEarlyWarningSystem.simulate_all_indicators",
         "src.analysis.early_warning.CompositeEarlyWarningSystem.compute_composite",
-        "src.analysis.early_warning.CompositeEarlyWarningSystem.get_risk_assessment",
         "src.analysis.early_warning.NetGammaExposure.simulate_gex",
         "src.analysis.early_warning.NetGammaExposure.get_regime_description",
         "src.analysis.early_warning.TailDex.simulate_tdex",
@@ -87,6 +86,13 @@ SPEC = {
 
 WEIGHT_LABEL = {"gex": "GEX · 35 %", "tdex": "TDEX · 25 %", "vix_term": "VIX-Kurve · 20 %",
                 "dix": "DIX · 10 %", "smfi": "SMFI · 10 %"}
+SHORT = {"gex": "GEX", "tdex": "TDEX", "vix_term": "VIX-Kurve", "dix": "DIX", "smfi": "SMFI"}
+
+
+def _date_de(d):
+    """'2020-03-24' -> '24.03.2020' (other labels unchanged)."""
+    d = str(d)
+    return f"{d[8:10]}.{d[5:7]}.{d[:4]}" if len(d) >= 10 and d[4] == "-" and d[7] == "-" else d
 
 
 def _level_of(score, th):
@@ -118,7 +124,7 @@ def run(params, data, out):
     r = np.asarray(data.returns, dtype=float)
     n = data.n
     x, xa = index_axis(data)
-    label = (lambda i: x[i]) if data.dates else (lambda i: f"Tag {i}")
+    label = (lambda i: _date_de(x[i])) if data.dates else (lambda i: f"Tag {i}")
     win = int(min(params["window"], n))
     h = int(min(params["horizon"], n // 3))
 
@@ -157,10 +163,6 @@ def run(params, data, out):
     out.metric("Tage ≥ 50 (erhöht)", float(np.mean(comp >= th["elevated"])), "pct", digits=1)
     out.metric("Tage ≥ 75 (hoch)", float(np.mean(comp >= th["high"])), "pct", digits=1)
 
-    out.set_verdict(status, f"Letzter Stand: {level_de} – {comp[-1]:.0f} von 100".replace(".", ","),
-                    f"{action_de}. {assessment_de(ews.get_risk_assessment(float(comp[-1])))} "
-                    "Modellwert aus Renditen und VIX – kein Live-Signal aus Options- oder Dark-Pool-Daten.")
-
     out.note("**Modellierte Indikatoren:** GEX, TailDex, DIX und SMFI brauchen proprietäre Options- bzw. "
              "Dark-Pool-Daten. Das Framework modelliert sie hier aus Renditen und VIX – das sind illustrative "
              "Verläufe, keine echten Marktmessungen.", "warning")
@@ -178,7 +180,7 @@ def run(params, data, out):
     out.chart(C.gauge("Komposit am letzten Tag", float(comp[-1]), thresholds=(th["elevated"], th["high"], th["extreme"]),
                       labels=("Normal", "Erhöht", "Hoch", "Extrem"),
                       subtitle=f"{label(n - 1)} · Stufe {level_de}: {action_de}"))
-    cats = [WEIGHT_LABEL[k] for k in KEYS]
+    cats = [SHORT[k] for k in KEYS]
     out.chart(C.xy(
         "Woraus sich der Score zusammensetzt",
         [C.trace("Score des Indikators (0–100)", cats, [last["components"][k]["score"] for k in KEYS],
@@ -186,7 +188,7 @@ def run(params, data, out):
          C.trace("Beitrag zum Komposit (Punkte)", cats, [last["components"][k]["contribution"] for k in KEYS],
                  type="bar", color=2)],
         x=C.axis("", type="category"), y=C.axis("Punkte", range=(0, 100)),
-        subtitle="Beitrag = Score × Gewicht; die Beiträge ergeben zusammen den Komposit.",
+        subtitle="Beitrag = Score × Gewicht (GEX 35 %, TDEX 25 %, VIX-Kurve 20 %, DIX und SMFI je 10 %).",
     ))
 
     # ---- composite + price with warning phases ----------------------------------------------------
@@ -204,13 +206,13 @@ def run(params, data, out):
         "Kurs mit Warnphasen (Komposit ≥ 75)",
         [C.trace("Kurs" if data.prices is not None else "Index aus Renditen (Start 100)", x, prices, color=1,
                  width=1.2)],
-        x=xa, y=C.axis("Kurs", type="log"),
+        x=xa, y=C.axis("Kurs", type="log" if prices.max() > 8 * prices.min() else "linear"),
         bands=[C.band(x[a], x[min(b + 1, n - 1)], "", "serious") for a, b in shown],
         subtitle="Rot hinterlegt: Tage mit hoher Warnstufe. Kamen sie vor oder während der Einbrüche?",
     ))
 
     # ---- which indicator fired when ---------------------------------------------------------------
-    step = max(1, int(np.ceil(n / 160)))
+    step = max(1, int(np.ceil(n / 80)))
     starts = np.arange(0, n, step)
     rows = [WEIGHT_LABEL[k] for k in KEYS] + ["Komposit"]
     z = [[float(np.mean(s[a:a + step])) for a in starts] for s in [scores[k] for k in KEYS] + [comp]]
@@ -218,7 +220,7 @@ def run(params, data, out):
         "Welcher Indikator schlug wann an?", [x[a] for a in starts], rows, z,
         x=xa if data.dates else C.axis("Handelstag", fmt="int"), y=C.axis("", type="category"),
         z=C.axis("Score"), scale="risk",
-        subtitle=f"Mittlerer Score je {step} Handelstage (0 = ruhig, 100 = maximale Warnung).", height=320,
+        subtitle=f"Mittlerer Score je {step} Handelstage (0 = ruhig, 100 = maximale Warnung).", height=400,
     ))
 
     if params["show_3d"]:
@@ -288,6 +290,12 @@ def run(params, data, out):
                   STRUCTURE[cur["structure"]], "hoch" if inv.get("inversion_event") else "niedrig",
                   f"{ratio_name} zuletzt {de(inv.get('current_ratio', ratio[-1]), 3)}, "
                   f"Spanne {de(inv.get('min_ratio', ratio[-1]), 3)}–{de(inv.get('max_ratio', ratio[-1]), 3)}"])
+    fired = [name for name, d, _ in div if d.get("divergence")] + (["VIX-Kurve"] if inv.get("inversion_event") else [])
+    out.set_verdict(
+        status, f"Letzter Stand: {level_de} – {comp[-1]:.0f} von 100",
+        f"Empfehlung des Frameworks: {action_de}. Divergenz-Checks der letzten {win} Tage: "
+        + (f"{len(fired)} von 4 schlagen an ({', '.join(fired)})." if fired else "keiner schlägt an.")
+        + " Modellwert aus Renditen und VIX – kein Live-Signal aus Options- oder Dark-Pool-Daten.")
     out.table(f"Divergenz-Checks der letzten {win} Tage", ["Prüfung", "Signal", "Typ", "Warnstufe", "Bedeutung"],
               drows, formats=["text", "text", "text", "text", "text"],
               note="TDEX, DIX und SMFI sind modelliert – eine Divergenz zeigt hier die Logik des Frameworks, "
@@ -307,7 +315,7 @@ def run(params, data, out):
     erows.append(["Alle Tage", int(n - h), 1.0, float(np.expm1(np.mean(fwd))), float(np.mean(worst <= np.log(0.95))),
                   float(np.expm1(worst.min()))])
     out.table(f"Was folgte auf die Warnstufen? (nächste {h} Handelstage)",
-              ["Stufe am Tag t", "Tage", "Anteil", f"Ø Rendite {h} T", "Anteil mit −5 % im Tief", "Tiefster Rückgang"],
+              ["Stufe am Tag t", "Tage", "Anteil", f"Ø Rendite {h} T", "Anteil mit Rückgang ≥ 5 %", "Tiefster Rückgang"],
               erows, formats=["text", "int", "pct", "pct", "pct", "pct"],
               note="Ausgewertet ab dem Folgetag. Liegen die Werte hoher Stufen nicht klar über „Alle Tage“, hatte "
                    "der modellierte Score hier keine Vorlaufkraft – er reagiert dann eher, als dass er warnt.")
