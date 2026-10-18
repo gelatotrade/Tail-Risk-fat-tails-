@@ -140,6 +140,37 @@ class _DpiCap:
         return False
 
 
+# (max width in px, keep every n-th frame) per quality; total playback time is preserved
+GIF_SHRINK = {"preview": (560, 2), "standard": (900, 1), "original": (None, 1)}
+
+
+def shrink_gif(data: bytes, max_width: Optional[int], frame_step: int = 1) -> bytes:
+    """Downscale an animated GIF; with ``frame_step`` > 1 drop frames and stretch durations."""
+    if not max_width and frame_step <= 1:
+        return data
+    from PIL import Image, ImageSequence
+
+    src = Image.open(io.BytesIO(data))
+    width = min(max_width or src.width, src.width)
+    if width == src.width and frame_step <= 1:
+        return data
+    height = round(src.height * width / src.width)
+    frames, durations = [], []
+    for i, frame in enumerate(ImageSequence.Iterator(src)):
+        duration = frame.info.get("duration", src.info.get("duration", 100))
+        if i % frame_step:
+            if durations:
+                durations[-1] += duration
+            continue
+        durations.append(duration)
+        frames.append(frame.convert("RGB").resize((width, height), Image.LANCZOS)
+                      .quantize(colors=128, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE))
+    buf = io.BytesIO()
+    frames[0].save(buf, format="GIF", save_all=True, append_images=frames[1:], duration=durations,
+                   loop=src.info.get("loop", 0), optimize=True, disposal=2)
+    return buf.getvalue()
+
+
 def run_script(script: str, argv: Optional[List[str]] = None, out: Optional[Result] = None,
                captions: Optional[dict] = None, max_log_chars: int = 60000, quality: str = "preview",
                files: Optional[dict] = None) -> dict:
@@ -199,7 +230,10 @@ def run_script(script: str, argv: Optional[List[str]] = None, out: Optional[Resu
                 continue
             suffix = p.suffix.lower()
             if suffix in IMAGE_TYPES:
-                out.image(p.read_bytes(), captions.get(p.name, rel), mime=IMAGE_TYPES[suffix])
+                data = p.read_bytes()
+                if suffix == ".gif":
+                    data = shrink_gif(data, *GIF_SHRINK.get(quality, (None, 1)))
+                out.image(data, captions.get(p.name, rel), mime=IMAGE_TYPES[suffix])
             elif suffix in TEXT_TYPES:
                 out.download(p.name, p.read_text(encoding="utf-8", errors="replace"), "text/plain")
     seconds = time.perf_counter() - started
