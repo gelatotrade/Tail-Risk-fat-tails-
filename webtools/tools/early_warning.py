@@ -33,7 +33,7 @@ SPEC = {
         "**Net Gamma Exposure** (35 %), **TailDex** (25 %), **VIX-Terminkurve** (20 %), **Dark Index** (10 %) "
         "und **Smart Money Flow** (10 %). Ab 50 gilt die Lage als erhöht, ab 75 als hoch, ab 90 als extrem.\n\n"
         "**Wichtig:** GEX, TailDex, DIX und SMFI beruhen auf proprietären Options- und Dark-Pool-Daten, die "
-        "hier nicht vorliegen. Das Framework *modelliert* sie aus deinen Renditen und dem VIX (`simulate_*`) – "
+        "hier nicht vorliegen. Das Framework **modelliert** sie aus deinen Renditen und dem VIX (`simulate_*`) – "
         "die Verläufe sind illustrativ, keine echten Messwerte. Echt ist die VIX-Kurve, wenn der Datensatz VIX "
         "und VIX3M enthält (S&P 500): Dann zählt das tatsächliche Verhältnis VIX/VIX3M (> 1 = invertiert = "
         "Stress), sonst simuliert das Framework eine Futures-Kurve aus dem VIX. Gerechnet wird kausal: Jeder "
@@ -178,7 +178,7 @@ def run(params, data, out):
         curve += " Auch der VIX fehlt – er wird aus den Renditen abgeleitet (`generate_vix_from_returns`)."
     elif data.meta.get("source") in ("synthetic", "crisis"):
         curve += " Der VIX dieses synthetischen Datensatzes ist selbst aus den Renditen abgeleitet."
-    out.note(curve + " Alle Werte sind kausal: Tag *t* nutzt nur Daten bis *t* (`causal=True`).", "info")
+    out.note(curve + " Alle Werte sind kausal: Jeder Tag nutzt nur Daten bis zu diesem Tag (`causal=True`).", "info")
 
     # ---- gauge + contributions --------------------------------------------------------------------
     out.chart(C.gauge("Komposit am letzten Tag", float(comp[-1]), thresholds=(th["elevated"], th["high"], th["extreme"]),
@@ -192,7 +192,7 @@ def run(params, data, out):
          C.trace("Beitrag zum Komposit (Punkte)", cats, [last["components"][k]["contribution"] for k in KEYS],
                  type="bar", color=2)],
         x=C.axis("", type="category"), y=C.axis("Punkte", range=(0, 100)),
-        subtitle="Beitrag = Score × Gewicht (GEX 35 %, TDEX 25 %, VIX-Kurve 20 %, DIX und SMFI je 10 %).",
+        subtitle="Beitrag = Score × Gewicht (GEX 35\u00a0%, TDEX 25\u00a0%, VIX-Kurve 20\u00a0%, DIX und SMFI je 10\u00a0%).",
     ))
 
     # ---- composite + price with warning phases ----------------------------------------------------
@@ -205,18 +205,22 @@ def run(params, data, out):
         subtitle="Gestrichelte Linien = Stufengrenzen des Frameworks (50 / 75 / 90).",
     ))
     episodes = _episodes(comp >= th["high"])
-    shown = sorted(episodes, key=lambda e: comp[e[0]:e[1] + 1].max(), reverse=True)[:40]
-    elevated = _episodes(comp >= th["elevated"])
-    shown_el = sorted(elevated, key=lambda e: e[1] - e[0], reverse=True)[:40]
+
+    def _segment(mask):
+        """Prices on the flagged days (plus the following day, so single days still draw a segment)."""
+        m = np.asarray(mask, dtype=bool)
+        m = m | np.concatenate([[False], m[:-1]])
+        return np.where(m, prices, np.nan)
+
+    flagged = [(f"Komposit ≥ {th['elevated']} (Erhöht)", comp >= th["elevated"], "warning", 2.0),
+               (f"Komposit ≥ {th['high']} (Hoch, Extrem)", comp >= th["high"], "serious", 2.4)]
     out.chart(C.xy(
         "Kurs mit Warnphasen",
-        [C.trace("Kurs" if data.prices is not None else "Index aus Renditen (Start 100)", x, prices, color=1,
-                 width=1.2)],
+        [C.trace("Kurs" if data.prices is not None else "Index aus Renditen (Start 100)", x, prices, color="muted",
+                 width=1.2)]
+        + [C.trace(name, x, _segment(m), color=col, width=wd) for name, m, col, wd in flagged if m.any()],
         x=xa, y=C.axis("Kurs", type="log" if prices.max() > 8 * prices.min() else "linear"),
-        bands=[C.band(x[a], x[min(b + 1, n - 1)], "", "warning") for a, b in shown_el]
-        + [C.band(x[a], x[min(b + 1, n - 1)], "", "serious") for a, b in shown],
-        subtitle="Gelb hinterlegt: Komposit ≥ 50 (Erhöht), rot: ≥ 75 (Hoch oder Extrem). Kamen die Phasen vor "
-                 "oder erst während der Einbrüche?",
+        subtitle="Farbig: Tage mit Warnstufe. Kamen die Warnungen vor den Einbrüchen – oder erst währenddessen?",
     ))
 
     # ---- which indicator fired when ---------------------------------------------------------------

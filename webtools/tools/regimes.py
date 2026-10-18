@@ -162,11 +162,12 @@ def run(params, data, out):
     out.metric("P(Stress-Regime) heute", cur_p[-1], "pct", digits=1 if cur_p[-1] >= 0.01 else 2)
     out.metric("Vola im Stress-Regime", stds[-1] * np.sqrt(DAYS), "pct", digits=1,
                hint=f"ruhig: {_de(100 * stds[0] * np.sqrt(DAYS), 1)} % p. a.")
-    out.metric("Ø Dauer des Stress-Regimes", stay[-1], "num", digits=0, unit="Tage",
+    out.metric("Ø Dauer des Stress-Regimes", stay[-1], "num", digits=0, unit="Tag" if round(stay[-1]) == 1 else "Tage",
                hint=f"ruhig: {_days(stay[0])}")
     if var_by_state[-1][0] is not None and var_all[0]:
         out.metric(f"VaR {lvl} im Stress ÷ gesamt", var_by_state[-1][0] / var_all[0], "x",
-                   hint=f"{_de(100 * var_by_state[-1][0])} % statt {_de(100 * var_all[0])} %")
+                   hint=f"{_de(100 * var_by_state[-1][0])} % statt {_de(100 * var_all[0])} % · aus "
+                        f"{int(np.sum(state == k - 1))} Stresstagen")
     out.metric("Realisierte Vola heute (20 Tage)", rv[-1], "pct", digits=1,
                hint=f"Vola-Regime: {VOL_NAMES.get(simple['simple_regime'], simple['simple_regime'])}")
     p_lb = float(lb["p_value"])

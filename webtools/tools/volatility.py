@@ -19,7 +19,7 @@ SPEC = {
                "RiskMetrics-EWMA – gemessen an der danach realisierten Schwankung und am VaR-Backtest.",
     "description": (
         "Volatilität lässt sich nicht beobachten, nur schätzen. Das **rollierende Fenster** "
-        "(`rolling_window`) gibt den letzten *n* Tagen gleiches Gewicht und vergisst alles davor schlagartig. "
+        "(`rolling_window`) gibt den letzten n Tagen gleiches Gewicht und vergisst alles davor schlagartig. "
         "Der **EWMA** (`exponential_weighted_mean` auf den quadrierten Renditen, RiskMetrics-Standard λ = 0,94) "
         "gewichtet jeden älteren Tag um den Faktor λ weniger: Er reagiert sofort auf einen Schock und lässt ihn "
         "langsam ausklingen. Beides wird mit der **realisierten** Volatilität der folgenden Tage verglichen – "
@@ -61,7 +61,7 @@ def _de(x, digits=2):
 
 def _lvl(p):
     """0.99 -> '99 %', 0.975 -> '97,5 %'."""
-    return f"{p * 100:.1f}".rstrip("0").rstrip(".").replace(".", ",") + " %"
+    return f"{p * 100:.1f}".rstrip("0").rstrip(".").replace(".", ",") + "\u00a0%"
 
 
 def run(params, data, out):
@@ -159,7 +159,7 @@ def run(params, data, out):
     edges = (-lim, lim)
     traces, floor = [], np.inf
     for key, name, col, scale in (("const", "Rendite ÷ Gesamt-σ", "muted", np.full(n, long_run)),
-                                  ("roll", f"÷ rollierende σ von gestern", 1, roll),
+                                  ("roll", "÷ rollierende σ von gestern", 1, roll),
                                   ("ewma", "÷ EWMA-σ von gestern", 2, ewma)):
         z = safe_divide(r, prev(scale), fill=np.nan)
         z = z[np.isfinite(z)]
@@ -182,7 +182,7 @@ def run(params, data, out):
     out.chart(C.xy(
         f"VaR-Backtest mit EWMA ({_lvl(level)})",
         [C.trace("Tagesrendite", x, r, color=1, width=1),
-         C.trace(f"−VaR aus der EWMA-Vola von gestern", x, var_line, color=2, width=1.2),
+         C.trace("−VaR aus der EWMA-Vola von gestern", x, var_line, color=2, width=1.2),
          C.trace("Verletzung", [x[i] for i in idx], r[idx], type="scatter", color="critical", size=6, decimate_to=None)],
         x=xa, y=C.axis("Rendite", fmt="pct", digits=1),
         subtitle=f"{len(idx)} Verletzungen bei {int(np.isfinite(var_line).sum())} Tagen – erwartet wären "

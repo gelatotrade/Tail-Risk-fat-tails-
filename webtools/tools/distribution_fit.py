@@ -35,7 +35,8 @@ SPEC = {
         "Punkte an den Enden weg, unterschätzt das Modell die Extreme. Die **logarithmische Dichte** zeigt dasselbe "
         "für die Ränder, das dritte Diagramm direkt die Crash-Häufigkeit P(Rendite < −x).\n\n"
         "VaR und Expected Shortfall je Modell sind Tagesverluste (positive Dezimalzahl): Gauß und Student-t "
-        "analytisch, NIG und Variance Gamma per Monte Carlo. Momenten-Fits treffen die Kurtosis, aber nicht "
+        "analytisch, NIG und Variance Gamma per Monte Carlo (ihre Crash-Häufigkeit im dritten Diagramm aus der "
+        "numerisch integrierten Dichte). Momenten-Fits treffen die Kurtosis, aber nicht "
         "unbedingt die Form; das zeigt sich oft in einem schlechten KS-Wert."
     ),
     "needs": ["returns"],

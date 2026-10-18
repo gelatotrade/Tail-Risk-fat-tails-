@@ -98,7 +98,9 @@ def run(params, data, out):
             "evt": float(trm.var_evt(c, threshold_quantile=q_evt)) if evt_ok else np.nan,
             "es_hist": float(trm.expected_shortfall(c, "historical")),
             "es_gauss": float(trm.expected_shortfall(c, "gaussian")),
-            "es_cf": float(trm.expected_shortfall(c, "cornish_fisher")),
+            # no observed loss beyond the CF-VaR: the src falls back to the VaR itself - show "–" instead
+            "es_cf": (float(trm.expected_shortfall(c, "cornish_fisher"))
+                      if np.any(r < -trm.var_cornish_fisher(c)) else None),
         }
     v = table[conf]
     dd = trm.maximum_drawdown()
@@ -109,7 +111,8 @@ def run(params, data, out):
     rec_txt = "noch nicht erholt" if not np.isfinite(rec) else f"erholt nach {int(rec)} Tagen"
     out.metric(f"VaR {lvl} · historisch", v["hist"], "pct", hint=f"ES {_de(100 * v['es_hist'])} %")
     out.metric(f"VaR {lvl} · Gauß", v["gauss"], "pct", hint=f"ES {_de(100 * v['es_gauss'])} %")
-    out.metric(f"VaR {lvl} · Cornish-Fisher", v["cf"], "pct", hint=f"ES {_de(100 * v['es_cf'])} %")
+    out.metric(f"VaR {lvl} · Cornish-Fisher", v["cf"], "pct",
+               hint=f"ES {_de(100 * v['es_cf'])} %" if v["es_cf"] is not None else "kein Verlust jenseits davon beobachtet")
     if evt_ok:
         out.metric(f"VaR {lvl} · EVT (GPD)", v["evt"], "pct", hint=f"Schwelle: {_de(100 * q_evt, 1)}-%-Quantil")
     out.metric(f"Expected Shortfall {lvl}", v["es_hist"], "pct", hint="historisch: Ø Verlust jenseits des VaR",
@@ -192,7 +195,8 @@ def run(params, data, out):
     out.table("VaR und Expected Shortfall nach Methode", ["Konfidenz"] + [names[k] for k in keys],
               [[_label(c)] + [t[k] for k in keys] for c, t in table.items()],
               formats=["text"] + ["pct"] * len(keys),
-              note="Tagesverluste. ES Cornish-Fisher = Ø der beobachteten Verluste jenseits des Cornish-Fisher-VaR."
+              note="Tagesverluste. ES Cornish-Fisher = Ø der beobachteten Verluste jenseits des Cornish-Fisher-VaR "
+                   "(– = kein solcher Verlust beobachtet)."
               + ("" if evt_ok else f" Kein EVT-VaR: Über dem {_de(100 * q_evt, 1)}-%-Quantil liegen weniger als "
                                    "10 Verluste – senke die EVT-Schwelle oder nimm eine längere Reihe."))
 
@@ -217,6 +221,12 @@ def run(params, data, out):
         note=f"Partner-Reihe: {partner}" + (" (mit −1 multipliziert, damit ein VIX-Sprung der „schlechte“ Rand ist)."
                                             if partner == "VIX-Veränderung" else ".")
         + f" Unabhängigkeit ergäbe ≈ {_de(1 - qd, 2)}, vollständige Abhängigkeit 1.")
+
+    tail_days = n * (1 - conf)
+    if tail_days < 10:
+        out.note(f"Bei {lvl} liegen im Mittel nur {_de(tail_days, 1)} Tage jenseits des VaR. Historischer VaR und "
+                 "Expected Shortfall beruhen dann auf einer Handvoll Verluste und schwanken stark; der EVT-VaR "
+                 "extrapoliert aus dem ganzen Rand und ist hier robuster.", "info")
 
     cf_vals = [table[c]["cf"] for c in TABLE_LEVELS]
     if any(b2 < a2 for a2, b2 in zip(cf_vals, cf_vals[1:])):

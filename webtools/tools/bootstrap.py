@@ -63,7 +63,7 @@ def _pct(x, digits=2):
 
 def _lvl(p):
     """Confidence level as a short German percentage: 0.99 -> '99 %', 0.975 -> '97,5 %'."""
-    return f"{p * 100:.1f}".rstrip("0").rstrip(".").replace(".", ",") + " %"
+    return f"{p * 100:.1f}".rstrip("0").rstrip(".").replace(".", ",") + "\u00a0%"
 
 
 def _num(x, digits=2):
