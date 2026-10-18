@@ -757,7 +757,7 @@ class DarkIndex:
         }
 
     def simulate_dix(self, returns: np.ndarray,
-                     base_dix: float = 45.0) -> np.ndarray:
+                     base_dix: float = 45.0, lookahead: int = 5) -> np.ndarray:
         """
         Simulate DIX time series from returns.
 
@@ -769,6 +769,11 @@ class DarkIndex:
         Args:
             returns: Daily returns
             base_dix: Normal DIX level
+            lookahead: Number of FUTURE returns that drive the leading component
+                (the original model uses 5). Any value > 0 gives the series
+                look-ahead bias: it illustrates a leading indicator, but must not
+                be used to evaluate warnings on real data. Use 0 for a causal
+                series that only uses information available at each day.
 
         Returns:
             Simulated DIX time series
@@ -778,9 +783,9 @@ class DarkIndex:
         dix[0] = base_dix
 
         for i in range(1, n):
-            # DIX leads returns - use future return if available
-            if i < n - 5:
-                future_return = np.mean(returns[i:i+5])
+            # DIX leads returns - use future return if available (lookahead > 0 only)
+            if lookahead > 0 and i < n - lookahead:
+                future_return = np.mean(returns[i:i+lookahead])
                 leading_effect = future_return * 200  # Strong effect
             else:
                 leading_effect = 0
@@ -1148,7 +1153,8 @@ class CompositeEarlyWarningSystem:
     def simulate_all_indicators(self,
                                  returns: np.ndarray,
                                  prices: np.ndarray,
-                                 vix: np.ndarray) -> Dict[str, np.ndarray]:
+                                 vix: np.ndarray,
+                                 causal: bool = False) -> Dict[str, np.ndarray]:
         """
         Simulate all 5 indicators from basic market data.
 
@@ -1156,6 +1162,10 @@ class CompositeEarlyWarningSystem:
             returns: Daily returns
             prices: Daily prices
             vix: VIX time series
+            causal: If True, every indicator value at day t uses only data up
+                to day t (no look-ahead; required for backtests on real data).
+                The default keeps the original illustrative model, whose
+                simulated DIX peeks 5 days ahead.
 
         Returns:
             Dict with all simulated indicator time series
@@ -1166,7 +1176,7 @@ class CompositeEarlyWarningSystem:
         gex = self.gex.simulate_gex(returns)
         tdex = self.tdex.simulate_tdex(returns, vix)
         vix_m1, vix_m2 = self.vix_term.simulate_term_structure(vix)
-        dix = self.dix.simulate_dix(returns)
+        dix = self.dix.simulate_dix(returns, lookahead=0 if causal else 5)
         smfi = self.smfi.simulate_smfi(returns, prices)
 
         # Compute warning scores for each
@@ -1292,7 +1302,8 @@ ACTION: Maintain standard risk management.
 
 def compute_early_warning_coordinates(returns: np.ndarray,
                                        vix: np.ndarray,
-                                       window: int = 60) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+                                       window: int = 60,
+                                       causal: bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Transform early warning indicators into 3D phase space.
 
@@ -1311,7 +1322,7 @@ def compute_early_warning_coordinates(returns: np.ndarray,
     prices = 100 * np.exp(np.cumsum(returns))
 
     # Simulate all indicators
-    indicators = ews.simulate_all_indicators(returns, prices, vix)
+    indicators = ews.simulate_all_indicators(returns, prices, vix, causal=causal)
 
     # Extract coordinates
     X = indicators['gex_score'] / 100  # Normalize to [0, 1]
@@ -1324,7 +1335,8 @@ def compute_early_warning_coordinates(returns: np.ndarray,
 # Convenience function for quick analysis
 def analyze_crash_risk(returns: np.ndarray,
                        vix: np.ndarray,
-                       verbose: bool = True) -> Dict:
+                       verbose: bool = True,
+                       causal: bool = False) -> Dict:
     """
     Comprehensive crash risk analysis using all 5 indicators.
 
@@ -1332,6 +1344,8 @@ def analyze_crash_risk(returns: np.ndarray,
         returns: Daily returns
         vix: VIX time series
         verbose: Print detailed analysis
+        causal: Use only past data for every indicator (no look-ahead);
+            see CompositeEarlyWarningSystem.simulate_all_indicators
 
     Returns:
         Dict with all indicator values and composite assessment
@@ -1339,7 +1353,7 @@ def analyze_crash_risk(returns: np.ndarray,
     ews = CompositeEarlyWarningSystem()
     prices = 100 * np.exp(np.cumsum(returns))
 
-    indicators = ews.simulate_all_indicators(returns, prices, vix)
+    indicators = ews.simulate_all_indicators(returns, prices, vix, causal=causal)
 
     # Get latest values
     latest = {
