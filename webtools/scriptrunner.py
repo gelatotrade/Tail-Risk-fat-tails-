@@ -26,6 +26,45 @@ import numpy as np
 from .core import Result, ToolError
 
 APP_ROOT = Path(__file__).resolve().parents[1]
+CAPTIONS = {
+    "fat_tails_comparison.png": "Fette Ränder vs. Normalverteilung",
+    "physics_finance_mapping.png": "Physik → Finanzen",
+    "tail_index_interpretation.png": "Tail-Index α richtig lesen",
+    "var_comparison.png": "VaR-Methoden im Vergleich",
+    "early_warning_signals.png": "Kritische Verlangsamung",
+    "tail_risk_surface_3d.png": "3D-Tail-Risk-Fläche",
+    "tail_risk_surface_animation.gif": "Animierte Risikofläche",
+    "tail_risk_3d_dashboard.png": "3D-Phasenraum-Dashboard",
+    "early_warning_3d_phase_space.png": "Frühwarnung im 3D-Phasenraum",
+    "warning_matrix.png": "Warnmatrix",
+    "early_warning_indicators.png": "Die fünf Frühwarnindikatoren",
+    "early_warning_dashboard_demo.png": "Frühwarn-Dashboard",
+    "crash_timeline_indicators.png": "Zeitachse der Signale",
+    "crash_comparison_indicators.png": "Indikatoren im Crash-Vergleich",
+    "ews_analysis_jan2026.png": "Frühwarnanalyse Januar 2026",
+    "crisis_comparison.png": "Krisenvergleich",
+    "crash_comparison_with_dates.png": "Crashs mit Datumsachsen",
+    "volmageddon_2018_deep_dive.png": "Volmageddon 2018 im Detail",
+    "covid_2020_deep_dive.png": "COVID-Crash 2020 im Detail",
+    "bear_2022_deep_dive.png": "Bärenmarkt 2022 im Detail",
+    "tariff_2025_deep_dive.png": "Zoll-Crash 2025 im Detail",
+    "covid_crash_analysis.png": "COVID-Crash: Analyse",
+    "bear_2022_analysis.png": "Bärenmarkt 2022: Analyse",
+    "tariff_crash_analysis.png": "Zoll-Crash 2025: Analyse",
+    "tariff_crash_deep_dive.png": "Zoll-Crash 2025: Vertiefung",
+    "covid_crash_dashboard.png": "Dashboard COVID-19",
+    "bear_2022_dashboard.png": "Dashboard Bärenmarkt 2022",
+    "tariff_crash_dashboard.png": "Dashboard Zoll-Crash 2025",
+    "crisis_dashboard.png": "Krisen-Dashboard",
+    "full_dashboard.png": "Vollständiges Dashboard",
+    "current_market_dashboard.png": "Aktuelles Markt-Dashboard",
+    "current_market_analysis.png": "Aktuelle Marktanalyse",
+    "current_state_jan2026.png": "Marktlage Januar 2026",
+    "crisis_vs_current_comparison.png": "Krisen vs. heute",
+    "analysis_dashboard.png": "Tail-Risk-Dashboard deiner Daten",
+    "tail_risk_report.txt": "Bericht",
+    "analysis_report.txt": "Bericht",
+}
 IMAGE_TYPES = {".png": "image/png", ".gif": "image/gif", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml"}
 TEXT_TYPES = {".txt", ".csv", ".json", ".md"}
 
@@ -52,9 +91,63 @@ class _Tee(io.TextIOBase):
                 pass
 
 
+QUALITY = {
+    "preview": 90,     # fast in the browser, small payload
+    "standard": 150,   # what most scripts use
+    "original": None,  # whatever the script asks for (up to 300 dpi)
+}
+QUALITY_PARAM = {
+    "name": "quality", "type": "select", "default": "preview", "label": "Bildqualität",
+    "options": [{"value": "preview", "label": "Vorschau (90 dpi, schnell)"},
+                {"value": "standard", "label": "Standard (150 dpi)"},
+                {"value": "original", "label": "Original (wie im Skript, bis 300 dpi)"}],
+    "help": "Die Skripte speichern mit bis zu 300 dpi. Im Browser kostet das viel Rechenzeit – für die Analyse reicht die Vorschau.",
+}
+
+
+class _DpiCap:
+    """Clamp the dpi of every ``Figure.savefig`` (also used by animation writers)."""
+
+    def __init__(self, max_dpi: Optional[float]):
+        self.max_dpi = max_dpi
+
+    def __enter__(self):
+        from matplotlib.figure import Figure
+        import matplotlib
+
+        self._orig = Figure.savefig
+        cap = self.max_dpi
+        if cap is None:
+            return self
+        orig = self._orig
+
+        def savefig(fig, *args, **kwargs):
+            dpi = kwargs.get("dpi")
+            if dpi is None or dpi == "figure":
+                dpi = matplotlib.rcParams["savefig.dpi"]
+                if dpi == "figure":
+                    dpi = fig.dpi
+            kwargs["dpi"] = min(float(dpi), float(cap))
+            return orig(fig, *args, **kwargs)
+
+        Figure.savefig = savefig
+        return self
+
+    def __exit__(self, *exc):
+        from matplotlib.figure import Figure
+
+        Figure.savefig = self._orig
+        return False
+
+
 def run_script(script: str, argv: Optional[List[str]] = None, out: Optional[Result] = None,
-               captions: Optional[dict] = None, max_log_chars: int = 60000) -> dict:
-    """Execute ``script`` (path relative to the repo root) and add its outputs to ``out``."""
+               captions: Optional[dict] = None, max_log_chars: int = 60000, quality: str = "preview",
+               files: Optional[dict] = None) -> dict:
+    """Execute ``script`` (path relative to the repo root) and add its outputs to ``out``.
+
+    ``files`` maps relative paths to text written into the working directory first
+    (e.g. the active dataset as CSV for ``main.py --mode analyze``).
+    """
     import matplotlib
 
     path = APP_ROOT / script
@@ -69,6 +162,12 @@ def run_script(script: str, argv: Optional[List[str]] = None, out: Optional[Resu
     with tempfile.TemporaryDirectory(prefix="trl-script-") as tmp:
         work = Path(tmp)
         (work / "outputs").mkdir()
+        inputs = set()
+        for rel, text in (files or {}).items():
+            target = work / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(text, encoding="utf-8")
+            inputs.add(target)
         try:
             os.chdir(work)
             sys.argv = [script] + list(argv or [])
@@ -76,7 +175,7 @@ def run_script(script: str, argv: Optional[List[str]] = None, out: Optional[Resu
                 sys.path.insert(0, str(APP_ROOT))
             if out is not None:
                 out.progress(f"{script} läuft …")
-            with redirect_stdout(_Tee(buf, sys.__stdout__ if sys.__stdout__ else io.StringIO())):
+            with _DpiCap(QUALITY.get(quality)), redirect_stdout(_Tee(buf, sys.__stdout__ if sys.__stdout__ else io.StringIO())):
                 try:
                     runpy.run_path(str(path), run_name="__main__")
                 except SystemExit as exc:  # argparse / explicit exit
@@ -91,7 +190,7 @@ def run_script(script: str, argv: Optional[List[str]] = None, out: Optional[Resu
             sys.path[:] = old_path
             matplotlib.rcParams.update(old_rc)
             np.random.set_state(rng_state)
-        produced = sorted(p for p in work.rglob("*") if p.is_file())
+        produced = sorted(p for p in work.rglob("*") if p.is_file() and p not in inputs)
         files = []
         for p in produced:
             rel = p.relative_to(work).as_posix()
@@ -113,3 +212,17 @@ def run_script(script: str, argv: Optional[List[str]] = None, out: Optional[Resu
             out.table("Erzeugte Dateien", ["Datei", "Größe (KB)"], [[f["path"], f["bytes"] / 1024] for f in files],
                       formats=["text", "num"])
     return {"seconds": seconds, "files": files, "log": log[-max_log_chars:]}
+
+
+def script_tool(script: str, params: dict, out: Result, *, argv: Optional[List[str]] = None,
+                files: Optional[dict] = None) -> dict:
+    """Shared body of the ``script-*`` tools: run, then explain what happened."""
+    res = run_script(script, argv, out, captions=CAPTIONS, quality=params.get("quality", "preview"), files=files)
+    images = [f for f in res["files"] if Path(f["path"]).suffix.lower() in IMAGE_TYPES]
+    if images:
+        out.note(f"`{script}` lief unverändert im Browser und hat {len(images)} "
+                 f"Abbildung{'en' if len(images) != 1 else ''} erzeugt – unten in voller Größe, per Klick vergrößerbar.",
+                 "success")
+    else:
+        out.note(f"`{script}` lief durch, hat aber keine Abbildung erzeugt. Details in der Python-Ausgabe.", "warning")
+    return res

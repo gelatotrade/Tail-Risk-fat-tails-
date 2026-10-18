@@ -1,6 +1,7 @@
 // Inline SVG icons (24px grid, 2px stroke, currentColor).
 const P = {
   logo: '<path d="M3 20h18" opacity=".35"/><path d="M3 19c3 0 4-1 5.5-5S11 4 12 4s2 6 3.5 10S19 18 21 18"/><path d="M3 19c1.4 0 2.3-.3 3.1-1" stroke="var(--critical)" stroke-width="2.4"/><circle cx="4.3" cy="16.4" r="1.6" fill="var(--critical)" stroke="none"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',

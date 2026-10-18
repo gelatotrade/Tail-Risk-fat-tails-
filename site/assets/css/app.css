@@ -220,6 +220,12 @@ input[type="range"] { width: 100%; accent-color: var(--accent); height: 22px; ma
 
 .group-title { font-size: 13px; font-weight: 650; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; margin: 26px 0 10px; display: flex; gap: 10px; align-items: center; }
 .group-title::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.catalogue-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 4px 0 6px; }
+.search { flex: 1 1 320px; display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--surface); }
+.search:focus-within { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); border-color: var(--accent); }
+.search svg { width: 17px; height: 17px; color: var(--ink-3); flex: none; }
+.search input { border: 0; outline: 0; background: transparent; height: 40px; padding: 0; font-size: 15px; }
+.search input:focus { outline: 0; }
 .tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
 .tool-card { display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; text-decoration: none; color: inherit; transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s; min-height: 132px; }
 .tool-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 6px 24px rgba(42, 120, 214, 0.12); }

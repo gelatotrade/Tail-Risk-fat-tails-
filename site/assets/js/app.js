@@ -115,11 +115,47 @@ function toolCard(t) {
 }
 
 function catalogueHtml() {
-  return app.catalogue.groups.map((g) => {
+  const groups = app.catalogue.groups.map((g) => {
     const tools = app.catalogue.tools.filter((t) => t.group === g.id);
     if (!tools.length) return '';
-    return `<div class="group-title">${icon(g.id, 'width="15" height="15"')} ${escapeHtml(g.title)}</div><div class="tool-grid">${tools.map(toolCard).join('')}</div>`;
+    return `<div class="tool-group" data-group="${g.id}"><div class="group-title">${icon(g.id, 'width="15" height="15"')} ${escapeHtml(g.title)}</div><div class="tool-grid">${tools.map(toolCard).join('')}</div></div>`;
   }).join('');
+  return `<div class="catalogue-bar">
+      <label class="search">${icon('search')}<input type="search" placeholder="Werkzeug suchen – z. B. VaR, Lévy, VIX, Excel …" aria-label="Werkzeuge durchsuchen"></label>
+      <div class="seg" role="tablist" aria-label="Filter">
+        <button type="button" data-f="all" aria-selected="true">Alle</button>
+        <button type="button" data-f="data" aria-selected="false">Nutzt deine Daten</button>
+        <button type="button" data-f="sim" aria-selected="false">Simulationen</button>
+      </div></div>${groups}<p class="empty" data-slot="none" hidden>Kein Werkzeug passt zu dieser Suche.</p>`;
+}
+
+function wireCatalogue(root) {
+  const input = root.querySelector('.catalogue-bar input');
+  if (!input) return;
+  let filter = 'all';
+  const norm = (s) => s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+  const index = new Map(app.catalogue.tools.map((t) => [t.id, norm([t.title, t.summary, t.description || '', t.covers.join(' '), groupTitle(t.group)].join(' '))]));
+  const apply = () => {
+    const words = norm(input.value).split(/\s+/).filter(Boolean);
+    let shown = 0;
+    root.querySelectorAll('.tool-group').forEach((g) => {
+      let any = false;
+      g.querySelectorAll('.tool-card').forEach((c) => {
+        const t = app.catalogue.tools.find((x) => x.id === c.dataset.tool);
+        const okF = filter === 'all' || (filter === 'data' ? t.needs.length > 0 : t.needs.length === 0);
+        const okW = words.every((w) => index.get(t.id).includes(w));
+        c.hidden = !(okF && okW); any ||= !c.hidden; shown += !c.hidden;
+      });
+      g.hidden = !any;
+    });
+    root.querySelector('[data-slot="none"]').hidden = shown > 0;
+  };
+  input.addEventListener('input', apply);
+  root.querySelectorAll('.catalogue-bar [data-f]').forEach((b) => b.addEventListener('click', () => {
+    filter = b.dataset.f;
+    root.querySelectorAll('.catalogue-bar [data-f]').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+    apply();
+  }));
 }
 
 function prewarmOnIntent(root) {
@@ -205,6 +241,7 @@ async function renderHome() {
   heroRefresh = () => { if (plot.isConnected) plot.innerHTML = heroChart(pulse); };
   heroRefresh();
   wireGallery(view);
+  wireCatalogue(view);
   prewarmOnIntent(view);
 }
 
@@ -213,7 +250,9 @@ function renderCatalogue() {
     <div class="section-head"><div><h1 style="font-size:clamp(26px,3vw,36px);letter-spacing:-.03em">Werkzeuge</h1>
     <p>Jedes Werkzeug ruft den originalen Python-Code des Frameworks auf. Werkzeuge mit „nutzt deine Daten“ rechnen auf dem gewählten Datensatz, Simulationen erzeugen ihre eigenen Pfade.</p></div></div>
     ${catalogueHtml()}</section>`;
+  wireCatalogue(view);
   prewarmOnIntent(view);
+  view.querySelector('.catalogue-bar input')?.focus({ preventScroll: true });
 }
 
 // --------------------------------------------------------------------------- gallery & method
