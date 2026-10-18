@@ -34,8 +34,10 @@ SPEC = {
     ),
     "needs": ["returns"],
     "params": [
-        {"name": "window", "type": "int", "default": 60, "min": 20, "max": 500, "step": 5,
-         "label": "Fenster (Handelstage)", "help": "60 ≈ drei Monate, 250 ≈ ein Jahr."},
+        {"name": "window", "type": "int", "default": 250, "min": 20, "max": 500, "step": 5,
+         "label": "Fenster (Handelstage)",
+         "help": "250 ≈ ein Jahr (Basel-Standard für den 99-%-VaR), 60 ≈ drei Monate: reagiert schneller, "
+                 "schätzt seltene Verluste aber kaum."},
         {"name": "confidence", "type": "select", "default": 0.99, "label": "VaR-Konfidenz", "options": LEVELS},
         {"name": "tail_method", "type": "select", "default": "hill", "label": "Tail-Index-Schätzer",
          "options": [{"value": "hill", "label": "Hill"}, {"value": "pickands", "label": "Pickands"}]},
@@ -83,8 +85,10 @@ def run(params, data, out):
     r = np.asarray(data.returns, dtype=float)
     n = len(r)
     w, conf, method = int(params["window"]), float(params["confidence"]), params["tail_method"]
-    if n < w + 60:
-        raise ToolError(f"Die Reihe ({n} Tage) ist für ein Fenster von {w} Tagen zu kurz. Verkleinere das Fenster.")
+    if n < w + 30:
+        raise ToolError(f"Die Reihe ({n} Tage) ist für ein Fenster von {w} Tagen zu kurz: Für den Backtest "
+                        f"braucht es mindestens 30 Tage nach dem ersten Fenster. Verkleinere das Fenster auf "
+                        f"höchstens {max(n - 30, 0)} Tage.")
     lvl = next(o["label"] for o in LEVELS if o["value"] == params["confidence"])
 
     rr = RollingRiskMetrics(r, window=w)
@@ -104,7 +108,7 @@ def run(params, data, out):
     i_max = int(np.nanargmax(var))
     last_alpha = alpha[np.isfinite(alpha)][-1] if np.any(np.isfinite(alpha)) else np.nan
 
-    out.metric(f"VaR {lvl} heute", var[-1], "pct", hint=f"aus den letzten {w} Tagen",
+    out.metric(f"VaR {lvl} heute", var[-1], "pct", hint=f"Prognose für den letzten Tag aus den {w} Tagen davor",
                status="serious" if var[-1] > 1.5 * np.nanmedian(var) else None)
     out.metric(f"Expected Shortfall {lvl} heute", es[-1], "pct")
     out.metric(f"VaR {lvl} · Median", np.nanmedian(var), "pct", hint=f"Höchststand {_de(100 * var[i_max])} % am "
@@ -149,7 +153,8 @@ def run(params, data, out):
         x=xa, y=C.axis("Tail-Index α"),
         hlines=[C.hline(2, "α = 2: Grenze zur unendlichen Varianz", color="critical"),
                 C.hline(4, "α = 4: Kurtosis endlich")],
-        subtitle="Kleiner = fetterer Rand. In kurzen Fenstern stark verrauscht.",
+        subtitle="Aus den 10 % größten absoluten Tagesrenditen im Fenster (Gewinne und Verluste). Kleiner = "
+                 "fetterer Rand; in kurzen Fenstern stark verrauscht.",
     ))
 
     # --- chart 4: 3D risk phase space
@@ -190,7 +195,7 @@ def run(params, data, out):
         nxt = np.flatnonzero(sel)
         rows.append([name, np.nanmean(var[sel]), np.nanmean(es[sel]), np.nanmean(kurt[sel]), np.nanmean(skew[sel]),
                      np.nanmean(alpha[sel]), float(np.mean(breach[nxt])) if nxt.size else None])
-    out.table("Ruhige gegen gestresste Phasen", ["Phase (nach VaR)", f"Ø VaR {lvl}", f"Ø ES {lvl}", "Ø Kurtosis",
+    out.table("Ruhige gegen gestresste Phasen", ["Phase (nach VaR)", f"Ø VaR {lvl}", f"Ø ES {lvl}", "Ø Exzess-Kurtosis",
                                                  "Ø Schiefe", "Ø Tail-Index", "Verletzungsquote"],
               rows, formats=["text", "pct", "pct", "num", "num", "num", "pct"],
               note="Verletzungsquote: Anteil der Tage in dieser Phase, an denen die Rendite unter −VaR fiel.")

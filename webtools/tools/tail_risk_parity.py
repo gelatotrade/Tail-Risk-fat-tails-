@@ -23,7 +23,8 @@ SPEC = {
         "VaR liegt; **Risikobeitrag** = Gewicht × marginaler ES. Die Beiträge summieren sich exakt zum Portfolio-ES. "
         "Die Optimierung sucht Gewichte, bei denen jeder Beitrag 1/n des Ganzen ausmacht.\n\n"
         "Die Märkte stammen aus `SyntheticMarketGenerator`: korrelierte Assets mit unterschiedlicher Volatilität und "
-        "Student-t-artigen Rändern. Ändere den Seed für eine neue Welt, die Zahl der Assets oder das Konfidenzniveau.\n\n"
+        "Student-t-artigen Rändern. Die **Grundkorrelation** mischt einen gemeinsamen Marktfaktor bei (Aktien: etwa "
+        "0,3–0,5). Ändere den Seed für eine neue Welt, die Zahl der Assets oder das Konfidenzniveau.\n\n"
         "So liest du die Diagramme: Bei gleichen Gewichten tragen volatile, hoch korrelierte Assets einen viel "
         "größeren Teil des Crash-Risikos. Tail-Risk-Parity verschiebt Gewicht zu den Assets, die in Stresstagen "
         "wenig verlieren. Kann ein Asset in Stresstagen sogar gewinnen (Absicherung), ist eine exakte Gleichverteilung "
@@ -34,6 +35,9 @@ SPEC = {
         {"name": "n_assets", "type": "int", "default": 5, "min": 2, "max": 10, "step": 1, "label": "Anzahl Assets"},
         {"name": "n_days", "type": "int", "default": 2000, "min": 500, "max": 5000, "step": 100,
          "label": "Simulierte Handelstage"},
+        {"name": "base_correlation", "type": "float", "default": 0.3, "min": 0.0, "max": 0.9, "step": 0.05,
+         "label": "Grundkorrelation", "help": "Gemeinsamer Marktfaktor: 0 = Paarkorrelationen um 0, "
+                                              "0,3–0,5 ist typisch für Aktien."},
         {"name": "confidence", "type": "select", "default": 0.95, "label": "ES-Konfidenzniveau", "options": LEVELS,
          "help": "Höher = nur die extremsten Tage zählen, aber weniger Datenpunkte."},
         {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 99999, "step": 1, "label": "Zufalls-Seed"},
@@ -58,7 +62,8 @@ def run(params, data, out):
     k, n_days, conf, seed = int(params["n_assets"]), int(params["n_days"]), float(params["confidence"]), int(params["seed"])
     lvl = next(o["label"] for o in LEVELS if o["value"] == params["confidence"])
 
-    market = SyntheticMarketGenerator(n_assets=k, seed=seed).generate(n_days)
+    market = SyntheticMarketGenerator(n_assets=k, seed=seed,
+                                      base_correlation=float(params["base_correlation"])).generate(n_days)
     R = np.asarray(market["returns"], dtype=float)
     names = [f"Asset {i + 1}" for i in range(k)]
     trp = TailRiskParity(R, confidence=conf)
@@ -93,7 +98,8 @@ def run(params, data, out):
                status="serious" if ew["shares"][top_ew] > 2 / k else "warning" if ew["shares"][top_ew] > 1.4 / k else None)
     out.metric("Max. Abweichung vom Zielanteil · TRP", tp["dev"], "pct", digits=1,
                status="good" if tp["dev"] < 0.02 else "warning" if tp["dev"] < 0.06 else "serious")
-    out.metric("Max. Drawdown · gleich / TRP", ew["mdd"], "pct", digits=1, hint=f"TRP: {_de(100 * tp['mdd'], 1)} %")
+    out.metric("Max. Drawdown · gleich gewichtet", ew["mdd"], "pct", digits=1,
+               hint=f"Tail-Risk-Parity: {_de(100 * tp['mdd'], 1)} %")
 
     traces = lambda field: [C.trace(lbl, names, stats_p[key][field], type="bar", color=col)  # noqa: E731
                             for key, (lbl, _, col) in portfolios.items()]
@@ -107,9 +113,10 @@ def run(params, data, out):
     out.chart(C.xy(f"Marginaler ES {lvl}: Ø Verlust des Assets an den Stresstagen des Portfolios", traces("mes"),
                    x=C.axis("", type="category"), y=C.axis("Tagesverlust", fmt="pct", digits=1), barmode="group",
                    subtitle="Negativ heißt: Das Asset gewinnt im Mittel, wenn das Portfolio crasht."))
-    corr = np.asarray(market["correlations"], dtype=float)
-    out.chart(C.heatmap("Korrelationen der Assets", names, names, corr, z=C.axis("Korrelation", digits=2),
-                        scale="sequential", subtitle="Hoch korrelierte Assets crashen gemeinsam und teilen sich den Rand.",
+    corr = np.corrcoef(R.T)  # realised: what the optimiser actually sees
+    out.chart(C.heatmap("Korrelationen der simulierten Renditen", names, names, corr,
+                        z=C.axis("Korrelation", digits=2, range=(-1, 1)), scale="diverging", annotate=k <= 8,
+                        subtitle="Hoch korrelierte Assets crashen gemeinsam und teilen sich den Rand.",
                         height=320 + 12 * k))
 
     rows = []

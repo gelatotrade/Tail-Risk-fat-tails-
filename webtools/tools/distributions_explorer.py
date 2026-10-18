@@ -87,6 +87,11 @@ def _de(x, digits=2):
     return f"{x:.{digits}f}".replace(".", ",")
 
 
+def _thousands(x):
+    """1234567.8 -> '1.234.568' (German thousands separator)."""
+    return f"{x:,.0f}".replace(",", ".")
+
+
 def _sinh_grid(vol, n=40001):
     """Dense near 0, coarse in the far tails: x = vol * sinh(t)."""
     return vol * np.sinh(np.linspace(-np.arcsinh(SPAN), np.arcsinh(SPAN), n))
@@ -212,8 +217,8 @@ def run(params, data, out):
                status="serious" if worst["es"] > 1.3 * g["es"] else "warning" if worst["es"] > 1.1 * g["es"] else None)
     out.metric("ES-Aufschlag ggü. Gauß", worst["es"] / g["es"], "x", hint=f"{worst['short']} ÷ Gauß")
     out.metric("5-σ-Verlust: häufiger als Gauß", p5_worst / p5_g if p5_g > 0 else None, "x",
-               hint=f"{worst5['short']}: einmal in {1 / p5_worst / 252:,.0f} statt in {1 / p5_g / 252:,.0f} Jahren".replace(",", ".")
-               if p5_worst > 0 else "")
+               hint=f"{worst5['short']}: einmal in {_thousands(1 / p5_worst / 252)} statt in "
+                    f"{_thousands(1 / p5_g / 252)} Jahren" if p5_worst > 0 else "")
 
     # --- chart 1: densities on a log scale
     x = np.linspace(-8 * vol, 8 * vol, 641)
@@ -264,7 +269,7 @@ def run(params, data, out):
         "Verteilungen im Überblick", ["Verteilung", f"VaR {lvl}", f"ES {lvl}", "ES ÷ VaR",
                                       "P(< −3 σ)", "P(< −5 σ)", "5 σ vs. Gauß", "Exzess-Kurtosis", "σ (Stichprobe)"],
         rows, formats=["text", "pct", "pct", "num", "pct", "pct", "x", "num", "pct"],
-        note=(f"VaR/ES von Gauß und Student-t analytisch, sonst aus {n_s:,} Ziehungen. ".replace(",", ".")
+        note=(f"VaR/ES von Gauß und Student-t analytisch, sonst aus {_thousands(n_s)} Ziehungen. "
               + "Randwahrscheinlichkeiten durch Integration der Dichten; Exzess-Kurtosis der t-Verteilung ist für ν ≤ 4 "
               "unendlich, bei Variance Gamma aus der charakteristischen Funktion berechnet."),
     )

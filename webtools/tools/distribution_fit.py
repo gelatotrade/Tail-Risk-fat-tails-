@@ -2,6 +2,7 @@
 
 import numpy as np
 from scipy import stats
+from scipy.integrate import cumulative_trapezoid
 
 from src.models.fat_tail_distributions import (
     NormalInverseGaussian,
@@ -71,11 +72,27 @@ N_PARAMS = {"gaussian": 2, "student_t": 3, "nig": 4, "variance_gamma": 4}
 
 
 def _de(x, digits=2):
-    return f"{x:.{digits}f}".replace(".", ",")
+    return f"{x:.{digits}f}".replace(".", ",").replace("-", "−")
 
 
-def _sci(x):
-    return f"{x:.3g}".replace(".", ",")
+def _p(p):
+    """p-value as German text; tiny values as '< 0,001' instead of 3,0e-26."""
+    if p is None or not np.isfinite(p):
+        return "–"
+    return "< 0,001" if p < 0.001 else _de(p, 3)
+
+
+def _p_text(p):
+    txt = _p(p)
+    return f"p {txt}" if txt.startswith("<") else f"p = {txt}"
+
+
+def _left_tail(pdf, xs, far):
+    """P(R < -x) for each loss x in xs by integrating the density from -far (smooth, no Monte Carlo noise)."""
+    grid = -np.geomspace(far, float(np.min(xs)), 6000)
+    f = np.nan_to_num(np.asarray(pdf(grid), dtype=float), nan=0.0, posinf=0.0)
+    cum = cumulative_trapezoid(f, grid, initial=0.0)
+    return np.interp(-np.asarray(xs), grid, cum)
 
 
 def _var_es(x, conf):
@@ -118,9 +135,9 @@ def run(params, data, out):
         "student_t": {"pdf": t_dist.pdf, "ppf": t_dist.ppf, "cdf": t_dist.cdf, "sample": None,
                       "par": f"ν = {_de(tp['nu'])}, Skala = {_de(100 * tp['scale'])} %"},
         "nig": {"pdf": nig.pdf, "ppf": None, "cdf": None, "sample": s_nig,
-                "par": f"α = {_de(nig.alpha, 1)}, β = {_de(nig.beta, 1)}, δ = {_sci(nig.delta)}"},
+                "par": f"α = {_de(nig.alpha, 1)}, β = {_de(nig.beta, 1)}, δ = {_de(100 * nig.delta)} %"},
         "variance_gamma": {"pdf": vg.pdf, "ppf": None, "cdf": None, "sample": s_vg,
-                           "par": f"σ = {_de(100 * vg.sigma)} %, θ = {_sci(vg.theta)}, ν = {_de(vg.nu)}"},
+                           "par": f"σ = {_de(100 * vg.sigma)} %, θ = {_de(100 * vg.theta, 3)} %, ν = {_de(vg.nu)}"},
     }
     alpha = 1 - conf
     for key, m in models.items():
@@ -152,12 +169,12 @@ def run(params, data, out):
     rows = []
     for rank, key in enumerate(order, 1):
         m = models[key]
-        rows.append([rank, NAMES[key], m["par"], m["ks"], m["p"], m["ll"], m["aic"] - aic_min, m["var"], m["es"]])
-    rows.append(["", "Empirisch", f"{n} Tage", None, None, None, None, var_h, es_h])
+        rows.append([rank, NAMES[key], m["par"], m["ks"], _p(m["p"]), m["ll"], m["aic"] - aic_min, m["var"], m["es"]])
+    rows.append(["", "Empirisch", f"{n:,} Tage".replace(",", "."), None, None, None, None, var_h, es_h])
     out.table(
         "Modellvergleich (sortiert nach KS-Abstand)",
         ["Rang", "Modell", "Parameter", "KS-Abstand", "KS p-Wert", "Log-Likelihood", "ΔAIC", f"VaR {lvl}", f"ES {lvl}"],
-        rows, formats=["text", "text", "text", "num", "num", "num", "num", "pct", "pct"],
+        rows, formats=["text", "text", "text", "num", "text", "num", "num", "pct", "pct"],
         note="ΔAIC = AIC − bestes AIC (0 = bestes Modell; > 10 = deutlich schlechter). NIG und Variance Gamma sind "
              "Momenten-Fits, keine Maximum-Likelihood-Schätzungen; ihre Log-Likelihood ist daher nicht maximal.",
     )
@@ -202,18 +219,18 @@ def run(params, data, out):
     xs = np.geomspace(max(np.median(losses), 1e-4), losses[0] * 1.5, 70)
     emp = np.array([np.mean(r < -x) for x in xs])
     tail = [C.trace("Beobachtet", xs, np.where(emp > 0, emp, np.nan), type="scatter", color=4, size=6, decimate_to=None)]
+    far = max(1.0, 20 * float(losses[0]))  # NIG and VG tails are exponential: no mass left out there
+    y_floor = min(1e-6, 0.3 / n)
     for key in ("gaussian", "student_t", "nig", "variance_gamma"):
         m = models[key]
-        if m["cdf"] is not None:
-            y = np.asarray(m["cdf"](-xs), dtype=float)
-        else:
-            s = np.sort(m["sample"])
-            y = np.searchsorted(s, -xs, side="left") / len(s)
-        tail.append(C.trace(NAMES[key], xs, np.where(y > 1e-9, y, np.nan), color=COLORS[key], dash=key == "gaussian"))
+        y = (np.asarray(m["cdf"](-xs), dtype=float) if m["cdf"] is not None
+             else _left_tail(m["pdf"], xs, far))
+        tail.append(C.trace(NAMES[key], xs, np.where(y > y_floor, y, np.nan), color=COLORS[key],
+                            dash=key == "gaussian"))
     out.chart(C.xy(
         "Crash-Häufigkeit: P(Tagesrendite < −x)", tail,
         x=C.axis("Tagesverlust x", type="log", fmt="pct", digits=0), y=C.axis("Wahrscheinlichkeit pro Tag", type="log",
-                                                                                  range=(min(1e-6, 0.3 / n), 1)),
+                                                                                  range=(y_floor, 1)),
         subtitle="Log-Log-Achsen. Die Normalverteilung bricht ab; die Fat-Tail-Modelle folgen den Daten länger.",
         hlines=[C.hline(1 / 252, "einmal pro Jahr")],
     ))
@@ -224,9 +241,9 @@ def run(params, data, out):
         out.set_verdict(
             "good" if fits else "warning",
             f"{NAMES[best]} beschreibt die Renditen am besten",
-            f"Die Normalverteilung wird abgelehnt (KS p = {_sci(models['gaussian']['p'])}). "
+            f"Die Normalverteilung wird abgelehnt (KS-Test: {_p_text(models['gaussian']['p'])}). "
             + (f"{NAMES[best]} wird vom KS-Test nicht abgelehnt (p = {_de(bp, 2)})."
-               if fits else f"Aber auch {NAMES[best]} passt nicht perfekt (p = {_sci(bp)}); "
+               if fits else f"Aber auch {NAMES[best]} passt nicht perfekt ({_p_text(bp)}); "
                             "Volatilitäts-Cluster lassen sich mit keiner festen Verteilung erfassen."),
         )
     elif best == "gaussian":
