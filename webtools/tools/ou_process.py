@@ -177,16 +177,17 @@ def _fit(params, data, out, true_ou):
     rows = [["θ (pro Jahr)", fit.theta], ["μ", fit.mu], ["σ (pro √Jahr)", fit.sigma],
             ["Halbwertszeit (Handelstage)", fit.half_life() * 252], ["stationäre Std", fit.stationary_std()],
             ["AR(1)-Steigung b = e^(−θ·dt)", b]]
+    truth = [true_ou.theta, true_ou.mu, true_ou.sigma, true_ou.half_life() * 252, true_ou.stationary_std(),
+             np.exp(-true_ou.theta * DT)]
     if fit_source == "sim":
-        truth = [true_ou.theta, true_ou.mu, true_ou.sigma, true_ou.half_life() * 252, true_ou.stationary_std(),
-                 np.exp(-true_ou.theta * DT)]
         rows = [r + [tv, r[1] / tv - 1 if tv else None] for r, tv in zip(rows, truth)]
         out.table(f"Parameter-Schätzung aus {len(series)} Tagen ({_de(len(series) / 252, 1)} Jahre)",
                   ["Parameter", "geschätzt", "wahr", "Fehler"], rows, formats=["text", "num", "num", "pct"],
                   note="θ braucht viele Halbwertszeiten Daten: Bei kurzen Reihen wird es systematisch überschätzt.")
     else:
-        out.table(f"OU-Fit auf {label} ({len(series)} Tage)", ["Parameter", "geschätzt"], rows,
-                  formats=["text", "num"])
+        out.table(f"OU-Fit auf {label} ({len(series)} Tage)", ["Parameter", "geschätzt", "deine Simulation"],
+                  [r + [tv] for r, tv in zip(rows, truth)], formats=["text", "num", "num"],
+                  note="Rechts zum Vergleich die Parameter, mit denen du oben simulierst.")
     out.metric("Fit: Halbwertszeit", fit.half_life() * 252, "num", digits=0, unit="Handelstage",
                hint=f"geschätzt aus {source}")
     out.metric("Fit: μ", fit.mu, "num", hint=f"θ = {_de(fit.theta, 1)} pro Jahr, σ = {_de(fit.sigma, 1)}")
