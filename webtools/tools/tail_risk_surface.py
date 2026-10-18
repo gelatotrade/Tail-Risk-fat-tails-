@@ -227,6 +227,8 @@ def run(params, data, out):
         y=C.axis("Tail-Index α", range=(a_hi, a_lo)),
         z=C.axis(f"P(Verlust > {thr_txt})", fmt="pct", digits=0, range=(0, 1.05)),
         paths=paths, points=points, scale="risk", height=600,
+        # chosen by comparing views in the browser: the slope reads plateau -> ramp -> cliff -> peak
+        camera={"eye": {"x": 1.2, "y": 1.7, "z": 1.0}},
         subtitle=f"Grünes Plateau → gelbe Rampe → rote Klippe → violette Black-Swan-Spitze. Blau: die Bahn "
                  f"({est_name}-α und Vola über {w} Tage), dunkel: die letzten Tage und heute.",
     ))

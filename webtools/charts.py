@@ -120,14 +120,15 @@ def histogram(values: Sequence[float], bins: int = 80, density: bool = True,
 def surface(title: str, xs: Sequence[float], ys: Sequence[float], zs, *, x: Optional[dict] = None,
             y: Optional[dict] = None, z: Optional[dict] = None, subtitle: str = "",
             paths: Iterable[dict] = (), points: Iterable[dict] = (), scale: str = "risk",
-            height: int = 560) -> Dict[str, Any]:
+            height: int = 560, camera: Optional[dict] = None) -> Dict[str, Any]:
     """3D surface z[i][j] = f(xs[j], ys[i]) with optional 3D paths/points on top.
 
     scale: ``risk`` (calm -> black swan ramp) | ``sequential`` | ``diverging``.
     """
     return {"kind": "surface", "title": title, "subtitle": subtitle, "xs": list(xs), "ys": list(ys),
             "zs": np.asarray(zs, dtype=float), "x": x or axis(), "y": y or axis(), "z": z or axis(),
-            "paths": list(paths), "points": list(points), "scale": scale, "height": height}
+            "paths": list(paths), "points": list(points), "scale": scale, "height": height,
+            "camera": camera}
 
 
 def path3d(name: str, x: Sequence, y: Sequence, z: Sequence, *, color: Any = 1,
@@ -137,10 +138,14 @@ def path3d(name: str, x: Sequence, y: Sequence, z: Sequence, *, color: Any = 1,
 
 
 def scatter3d(title: str, traces: Iterable[dict], *, x: Optional[dict] = None, y: Optional[dict] = None,
-              z: Optional[dict] = None, subtitle: str = "", height: int = 560) -> Dict[str, Any]:
-    """3D lines / point clouds (Lévy flights, phase-space trajectories)."""
+              z: Optional[dict] = None, subtitle: str = "", height: int = 560,
+              camera: Optional[dict] = None) -> Dict[str, Any]:
+    """3D lines / point clouds (Lévy flights, phase-space trajectories).
+
+    ``camera`` (Plotly scene camera, e.g. ``{"eye": {"x": 1.6, "y": -1.6, "z": 1.2}}``) overrides the default view.
+    """
     return {"kind": "scatter3d", "title": title, "subtitle": subtitle, "traces": list(traces),
-            "x": x or axis(), "y": y or axis(), "z": z or axis(), "height": height}
+            "x": x or axis(), "y": y or axis(), "z": z or axis(), "height": height, "camera": camera}
 
 
 def heatmap(title: str, xs: Sequence, ys: Sequence, zs, *, x: Optional[dict] = None,
