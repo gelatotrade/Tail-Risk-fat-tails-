@@ -32,7 +32,10 @@ def jarque_bera_test(data: np.ndarray) -> Dict[str, float]:
 def kolmogorov_smirnov_test(data: np.ndarray, distribution: str = 'norm') -> Dict[str, float]:
     """Kolmogorov-Smirnov test against a distribution."""
     if distribution == 'norm':
-        stat, p_value = stats.kstest(data, 'norm', args=(np.mean(data), np.std(data)))
+        # A frozen distribution keeps loc/scale working across SciPy versions
+        # (SciPy >= 1.18 maps the string 'norm' to a fast path without loc/scale).
+        fitted = stats.norm(loc=np.mean(data), scale=np.std(data))
+        stat, p_value = stats.kstest(data, fitted.cdf)
     else:
         stat, p_value = stats.kstest(data, distribution)
 
