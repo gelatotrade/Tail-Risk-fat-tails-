@@ -12,11 +12,11 @@ from .. import charts as C
 
 SPEC = {
     "id": "bootstrap",
-    "title": "Wie sicher sind die Zahlen? (Bootstrap)",
+    "title": "Bootstrap-Konfidenzintervalle",
     "group": "data",
-    "order": 20,
-    "summary": "Konfidenzintervalle für VaR, Expected Shortfall, Kurtosis und Tail-Index: Wie stark würden die "
-               "Kennzahlen mit einer anderen, gleich plausiblen Geschichte schwanken?",
+    "order": 50,
+    "summary": "Wie stark VaR, Expected Shortfall, Kurtosis und Tail-Index mit einer anderen, gleich "
+               "plausiblen Geschichte schwanken würden – als Konfidenzintervall.",
     "description": (
         "Jede Risikokennzahl ist eine Schätzung aus einer einzigen Geschichte. Der **Bootstrap** "
         "(`bootstrap_confidence_interval`) zieht aus deinen Tagesrenditen viele neue Stichproben gleicher "

@@ -31,8 +31,8 @@ SPEC = {
         "Rendite und VIX-Sprung). **Kritischer Punkt** verfolgt AC(1), Varianz und Schiefe auf dem Weg zu einem "
         "Kipppunkt. **Physik-Dashboard** zeigt Lévy-, Tsallis- und Phasenübergangsraum.\n\n"
         "In jeder Ansicht ist das interaktive Diagramm oben die Hauptdarstellung (ziehen = drehen, Mausrad = "
-        "zoomen); darunter folgt die Original-Grafik aus `src/visualization`. Die Parameter gelten jeweils nur für "
-        "die Ansicht, die im Hilfetext steht."
+        "zoomen); darunter folgt die Original-Grafik aus `src/visualization`. Unter der Ansicht erscheinen nur die "
+        "Parameter, die für sie gelten."
     ),
     "needs": ["returns"],
     "params": [
@@ -45,16 +45,17 @@ SPEC = {
         {"name": "last_n", "type": "int", "default": 2520, "min": 250, "max": 5000, "step": 250,
          "label": "Zeitraum (letzte Handelstage)", "unit": "Tage"},
         {"name": "max_horizon", "type": "int", "default": 20, "min": 2, "max": 250, "step": 1,
-         "label": "Längster Horizont", "unit": "Tage", "help": "Nur VaR-Fläche."},
+         "label": "Längster Horizont", "unit": "Tage", "show_if": {"view": ["var"]}},
         {"name": "threshold", "type": "float", "default": 5.0, "min": 2.0, "max": 15.0, "step": 0.5,
-         "label": "Crash-Schwelle (Tagesverlust)", "unit": "%", "help": "Nur Modellfläche."},
+         "label": "Crash-Schwelle (Tagesverlust)", "unit": "%", "show_if": {"view": ["model"]}},
         {"name": "partner", "type": "select", "default": "lag", "label": "Zweite Reihe",
-         "help": "Nur gemeinsame Ränder.",
+         "show_if": {"view": ["joint"]},
          "options": [{"value": "lag", "label": "Rendite am Vortag"}, {"value": "vix", "label": "VIX-Veränderung"}]},
         {"name": "ews_window", "type": "int", "default": 50, "min": 20, "max": 250, "step": 5,
-         "label": "Fenster für AC(1), Varianz, Schiefe", "unit": "Tage", "help": "Nur kritischer Punkt."},
+         "label": "Fenster für AC(1), Varianz, Schiefe", "unit": "Tage", "show_if": {"view": ["critical"]}},
         {"name": "ac_threshold", "type": "float", "default": 0.7, "min": 0.3, "max": 0.99, "step": 0.01,
-         "label": "AC(1)-Schwelle „nahe kritisch“", "help": "Nur kritischer Punkt. Original: 0,7."},
+         "label": "AC(1)-Schwelle „nahe kritisch“", "help": "Original: 0,7.",
+         "show_if": {"view": ["critical"]}},
     ],
     "covers": [
         "src.visualization.risk_surface_3d.TailRisk3DSurface",

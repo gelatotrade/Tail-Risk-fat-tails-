@@ -15,7 +15,7 @@ SPEC = {
     "id": "risk-metrics",
     "title": "VaR & Expected Shortfall",
     "group": "risk",
-    "order": 20,
+    "order": 10,
     "summary": "Value at Risk auf vier Arten, Expected Shortfall, maximaler Drawdown und Omega-, Sortino- und "
                "Calmar-Ratio – und wie stark die Gauß-Annahme das Risiko unterschätzt.",
     "description": (

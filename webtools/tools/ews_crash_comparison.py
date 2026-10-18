@@ -12,8 +12,8 @@ SPEC = {
     "title": "Frühwarnindikatoren bei historischen Crashs",
     "group": "warning",
     "order": 25,
-    "summary": "Wie sich GEX, TailDex und VIX-Kurve vor und nach Volmageddon 2018, COVID 2020, dem Bärenmarkt "
-               "2022 und dem Zoll-Crash 2025 typischerweise verhalten – und welcher Indikator vorher anschlug.",
+    "summary": "Stilisierte Verläufe von GEX, TailDex und VIX-Kurve rund um vier Crashs (2018, 2020, 2022, "
+               "2025) – und welcher Indikator vorher anschlug.",
     "description": (
         "Das Framework hinterlegt für vier Crashs ein typisches Muster von drei Indikatoren: **Net Gamma "
         "Exposure** (GEX < 0: Dealer verstärken Bewegungen), **TailDex** (über 15: Crash-Absicherung wird teuer) "

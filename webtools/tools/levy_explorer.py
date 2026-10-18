@@ -9,7 +9,7 @@ from .. import charts as C
 
 SPEC = {
     "id": "levy-explorer",
-    "title": "Lévy-stabile Verteilung erkunden",
+    "title": "Lévy-stabile Verteilung",
     "group": "physics",
     "order": 10,
     "summary": "Wie der Stabilitätsindex α und die Schiefe β Dichte, Ränder und Zufallspfade einer "
@@ -132,7 +132,7 @@ def run(params, data, out):
         out.metric("Endliche Momente E|X|^p", "alle p", "text", hint="Gauß-Fall")
     out.metric("P(X < −5γ)", p_left5, "pct", hint=f"Stichprobe; Gauß: {g5 * 100:.2g} %".replace(".", ","),
                status="critical" if p_left5 > 1000 * g5 else "serious" if p_left5 > 10 * g5 else None)
-    out.metric("1 %-Quantil", float(np.quantile(s, 0.01)), "num",
+    out.metric("1-%-Quantil", float(np.quantile(s, 0.01)), "num",
                hint=f"in γ; Gauß: {_de(stats.norm.ppf(0.01) * g_sd)}".replace("-", "−"))
     out.metric("Größter Ausschlag", float(np.max(np.abs(s))), "num",
                hint="in γ, unter " + f"{m:,}".replace(",", ".") + " Ziehungen")
@@ -202,7 +202,7 @@ def run(params, data, out):
          C.trace("Gauß: e^(−t²)", t, np.real(phi_g), color="muted", dash=True)],
         x=C.axis("t (in 1/γ)"), y=C.axis("φ(t)", range=(-1.05, 1.05)),
         subtitle="|φ(t)| = e^(−|t|^α): Die Spitze bei t = 0 für α < 2 ist der Fingerabdruck der fetten Ränder. "
-                 "Im φ ≠ 0 bedeutet Schiefe.", height=300,
+                 "Ein Imaginärteil Ein Imaginärteil Im φ ≠ 0 bedeutet Schiefe.", height=300,
     ))
 
     # --- table: tail probabilities

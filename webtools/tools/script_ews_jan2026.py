@@ -7,7 +7,8 @@ SPEC = {
     "title": "Frühwarnanalyse Januar 2026",
     "group": "scripts",
     "order": 43,
-    "summary": "Die Frühwarnanalyse zum Jahresbeginn 2026 mit allen fünf Indikatoren und dem Composite-Score.",
+    "summary": "Die Frühwarnanalyse zum Jahresbeginn 2026 mit allen fünf Indikatoren und dem "
+               "Komposit-Score.",
     "description": (
         "Führt `generate_ews_jan2026.py` aus: Stand der Frühwarnindikatoren am 3. Januar 2026 im Vergleich zu den "
         "Krisen – die Grundlage des Abschnitts „Current Market Status“ im README."

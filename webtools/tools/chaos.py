@@ -10,7 +10,7 @@ from ..core import ToolError
 
 SPEC = {
     "id": "chaos",
-    "title": "Chaos oder Zufall? Lyapunov & Rekurrenz",
+    "title": "Chaos-Test: Lyapunov & Rekurrenz",
     "group": "regime",
     "order": 70,
     "summary": "Schätzt den Lyapunov-Exponenten und die Rekurrenzstruktur deiner Renditen – und prüft ehrlich gegen "

@@ -10,7 +10,7 @@ from ..core import ToolError
 
 SPEC = {
     "id": "tail-risk-surface",
-    "title": "3D-Tail-Risk-Fläche: Wo steht der Markt?",
+    "title": "3D-Tail-Risk-Fläche mit Marktbahn",
     "group": "surface",
     "order": 10,
     "summary": "Die Hauptgrafik des Frameworks, drehbar: Crash-Wahrscheinlichkeit über Volatilität und Tail-Index – "

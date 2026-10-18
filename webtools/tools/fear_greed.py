@@ -42,7 +42,7 @@ SPEC = {
                      {"value": "sim", "label": "Simulierte Jahres-Historie (Perzentil-Modus)"}],
          "help": "Mit Historie bewertet das Framework die Put/Call-Ratio relativ (Perzentil) und gibt Konträr-Signale."},
         {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 99999, "step": 1,
-         "label": "Seed der Historie", "help": "Nur für die simulierte Put/Call-Historie."},
+         "label": "Seed der Historie", "show_if": {"history": ["sim"]}},
         {"name": "what_if", "type": "select", "default": "vix", "label": "Was-wäre-wenn für",
          "options": [{"value": "vix", "label": "VIX"}, {"value": "put_call", "label": "Put/Call-Ratio"},
                      {"value": "breadth", "label": "Marktbreite"}, {"value": "momentum", "label": "Momentum"}]},

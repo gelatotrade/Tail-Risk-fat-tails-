@@ -12,9 +12,9 @@ DAYS = 252
 
 SPEC = {
     "id": "evt-lab",
-    "title": "EVT-Labor: GEV und GPD",
+    "title": "EVT-Labor: GEV & GPD",
     "group": "risk",
-    "order": 35,
+    "order": 30,
     "summary": "Simuliere Verluste mit bekanntem Rand und sieh zu, wie Blockmaxima (GEV) und Peaks over Threshold "
                "(GPD) den Formparameter ξ zurückgewinnen.",
     "description": (
@@ -37,7 +37,7 @@ SPEC = {
                      {"value": "gaussian", "label": "Normalverteilung (Gumbel, ξ = 0)"},
                      {"value": "bounded", "label": "Begrenzt auf 5 % (Weibull, ξ = −½)"}]},
         {"name": "nu", "type": "float", "default": 3.0, "min": 1.5, "max": 20.0, "step": 0.5,
-         "label": "Student-t: Freiheitsgrade ν", "help": "Nur für die Student-t. ξ = 1/ν."},
+         "label": "Student-t: Freiheitsgrade ν", "help": "ξ = 1/ν.", "show_if": {"parent": ["student_t"]}},
         {"name": "n_obs", "type": "int", "default": 5040, "min": 1000, "max": 50000, "step": 252,
          "label": "Simulierte Handelstage", "help": "5.040 = 20 Jahre."},
         {"name": "block_size", "type": "int", "default": 20, "min": 5, "max": 100, "step": 1,

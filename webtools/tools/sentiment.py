@@ -13,8 +13,8 @@ SPEC = {
     "title": "VIX-Sentiment: Angst, Spikes, Umkehr",
     "group": "warning",
     "order": 30,
-    "summary": "Wie viel Angst steckt im VIX? Regime, Perzentil, Spikes und Mean-Reversion-Signal über die Zeit – "
-               "und was danach mit den Kursen geschah.",
+    "summary": "Wie viel Angst im VIX steckt – Regime, Perzentil, Spikes und Mean-Reversion-Signal über "
+               "die Zeit, und was danach mit den Kursen geschah.",
     "description": (
         "Der VIX misst die für 30 Tage erwartete Schwankung des S&P 500 aus Optionspreisen – das bekannteste "
         "Angstbarometer. Der `VIXAnalyzer` des Frameworks ordnet ihn in Regime ein (unter 15 sorglos, bis 25 "

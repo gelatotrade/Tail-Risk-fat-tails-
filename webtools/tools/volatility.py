@@ -14,9 +14,9 @@ SPEC = {
     "id": "volatility",
     "title": "Volatilität: rollierend, EWMA, realisiert",
     "group": "risk",
-    "order": 60,
-    "summary": "Wie schnell reagiert eine Volatilitätsschätzung auf Stress? Rollierendes Fenster gegen "
-               "RiskMetrics-EWMA – gemessen an der danach realisierten Schwankung und am VaR-Backtest.",
+    "order": 40,
+    "summary": "Rollierendes Fenster gegen RiskMetrics-EWMA: wie schnell eine Volatilitätsschätzung auf "
+               "Stress reagiert, gemessen an der danach realisierten Schwankung und am VaR-Backtest.",
     "description": (
         "Volatilität lässt sich nicht beobachten, nur schätzen. Das **rollierende Fenster** "
         "(`rolling_window`) gibt den letzten n Tagen gleiches Gewicht und vergisst alles davor schlagartig. "

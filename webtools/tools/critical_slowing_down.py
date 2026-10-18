@@ -10,11 +10,11 @@ from ..data import index_axis
 
 SPEC = {
     "id": "critical-slowing-down",
-    "title": "Kritisches Verlangsamen (Frühwarnsignale)",
+    "title": "Kritisches Verlangsamen: AC(1) & Varianz",
     "group": "regime",
-    "order": 35,
-    "summary": "Steigen Autokorrelation und Varianz systematisch an? Das klassische Vorzeichen eines Kipppunkts – "
-               "mit Kendall-τ-Trendtest und Warnstufe.",
+    "order": 30,
+    "summary": "Ob Autokorrelation und Varianz systematisch steigen – das klassische Vorzeichen eines "
+               "Kipppunkts, mit Kendall-τ-Trendtest und Warnstufe.",
     "description": (
         "Kurz vor einem Kipppunkt erholt sich ein System immer langsamer von kleinen Störungen. Messbar wird das "
         "als **steigende Autokorrelation AC(1)** (der Markt „erinnert“ sich länger an gestern) und **steigende "
@@ -23,7 +23,7 @@ SPEC = {
         "Die Schiefe kommt aus den Renditen selbst.\n\n"
         "So liest du die Diagramme: Entscheidend ist nicht das Niveau, sondern der **Trend im Analysefenster** "
         "(grau hinterlegt). Schon eine reine Irrfahrt hat hier eine hohe AC(1) – die gestrichelte Linie zeigt "
-        "dieses Vergleichsniveau. Kendall-τ misst ihn: +1 heißt „steigt ständig“, 0 „kein Trend“. Daraus folgt die "
+        "dieses Vergleichsniveau. Kendall-τ misst diesen Trend: +1 heißt „steigt ständig“, 0 „kein Trend“. Daraus folgt die "
         "Warnstufe: Kritisch, wenn AC(1) **und** Varianz deutlich steigen (τ > 0,3, p < 0,05). Der "
         "Kompositindikator ist der Mittelwert der z-Werte von AC(1) und Varianz über die ganze Reihe.\n\n"
         "Parameter: Das **Fenster** bestimmt, wie viele Tage in jede Messung eingehen (kürzer = schneller, aber "
@@ -160,7 +160,7 @@ def run(params, data, out):
         [C.trace("√Varianz", x, np.sqrt(_padded(full["variance"], w)), color=1, width=1.5)],
         x=xa, y=C.axis("Streuung des Log-Kurses", fmt="pct", digits=1), bands=bands, height=280,
         subtitle=f"Kendall-τ der Varianz im Analysefenster: {_de(var_tau)} ({_p(var_p)}). "
-                 "Steigende Streuung: die Ausschläge werden größer.",
+                 "Steigende Streuung: Die Ausschläge werden größer.",
     ))
     out.chart(C.xy(
         f"Schiefe der Tagesrenditen – rollierend über {w} Tage",

@@ -21,14 +21,14 @@ SPEC = {
     "title": "Fat-Tail-Verteilungen im Vergleich",
     "group": "data",
     "order": 30,
-    "summary": "Student-t, Generalisierte Hyperbolische, NIG und Variance Gamma bei gleicher Volatilität: "
-               "Wie viel dicker sind ihre Ränder, und wie stark steigen VaR und Expected Shortfall?",
+    "summary": "Student-t, GH, NIG und Variance Gamma bei gleicher Volatilität – wie viel dicker ihre "
+               "Ränder sind und wie stark VaR und Expected Shortfall steigen.",
     "description": (
         "Alle fünf Verteilungen haben hier **dieselbe Tagesvolatilität** und den Mittelwert 0. Sie unterscheiden "
         "sich nur in der Form: Die **Student-t** hat Ränder nach einem Potenzgesetz (Freiheitsgrade ν: je kleiner, "
         "desto dicker). Die **Generalisierte Hyperbolische (GH)** ist eine Normalverteilung, deren Varianz selbst "
         "zufällig ist (GIG-Mischung); λ und α·δ steuern Form und Randgewicht. **NIG** ist der Spezialfall λ = −½, "
-        "**Variance Gamma** eine Brownsche Bewegung mit Gamma-Zeitwechsel (ν = Varianz der Zeit, ≈ Exzess-Kurtosis/3).\n\n"
+        "**Variance Gamma** eine Brown'sche Bewegung mit Gamma-Zeitwechsel (ν = Varianz der Zeit, ≈ Exzess-Kurtosis/3).\n\n"
         "So liest du die Diagramme: Auf der **logarithmischen** Dichte-Achse ist die Normalverteilung eine nach unten "
         "offene Parabel, die Fat-Tail-Familien fallen fast linear (exponentiell) oder noch langsamer (Potenzgesetz). "
         "Das Rand-Diagramm zeigt, wie oft ein Verlust jenseits von k σ vorkommt; bei 5 σ trennen die Modelle "

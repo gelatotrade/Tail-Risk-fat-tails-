@@ -13,8 +13,8 @@ SPEC = {
     "title": "Potenzgesetz im Rand: Tail-Exponent",
     "group": "data",
     "order": 40,
-    "summary": "Wie schnell fällt die Wahrscheinlichkeit großer Tage ab? Exponent, Beginn des Rands und welche "
-               "Momente (Varianz, Kurtosis) überhaupt existieren.",
+    "summary": "Wie schnell die Wahrscheinlichkeit großer Tage abfällt – Tail-Exponent, Beginn des Rands "
+               "und welche Momente (Varianz, Kurtosis) überhaupt existieren.",
     "description": (
         "Oberhalb einer Schwelle x_min folgen große Tagesbewegungen oft einem **Potenzgesetz**: Die Dichte fällt "
         "wie x^−α, die Wahrscheinlichkeit eines Tages jenseits von x wie x^−(α−1). Der **Tail-Index α − 1** ist "

@@ -12,12 +12,12 @@ SPEC = {
     "id": "market-phase",
     "title": "Marktphase: stabil, Trend, kritisch, Crash",
     "group": "regime",
-    "order": 30,
-    "summary": "In welcher Phase steckt der Markt gerade? Fünf transparente Regeln, ihre Zeitleiste und die Bahn "
-               "des Markts durch einen 3D-Phasenraum.",
+    "order": 20,
+    "summary": "In welcher Phase der Markt gerade steckt – fünf transparente Regeln, ihre Zeitleiste und "
+               "die Bahn des Markts durch einen 3D-Phasenraum.",
     "description": (
         "Der Klassifikator übersetzt die Physik der Phasenübergänge in fünf einfache Regeln, die der Reihe nach "
-        "geprüft werden: **Crash** (Volatilität im obersten 5 % der Geschichte und im Schnitt mehr als −2 % pro Tag), "
+        "geprüft werden: **Crash** (Volatilität in den obersten 5 % der Geschichte und im Schnitt mehr als −2 % pro Tag), "
         "**Kritisch** (die Frühwarnsignale Autokorrelation und Varianz steigen beide deutlich), **Erholung** "
         "(Volatilität im obersten Zehntel, aber steigende Kurse), **Trend** (starke Autokorrelation und mehr als "
         "1 % Bewegung pro Tag) – sonst **Stabil**. Die Tabelle zeigt für jede Regel die aktuellen Werte.\n\n"

@@ -22,7 +22,7 @@ SPEC = {
     "id": "distribution-fit",
     "title": "Verteilungs-Fit & Modellwahl",
     "group": "data",
-    "order": 35,
+    "order": 20,
     "summary": "Passt Normal-, Student-t-, NIG- und Variance-Gamma-Verteilung an deine Renditen an und zeigt, "
                "welche die Ränder am besten trifft.",
     "description": (

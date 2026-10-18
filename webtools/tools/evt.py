@@ -16,7 +16,7 @@ SPEC = {
     "id": "evt",
     "title": "Extremwerttheorie (EVT)",
     "group": "risk",
-    "order": 30,
+    "order": 20,
     "summary": "Modelliert nur den Rand: GPD oberhalb einer Schwelle, GEV für Blockmaxima – mit VaR, Expected "
                "Shortfall und Verlusten, die einmal in 10 oder 100 Jahren auftreten.",
     "description": (

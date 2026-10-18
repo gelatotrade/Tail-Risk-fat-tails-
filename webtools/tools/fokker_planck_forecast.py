@@ -10,9 +10,9 @@ from ..core import ToolError
 
 SPEC = {
     "id": "fokker-planck-forecast",
-    "title": "Fokker-Planck-Prognose der Tail-Risiken",
+    "title": "Fokker-Planck: Prognose der Ränder",
     "group": "physics",
-    "order": 50,
+    "order": 45,
     "summary": "Schreibt die heutige Verteilung mit der fraktionalen Fokker-Planck-Gleichung über h Tage fort und "
                "misst, wie stark die Ränder gegenüber Gauß wachsen.",
     "description": (
@@ -46,13 +46,13 @@ SPEC = {
          "label": "Heutige Breite (in σ)"},
         {"name": "surface", "type": "bool", "default": True, "label": "3D-Risikofläche berechnen"},
         {"name": "surface_n", "type": "int", "default": 3, "min": 2, "max": 5, "step": 1,
-         "label": "Fläche: Punkte je Achse"},
+         "label": "Fläche: Punkte je Achse", "show_if": {"surface": [True]}},
         {"name": "surface_h_max", "type": "int", "default": 60, "min": 10, "max": 120, "step": 5,
-         "label": "Fläche: Horizont bis (Tage)"},
+         "label": "Fläche: Horizont bis (Tage)", "show_if": {"surface": [True]}},
         {"name": "surface_vol_max", "type": "float", "default": 3.0, "min": 1.5, "max": 4.0, "step": 0.5,
-         "label": "Fläche: Vola-Regime bis"},
+         "label": "Fläche: Vola-Regime bis", "show_if": {"surface": [True]}},
         {"name": "threshold", "type": "float", "default": 4.0, "min": 2.0, "max": 5.0, "step": 0.5,
-         "label": "Fläche: Schwelle (σ)"},
+         "label": "Fläche: Schwelle (σ)", "show_if": {"surface": [True]}},
     ],
     "covers": [
         "src.physics.fokker_planck.FokkerPlanckTailRisk",

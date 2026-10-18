@@ -17,7 +17,7 @@ SPEC = {
                "Pickands und vergleicht Lévy-, historischen und Gauß-VaR.",
     "description": (
         "Der **Quantil-Schätzer von McCulloch** liest α, β, γ und δ aus fünf Quantilen der Renditen ab: Wie weit "
-        "liegen 5 %- und 95 %-Quantil im Verhältnis zum Interquartilsabstand auseinander? Daraus simuliert "
+        "liegen 5-%- und 95-%-Quantil im Verhältnis zum Interquartilsabstand auseinander? Daraus simuliert "
         "`LevyFlightProcess` den Value at Risk und den Expected Shortfall. Über mehrere Tage aggregiert er exakt "
         "stabil: Die Skala wächst mit h^(1/α) statt mit √h.\n\n"
         "Der **Hill-Schätzer** misst den Tail-Index direkt an den 10 % größten absoluten Renditen. Das ist der "
@@ -192,7 +192,7 @@ def run(params, data, out):
          C.trace("Normalverteilung", tail_p, v_g, color="muted", dash=True)],
         x=C.axis("Überschreitungswahrscheinlichkeit 1 − c", type="log", fmt="pct", digits=1),
         y=C.axis("Value at Risk (Verlust)", fmt="pct", digits=1),
-        subtitle="Links liegen die extremen Niveaus (99,9 %), rechts das 90 %-Niveau.",
+        subtitle="Links liegen die extremen Niveaus (99,9 %), rechts das 90-%-Niveau.",
     ))
 
     # --- tables

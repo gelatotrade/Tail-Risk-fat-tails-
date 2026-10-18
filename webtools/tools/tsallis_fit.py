@@ -12,7 +12,7 @@ SPEC = {
     "id": "tsallis-fit",
     "title": "Tsallis-Fit & Risikostufe",
     "group": "physics",
-    "order": 70,
+    "order": 80,
     "summary": "Schätzt den Tsallis-Index q deiner Renditen auf drei Wegen, vergleicht Modell und Daten an den "
                "Rändern und zeigt die Risikostufe des Tsallis-Modells.",
     "description": (

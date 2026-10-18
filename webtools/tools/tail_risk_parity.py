@@ -13,7 +13,7 @@ SPEC = {
     "id": "tail-risk-parity",
     "title": "Tail-Risk-Parity",
     "group": "risk",
-    "order": 50,
+    "order": 70,
     "summary": "Verteilt ein Portfolio so, dass jedes Asset gleich viel zum Expected Shortfall beiträgt – im "
                "Vergleich mit gleichen Gewichten und klassischer Volatilitäts-Parität.",
     "description": (

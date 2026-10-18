@@ -11,8 +11,8 @@ SPEC = {
     "id": "ou-process",
     "title": "Ornstein-Uhlenbeck: Rückkehr zum Mittel",
     "group": "physics",
-    "order": 40,
-    "summary": "Wie schnell kehrt eine Größe wie der VIX zu ihrem Mittel zurück? Pfad-Fächer mit exaktem "
+    "order": 50,
+    "summary": "Wie schnell eine Größe wie der VIX zu ihrem Mittel zurückkehrt – Pfad-Fächer mit exaktem "
                "Erwartungsband, Halbwertszeit und Parameter-Schätzung aus Daten.",
     "description": (
         "Der Ornstein-Uhlenbeck-Prozess **dx = θ(μ − x)dt + σ dW** stammt aus der Physik (Geschwindigkeit eines "

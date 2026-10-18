@@ -11,7 +11,7 @@ SPEC = {
     "id": "phase-portrait",
     "title": "Markt-Phasenporträt: Momentum, Vola, Schiefe",
     "group": "regime",
-    "order": 60,
+    "order": 40,
     "summary": "Verfolgt den Markt als Punkt im Raum aus Momentum, Volatilität und Schiefe – mit Attraktoren, "
                "Tempo, Beschleunigung und Abstand vom Gleichgewicht.",
     "description": (

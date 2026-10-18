@@ -17,9 +17,9 @@ SPEC = {
     "id": "synthetic-data",
     "title": "Synthetische Märkte im Vergleich",
     "group": "data",
-    "order": 30,
+    "order": 60,
     "summary": "Die sechs Renditemodelle des Frameworks nebeneinander – Gauß, Student-t, Lévy, GARCH, "
-               "Regimewechsel, Lévy-Sprünge – plus Krisenszenario und abgeleiteter VIX.",
+               "Regimewechsel und Lévy-Sprünge –, dazu das Krisenszenario mit abgeleitetem VIX.",
     "description": (
         "Das Framework erzeugt künstliche Tagesrenditen mit `generate_synthetic_returns` in sechs Modellen: "
         "**Normalverteilung** (die Referenz), **Student-t** mit ν = 4, **Lévy-stabil** mit α = 1,7 (unendliche "

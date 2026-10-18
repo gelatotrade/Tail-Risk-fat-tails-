@@ -9,9 +9,9 @@ from .. import charts as C
 
 SPEC = {
     "id": "tsallis-explorer",
-    "title": "Tsallis-Verteilung (q-Gauß) erkunden",
+    "title": "Tsallis-Verteilung (q-Gauß)",
     "group": "physics",
-    "order": 60,
+    "order": 70,
     "summary": "Wie der entropische Index q aus der Gauß-Glocke eine Verteilung mit Potenzgesetz-Rändern macht – "
                "Dichte, Quantile, Stichproben und Tsallis-Entropie.",
     "description": (
@@ -98,7 +98,7 @@ def run(params, data, out):
     out.metric("Varianz", var if same_var else "∞", "num" if same_var else "text",
                hint="1/(β(5 − 3q)), endlich nur für q < 5/3")
     p99, g99 = float(dist.ppf(0.99)), float(stats.norm.ppf(0.99, 0, g_sd))
-    out.metric("99 %-Quantil", p99, "num", hint=f"{ref_label}: {_de(g99)}")
+    out.metric("99-%-Quantil", p99, "num", hint=f"{ref_label}: {_de(g99)}")
     p4 = float(dist.tail_probability(4 * g_sd, "both", exact=True))
     g4 = float(2 * stats.norm.sf(4))
     out.metric("P(|X| > 4σ)", p4, "pct", hint=f"σ der Gauß-Referenz; Gauß: {_de(100 * g4, 4)} %",

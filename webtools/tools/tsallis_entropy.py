@@ -12,7 +12,7 @@ SPEC = {
     "id": "tsallis-entropy",
     "title": "Tsallis-Entropie im Zeitverlauf",
     "group": "regime",
-    "order": 40,
+    "order": 50,
     "summary": "Rollierende Tsallis-Entropie und Tail-Index q neben realisierter Volatilität und VIX – mit einem "
                "ehrlichen Test, ob die Entropie künftige Turbulenz ankündigt.",
     "description": (

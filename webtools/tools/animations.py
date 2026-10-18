@@ -60,7 +60,7 @@ SPEC = {
         {"name": "dpi", "type": "int", "default": 75, "min": 50, "max": 100, "step": 5, "label": "Auflösung",
          "unit": "dpi", "help": "Höher = schärfer, aber größere Datei und längere Rechenzeit."},
         {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 99999, "step": 1,
-         "label": "Zufalls-Seed (nur Risiko-Tacho)",
+         "label": "Zufalls-Seed (nur Risiko-Tacho)", "show_if": {"kind": ["gauge"]},
          "help": "Modellrauschen der Frühwarn-Indikatoren. Gleicher Seed = gleicher Score."},
     ],
     "covers": [

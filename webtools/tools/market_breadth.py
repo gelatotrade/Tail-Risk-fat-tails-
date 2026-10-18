@@ -10,11 +10,11 @@ from .. import charts as C
 
 SPEC = {
     "id": "market-breadth",
-    "title": "Marktbreite: Thrust und Divergenz",
+    "title": "Marktbreite: Thrust & Divergenz",
     "group": "warning",
     "order": 50,
-    "summary": "Wie viele Aktien tragen den Index? Breadth-Thrust- und Divergenz-Signale auf einem simulierten "
-               "Markt mit vielen Einzelwerten.",
+    "summary": "Wie viele Aktien den Index tragen – Breadth-Thrust- und Divergenz-Signale auf einem "
+               "simulierten Markt mit vielen Einzelwerten.",
     "description": (
         "**Marktbreite** misst, wie viele Aktien eine Bewegung mittragen. Zwei Kennzahlen: der Anteil der "
         "Aktien über ihrer 50-Tage-Linie und die **Advance/Decline-Linie** (kumuliert: steigende minus "
@@ -22,8 +22,8 @@ SPEC = {
         "**Breadth Thrust** (die Breite springt in 10 Tagen um mehr als 40 Prozentpunkte – oft der Start einer "
         "Erholung) und eine **Divergenz** (der Index markiert ein 20-Tage-Hoch, die A/D-Linie nicht – die Rally "
         "steht auf wenigen Schultern, ein klassisches Warnzeichen).\n\n"
-        "Da echte Einzelwertdaten fehlen, erzeugt `SyntheticMarketGenerator` einen Markt aus korrelierten, "
-        "fett geschwänzten Aktien; der Index ist ihr gleichgewichteter Mittelwert. Die **gemeinsame "
+        "Da echte Einzelwertdaten fehlen, erzeugt `SyntheticMarketGenerator` einen Markt aus korrelierten "
+        "Aktien mit fetten Rändern; der Index ist ihr gleichgewichteter Mittelwert. Die **gemeinsame "
         "Marktkorrelation** steuert, wie stark die Titel gemeinsam schwanken: Im Original (0) schwanken die "
         "Paarkorrelationen um null, die Breite bewegt sich dann kaum. Reale Aktien liegen bei etwa 0,3–0,5.\n\n"
         "So liest du die Diagramme: Grüne Punkte markieren Thrust-Signale, orange Divergenz-Tage. Die Tabelle "

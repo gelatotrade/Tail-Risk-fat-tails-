@@ -12,7 +12,7 @@ SPEC = {
     "id": "ou-jumps",
     "title": "OU mit Sprüngen: Crash-Risiko im VaR",
     "group": "physics",
-    "order": 45,
+    "order": 55,
     "summary": "Was seltene Sprünge mit VaR und Expected Shortfall machen – normal-, doppelt-exponential- oder "
                "Lévy-verteilt, im direkten Vergleich zum Prozess ohne Sprünge.",
     "description": (

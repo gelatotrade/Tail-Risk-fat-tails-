@@ -15,7 +15,7 @@ SPEC = {
     "id": "rolling-risk",
     "title": "Rollierendes Risiko & VaR-Backtest",
     "group": "risk",
-    "order": 40,
+    "order": 50,
     "summary": "VaR, Expected Shortfall, Schiefe, Kurtosis und Tail-Index im gleitenden Fenster – mit ehrlichem "
                "Backtest und dem Weg des Marktes durch den 3D-Risikoraum.",
     "description": (

@@ -11,7 +11,7 @@ from ..data import index_axis
 
 SPEC = {
     "id": "fat-tails",
-    "title": "Warum die Normalverteilung versagt",
+    "title": "Fette Ränder vs. Normalverteilung",
     "group": "data",
     "order": 10,
     "summary": "Wie oft 3-, 4- und 5-Sigma-Tage wirklich vorkommen – im Vergleich zur Gauß-Annahme.",

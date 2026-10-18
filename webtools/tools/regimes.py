@@ -22,7 +22,7 @@ DAYS = 252
 
 SPEC = {
     "id": "regimes",
-    "title": "Volatilitäts-Regime",
+    "title": "Volatilitätsregime (Markov)",
     "group": "regime",
     "order": 10,
     "summary": "Erkennt ruhige und gestresste Marktphasen mit einem Markov-Regimewechselmodell und zeigt, wie "

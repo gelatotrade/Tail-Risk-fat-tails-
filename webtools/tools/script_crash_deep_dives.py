@@ -10,7 +10,7 @@ SPEC = {
     "summary": "Die vier Detailanalysen (2018, 2020, 2022, 2025) mit echten Kalenderdaten und allen Frühwarnindikatoren.",
     "description": (
         "Führt `generate_crash_deep_dives.py` aus: Volmageddon 2018, COVID-19 2020, Bärenmarkt 2022 und "
-        "Zoll-Crash 2025 – jeweils Kursverlauf, Indikatoren und Composite-Score auf einer Zeitachse, dazu der "
+        "Zoll-Crash 2025 – jeweils Kursverlauf, Indikatoren und Komposit-Score auf einer Zeitachse, dazu der "
         "Vergleich aller vier Crashs."
     ),
     "needs": [],

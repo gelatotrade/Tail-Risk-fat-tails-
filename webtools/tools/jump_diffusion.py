@@ -13,8 +13,8 @@ SPEC = {
     "title": "Sprünge vs. Diffusion: VaR-Zerlegung",
     "group": "risk",
     "order": 60,
-    "summary": "Welcher Teil des Tail-Risikos kommt aus seltenen Sprüngen und welcher aus dem normalen "
-               "Rauschen? Sprungerkennung, Monte-Carlo-VaR-Zerlegung und OU-Koordinaten.",
+    "summary": "Wie viel des Tail-Risikos aus seltenen Sprüngen und wie viel aus normalem Rauschen kommt – "
+               "mit Sprungerkennung, Monte-Carlo-VaR-Zerlegung und OU-Koordinaten.",
     "description": (
         "Das Modell zerlegt deine Renditen in zwei Teile: **Sprünge** sind alle Tage, die weiter als die "
         "Schwelle (in Standardabweichungen) vom Mittel entfernt liegen; der Rest ist die **Diffusion**. Auf die "
