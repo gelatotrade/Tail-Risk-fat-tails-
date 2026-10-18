@@ -15,6 +15,7 @@ This module provides methods to:
 
 import math
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 from scipy import stats
 from typing import Tuple, Optional, Dict, List
 import warnings
@@ -471,6 +472,23 @@ class RegimeAwareTailRisk:
         }
 
 
+def _trailing_std(returns: np.ndarray, length: int) -> np.ndarray:
+    """out[j] = np.std(returns[j-length:j]) for j >= length, NaN before."""
+    out = np.full(len(returns) + 1, np.nan)
+    if len(returns) >= length:
+        out[length:] = sliding_window_view(returns, length).std(axis=1)
+    return out
+
+
+def _rowwise_abs_corr(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """|Pearson correlation| of matching rows (NaN for constant rows, like np.corrcoef)."""
+    a = a - a.mean(axis=1, keepdims=True)
+    b = b - b.mean(axis=1, keepdims=True)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        corr = (a * b).sum(axis=1) / np.sqrt((a * a).sum(axis=1) * (b * b).sum(axis=1))
+    return np.abs(np.clip(corr, -1, 1))
+
+
 def compute_regime_coordinates(returns: np.ndarray,
                               window: int = 30) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
@@ -482,32 +500,57 @@ def compute_regime_coordinates(returns: np.ndarray,
     - Z: Regime transition probability
 
     High X, low Y, high Z = unstable high-vol regime (danger)
+
+    The first 2 * window entries have no estimate and are 0. X and Z are
+    min-max normalized over the estimated entries only. window must be >= 8.
     """
+    window = int(window)
+    if window < 8:
+        raise ValueError("window must be >= 8 (sub-windows use window // 8 steps)")
+
+    returns = np.asarray(returns, dtype=float)
     n = len(returns)
 
     X = np.zeros(n)  # Volatility level
     Y = np.zeros(n)  # Persistence
     Z = np.zeros(n)  # Transition probability
 
-    for i in range(2 * window, n):
-        # Current volatility
-        current_vol = np.std(returns[i-window:i])
-        historical_vol = np.std(returns[:i])
-        X[i] = current_vol / historical_vol
+    start = 2 * window
+    if start >= n:
+        return X, Y, Z
 
-        # Volatility persistence
-        vol_series = [np.std(returns[j-window//2:j]) for j in range(i-window, i, window//4)]
-        if len(vol_series) > 2:
-            Y[i] = np.abs(np.corrcoef(vol_series[:-1], vol_series[1:])[0, 1])
+    idx = np.arange(start, n)
 
-        # Transition probability (volatility change likelihood)
-        vol_changes = np.diff([np.std(returns[j-window//4:j]) for j in range(i-window, i, window//8)])
-        Z[i] = np.mean(np.abs(vol_changes)) / (np.mean([np.std(returns[j-window//4:j])
-                                                        for j in range(i-window, i, window//8)]) + 1e-10)
+    # Current volatility relative to the expanding (all-history) volatility
+    centered = returns - returns.mean()
+    count = np.arange(1, n + 1)
+    mean_c = np.cumsum(centered) / count
+    var_c = np.cumsum(centered**2) / count - mean_c**2
+    historical_vol = np.sqrt(np.maximum(var_c[idx - 1], 0))  # std(returns[:i])
+    X[idx] = _trailing_std(returns, window)[idx] / historical_vol
 
-    # Normalize
-    X = (X - np.min(X)) / (np.max(X) - np.min(X) + 1e-10)
+    # Volatility persistence: lag-1 correlation of half-window vols sampled
+    # every window // 4 days over the last window days
+    step = window // 4
+    offsets = np.arange(0, window, step)
+    if len(offsets) > 2:
+        vol_series = _trailing_std(returns, window // 2)[idx[:, None] - window + offsets]
+        Y[idx] = _rowwise_abs_corr(vol_series[:, :-1], vol_series[:, 1:])
+
+    # Transition probability (volatility change likelihood): mean absolute
+    # change of quarter-window vols sampled every window // 8 days
+    step = window // 8
+    offsets = np.arange(0, window, step)
+    vols = _trailing_std(returns, window // 4)[idx[:, None] - window + offsets]
+    Z[idx] = np.mean(np.abs(np.diff(vols, axis=1)), axis=1) / (np.mean(vols, axis=1) + 1e-10)
+
+    # Normalize over the estimated entries
+    def _min_max(values):
+        valid = values[idx]
+        return (values - np.min(valid)) / (np.max(valid) - np.min(valid) + 1e-10)
+
+    X[idx] = _min_max(X)[idx]
     Y = np.clip(Y, 0, 1)
-    Z = (Z - np.min(Z)) / (np.max(Z) - np.min(Z) + 1e-10)
+    Z[idx] = _min_max(Z)[idx]
 
     return X, Y, Z
