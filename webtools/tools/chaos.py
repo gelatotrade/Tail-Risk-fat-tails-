@@ -150,9 +150,11 @@ def run(params, data, out):
     weekly = params["rp_scale"] == "week"
     n = int(min(params["last_n"], data.n))
     span = (max(M_CURVE[-1], m) - 1) * tau
-    if n - span < 60:
-        raise ToolError(f"Für m = {max(M_CURVE[-1], m)} und τ = {tau} ist die Reihe zu kurz ({n} Tage). "
-                        "Verkleinere τ oder verlängere den Zeitraum.")
+    need = span + 40                   # the estimator follows neighbours 9 steps ahead from > 10 start vectors
+    if n < need:
+        raise ToolError(f"Für die λ-Kurve bis m = {max(M_CURVE[-1], m)} mit τ = {tau} brauchst du mindestens {need} "
+                        f"Tagesrenditen (vorhanden: {n}). "
+                        + ("Verkleinere τ." if tau > 1 else "Wähle einen längeren Datensatz."))
     r = np.asarray(data.returns[-n:], dtype=float)
     rng = np.random.default_rng(seed)
 
@@ -284,20 +286,20 @@ def run(params, data, out):
     if m >= 3:
         out.chart(C.scatter3d(
             f"Rekonstruierter Phasenraum der Tagesrenditen (Delay-Einbettung, {len(emb)} Zustände)",
-            [C.path3d("Zustand (rₜ, rₜ₊τ, rₜ₊₂τ)", emb[:, 0], emb[:, 1], emb[:, 2], color=1, mode="markers",
+            [C.path3d("Zustand (r(t), r(t+τ), r(t+2τ))", emb[:, 0], emb[:, 1], emb[:, 2], color=1, mode="markers",
                       size=2, text=lab)],
-            x=C.axis("rₜ", fmt="pct", digits=0), y=C.axis("rₜ₊τ", fmt="pct", digits=0),
-            z=C.axis("rₜ₊₂τ", fmt="pct", digits=0), height=500,
-            subtitle="Ein chaotischer Attraktor läge auf einer Fläche oder Kurve. Renditen bilden eine sternförmige "
-                     "Wolke: dichter Kern (ruhige Tage), Ausläufer entlang der Achsen (ein einzelner Schocktag "
-                     "taucht in m Zuständen auf) – Rauschen mit fetten Rändern.",
+            x=C.axis("r(t)", fmt="pct", digits=0), y=C.axis("r(t+τ)", fmt="pct", digits=0),
+            z=C.axis("r(t+2τ)", fmt="pct", digits=0), height=500,
+            subtitle="Ein chaotischer Attraktor läge auf einer Fläche oder Kurve. Renditen bilden eine Wolke: dichter "
+                     "Kern (ruhige Tage) und einzelne weit entfernte Punkte, meist nahe einer Achse – ein Schocktag "
+                     "taucht in m Zuständen auf, jedes Mal in einer anderen Koordinate. Rauschen mit fetten Rändern.",
         ))
     else:
         out.chart(C.xy(
             f"Rekonstruierter Phasenraum der Tagesrenditen (Delay-Einbettung, {len(emb)} Zustände)",
-            [C.trace("Zustand (rₜ, rₜ₊τ)", emb[:, 0], emb[:, 1], type="scatter", color=1, size=3,
+            [C.trace("Zustand (r(t), r(t+τ))", emb[:, 0], emb[:, 1], type="scatter", color=1, size=3,
                      decimate_to=None, text=lab)],
-            x=C.axis("rₜ", fmt="pct", digits=0), y=C.axis("rₜ₊τ", fmt="pct", digits=0), height=400,
+            x=C.axis("r(t)", fmt="pct", digits=0), y=C.axis("r(t+τ)", fmt="pct", digits=0), height=400,
             subtitle="Ein chaotisches System läge auf einer Kurve (die logistische Abbildung auf einer Parabel). "
                      "Renditen bilden eine Wolke mit Ausläufern entlang der Achsen.",
         ))
@@ -350,9 +352,11 @@ def run(params, data, out):
                  "Phasen wechseln sich in Blöcken ab (Volatilitäts-Clustering) – genau das, was GARCH- und "
                  "Regime-Modelle beschreiben. Für die Richtung der Kurse folgt daraus nichts.")
     else:
-        out.note(f"DET und LAM liegen im Bereich der Surrogate: In diesen {len(x)} {units} zeigt der Recurrence-Plot "
+        out.note(f"DET und LAM liegen im Bereich der Surrogate: In diesen {len(x)} {dat} zeigt der Recurrence-Plot "
                  "keine Struktur, die gemischte Renditen nicht auch hätten. "
-                 + ("Wochenrenditen über mehrere Jahre zeigen Volatilitäts-Cluster meist deutlicher. "
+                 + ("Eine längere Reihe mit ruhigen und turbulenten Phasen zeigt Volatilitäts-Cluster deutlicher. "
+                    if fallback else
+                    "Wochenrenditen über mehrere Jahre zeigen Volatilitäts-Cluster meist deutlicher. "
                     if not weekly else "Ein Zeitraum mit Krise zeigt Volatilitäts-Cluster meist deutlicher. ")
                  + "Bei unabhängig simulierten Renditen ist genau dieses Ergebnis zu erwarten.")
 

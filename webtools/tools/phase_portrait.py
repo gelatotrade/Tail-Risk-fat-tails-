@@ -60,7 +60,8 @@ SPEC = {
 }
 
 REGIME_DE = {"LOW_VOL": "Ruhig (niedrige Vola)", "NORMAL": "Normal", "HIGH_VOL": "Stress (hohe Vola)"}
-MAX_3D = 2600     # points in the interactive cloud (the original figure always gets every point)
+MAX_CLOUD = 500   # points per attractor in the 3D cloud: denser clouds hide the recent path (the original figure
+                  # and the 2D charts always get every day)
 
 
 def _de(x, digits=2):
@@ -106,9 +107,12 @@ def run(params, data, out):
     w = int(params["window"])
     k_clusters = int(params["n_clusters"])
     n = int(min(params["last_n"], data.n))
-    if n < max(3 * w, 100):
-        raise ToolError(f"Für ein Fenster von {w} Tagen brauchst du mindestens {max(3 * w, 100)} Tagesrenditen im "
-                        f"Zeitraum (vorhanden: {n}). Verkleinere das Fenster oder verlängere den Zeitraum.")
+    need = max(3 * w, 60)              # at least two full windows of clustered points after the warm-up
+    if n < need:
+        fix = ("Verkleinere das Fenster" + (" oder verlängere den Zeitraum." if n < data.n else ".")
+               if 3 * w > 60 else "Wähle einen längeren Datensatz.")
+        raise ToolError(f"Für ein Fenster von {w} Tagen brauchst du mindestens {need} Tagesrenditen im "
+                        f"Zeitraum (vorhanden: {n}). {fix}")
     r = np.asarray(data.returns[-n:], dtype=float)
     dates = list(data.dates[-n:]) if data.dates else None
     x_time = dates if dates else list(range(data.n - n + 1, data.n + 1))
@@ -161,7 +165,8 @@ def run(params, data, out):
     out.metric(f"Volatilität ({w} Tage)", Y[-1], "pct", digits=2,
                hint=f"täglich · ≈ {_de(100 * Y[-1] * np.sqrt(252), 0)} % p. a. · Perzentil {_de(100 * vol_pct, 0)} %")
     out.metric(f"Momentum ({w} Tage)", X[-1], "pct", digits=3, hint="Ø Tagesrendite im Fenster")
-    out.metric("Schiefe", Z[-1], "num", digits=2, hint=f"der {w} Renditen davor · < 0: Verlusttage überwiegen")
+    out.metric("Schiefe", Z[-1], "num", digits=2,
+               hint=f"der {w} Renditen davor · < 0: große Verluste häufiger als große Gewinne")
     out.metric("Abstand vom Gleichgewicht", dist[-1], "num", digits=2,
                hint=f"in σ je Achse · Perzentil {_de(100 * dist_pct, 0)} %",
                status="serious" if dist_pct >= 0.97 else "warning" if dist_pct >= 0.9 else None)
@@ -172,12 +177,13 @@ def run(params, data, out):
 
     # --- chart 1: the phase portrait in 3D ---------------------------------------------
     idx = np.flatnonzero(valid)
-    step = max(1, int(np.ceil(len(idx) / MAX_3D)))
     k_recent = int(min(params["recent"], len(idx)))
     recent = idx[-k_recent:]
-    traces = []
+    traces, thinned = [], False
     for cid in sorted(rank, key=rank.get):
-        ii = idx[labels[idx] == cid][::step]
+        ii = idx[labels[idx] == cid]
+        if ii.size > MAX_CLOUD:
+            ii, thinned = ii[::int(np.ceil(ii.size / MAX_CLOUD))], True
         if ii.size:
             traces.append(C.path3d(f"{names[cid]} · {int(np.sum(labels[idx] == cid))} Tage",
                                    X[ii], Y[ii], Z[ii], color=rank[cid] + 1, mode="markers", size=2,
@@ -185,7 +191,7 @@ def run(params, data, out):
     traces.append(C.path3d("Attraktor-Zentren", centers[:, 0], centers[:, 1], centers[:, 2], color="muted",
                            mode="markers", size=9, text=[names[c + 1] for c in range(len(centers))]))
     traces.append(C.path3d(f"Letzte {k_recent} Tage", X[recent], Y[recent], Z[recent], color="ink",
-                           mode="lines", text=[day_txt[i] for i in recent]))
+                           mode="lines+markers", size=3, text=[day_txt[i] for i in recent]))
     traces.append(C.path3d(f"Heute ({day_txt[-1]})", [X[-1]], [Y[-1]], [Z[-1]], color="ink", mode="markers",
                            size=8, text=[names.get(cur, "")]))
     out.chart(C.scatter3d(
@@ -193,8 +199,9 @@ def run(params, data, out):
         x=C.axis("Momentum (Ø Tagesrendite)", fmt="pct", digits=2), y=C.axis("Volatilität (täglich)", fmt="pct",
                                                                             digits=1),
         z=C.axis("Schiefe"), height=580,
-        subtitle=f"Jeder Punkt ist ein Handelstag ({w}-Tage-Fenster), gefärbt nach Attraktor (ruhig → Stress). "
-                 "Die dunkle Linie ist der Weg der letzten Tage. Ziehen dreht, Mausrad zoomt.",
+        subtitle=f"Jeder Punkt ist ein Handelstag ({w}-Tage-Fenster), gefärbt nach Attraktor (ruhig → Stress)"
+                 + (f"; große Attraktoren zeigen jeden n-ten Tag (höchstens {MAX_CLOUD} Punkte)" if thinned else "")
+                 + ". Die dunkle Linie ist der Weg der letzten Tage. Ziehen dreht, Mausrad zoomt.",
     ))
 
     # --- chart 2: volatility over time coloured by attractor ----------------------------
@@ -276,7 +283,14 @@ def run(params, data, out):
              "geteilt durch die Standardabweichung der Achse.")
 
     # --- notes ---------------------------------------------------------------------
-    raw_corr = float(np.corrcoef(dist_raw[valid], np.abs(Z[valid]))[0, 1]) if np.std(dist_raw[valid]) > 0 else np.nan
+    # the original clusters every row, including the warm-up (partial windows, skewness 0): on short series one of
+    # those artefacts can become an "attractor" of its own
+    warm_only = [names[cid] for cid in sorted(rank, key=rank.get) if not np.any(lab_v == cid)]
+    if warm_only:
+        out.note(f"Der Attraktor „{warm_only[0]}“ besteht nur aus Tagen der Aufwärmphase (die ersten {w} Tage, "
+                 "Fenster noch nicht voll) – ein Artefakt der kurzen Reihe, kein Marktzustand. Verkleinere das "
+                 "Fenster oder nimm eine längere Reihe.", "warning")
+    raw_corr =float(np.corrcoef(dist_raw[valid], np.abs(Z[valid]))[0, 1]) if np.std(dist_raw[valid]) > 0 else np.nan
     if np.isfinite(raw_corr) and params["standardize"]:
         out.note(f"Warum standardisiert? Unskaliert ist der Abstand vom Gleichgewicht praktisch nur |Schiefe| "
                  f"(Korrelation {_de(raw_corr)}): Rendite und Vola liegen bei 0,01, die Schiefe bei 1. Dasselbe gilt "

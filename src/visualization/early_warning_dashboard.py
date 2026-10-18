@@ -560,13 +560,17 @@ class CrashComparisonChart:
             '2022 Bear Market': {
                 'date': 'Oct 12, 2022',
                 'drop': -25.4,
-                'vix_spike': 35.0,  # Max VIX
+                'vix_spike': 36.5,  # Max VIX close (Mar 7, 2022)
                 'trigger': 'Inflation/Rate Shock'
             },
             '2025 Tariff Crash': {
                 'date': 'Apr 7, 2025',
-                'drop': -23.0,
-                'vix_spike': 60.0,
+                # S&P 500 close 6144.15 (Feb 19) -> 4982.77 (Apr 8): -18.9 %
+                # (the former -23.0 matched no S&P 500 close or intraday low)
+                'drop': -18.9,
+                # max VIX close (Apr 8); intraday the VIX touched 60.1 on Apr 7.
+                # Closes like the other crashes (2020: 82.7 is the close of Mar 16)
+                'vix_spike': 52.3,
                 'trigger': 'Liberation Day Tariffs'
             }
         }

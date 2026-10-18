@@ -34,10 +34,12 @@ SPEC = {
         "Datensatz VIX3M (S&P 500), ist die VIX-Kurve echt. Gerechnet wird kausal: Jeder Tag nutzt nur Daten "
         "bis zu diesem Tag.\n\n"
         "So liest du es: Tacho und Beitragsbalken zeigen den letzten Tag. Jeder Indikator hat einen Teil-Score von "
-        "0 bis 100 (ab 50 ist seine Warnschwelle überschritten), der Komposit ist deren gewichtete Summe. Die Panels "
-        "darunter zeigen die Verläufe "
-        "mit den Schwellen des Frameworks, der 3D-Phasenraum die Bahn aus GEX-Risiko, TDEX-Risiko und Komposit. "
-        "Darunter folgen die Statustabelle und die Original-Grafiken. Der **Seed** steuert das Modellrauschen."
+        "0 (unauffällig) bis 100 (Maximum), der Komposit ist deren gewichtete Summe. GEX erreicht 50 beim "
+        "Vorzeichenwechsel, TDEX bei 15; DIX und SMFI steigen ab ihrer Warnschwelle (43 % bzw. −5 in 20 Tagen) "
+        "von 0 an. Die Panels darunter zeigen die Verläufe mit den Schwellen des Frameworks, beim SMFI die "
+        "Änderung über 20 Tage, nach der er bewertet wird. Der 3D-Phasenraum zeigt die Bahn aus GEX-Risiko, "
+        "TDEX-Risiko und Komposit. Darunter folgen die Statustabelle und die Original-Grafiken. Der **Seed** "
+        "steuert das Modellrauschen."
     ),
     "needs": ["returns"],
     "params": [
@@ -117,7 +119,7 @@ def _runs(mask, gap=2):
 
 
 def _sub_status(score):
-    """Status of one indicator's 0-100 sub-score: 50 = its warning threshold is crossed, 100 = extreme."""
+    """Status of one indicator's 0-100 sub-score (quarters: unauffällig / erhöht / hoch / kritisch)."""
     return "critical" if score >= 75 else "serious" if score >= 50 else "warning" if score >= 25 else "good"
 
 
@@ -156,7 +158,12 @@ def run(params, data, out):
     ratio = ind["vix_m1"] / ind["vix_m2"]
     ratio_name = "VIX/VIX3M" if use_real_curve else "M1/M2 (Modell)"
     score = {k: ind[k + "_score"] for k in KEYS}
-    g, td, dx, sm = (float(ind[k][-1]) for k in ("gex", "tdex", "dix", "smfi"))
+    g, td, dx = (float(ind[k][-1]) for k in ("gex", "tdex", "dix"))
+    # the SMFI level is a running sum since the first day of the data set; its sub-score rates the 20-day change
+    smfi_full = np.asarray(full["smfi"], dtype=float)
+    smfi_chg = np.full(n, np.nan)
+    smfi_chg[21:] = smfi_full[21:] - smfi_full[1:-20]
+    smfi_chg = smfi_chg[n - m:]
 
     # ---- headline: the last day, indicator by indicator ------------------------------------------------
     def sub(k):
@@ -174,8 +181,8 @@ def run(params, data, out):
                + sub("vix_term"))
     out.metric("Dark Index (DIX)", dx / 100, "pct", digits=1, status=_sub_status(score["dix"][-1]),
                hint="unter 43 % schwach, unter 40 % Distribution · " + sub("dix"))
-    out.metric("Smart Money Flow (SMFI)", sm, "num", digits=1, status=_sub_status(score["smfi"][-1]),
-               hint="Warnung, wenn er in 20 Tagen um mehr als 5 fällt · " + sub("smfi"))
+    out.metric("Smart Money Flow (SMFI), 20 Tage", smfi_chg[-1], "num", digits=1, status=_sub_status(score["smfi"][-1]),
+               hint="Warnung ab −5, Teil-Score 100 ab −15 · " + sub("smfi"))
 
     i_max = int(np.argmax(comp))
     driver = max(KEYS, key=lambda k: last["components"][k]["contribution"])
@@ -184,9 +191,9 @@ def run(params, data, out):
                status=LEVEL[ews.compute_composite(*(float(score[k][i_max]) for k in KEYS))["level"]][0],
                hint=f"am {label(i_max)}")
     out.metric("Tage ≥ 50 (erhöht)", float(np.mean(comp >= th["elevated"])), "pct", digits=1,
-               hint=f"in den letzten {m} Handelstagen")
+               hint=f"in den letzten {de(m, 0)} Handelstagen")
     out.metric("Tage ≥ 75 (hoch)", float(np.mean(comp >= th["high"])), "pct", digits=1,
-               hint=f"in den letzten {m} Handelstagen")
+               hint=f"in den letzten {de(m, 0)} Handelstagen")
     out.metric("Stärkster Treiber heute", SHORT[driver] if d_pts > 0 else "–", "text",
                hint=(f"{de(d_pts, 1)} von {de(float(comp[-1]), 1)} Punkten" if d_pts > 0
                      else "kein Indikator schlägt an"))
@@ -204,7 +211,7 @@ def run(params, data, out):
         src_notes.append("Der VIX selbst fehlt und wird aus den Renditen geschätzt (`generate_vix_from_returns`).")
     if not real_prices:
         src_notes.append("Keine Kurse im Datensatz: Der Kurs ist ein Index aus den Renditen (Start 100).")
-    src_notes.append(f"Modelliert über alle {n} Tage, kausal (`causal=True`); angezeigt die letzten {m}.")
+    src_notes.append(f"Modelliert über alle {de(n, 0)} Tage, kausal (`causal=True`); angezeigt die letzten {de(m, 0)}.")
     out.note(" ".join(src_notes), "info")
 
     # ---- today: gauge + contributions -----------------------------------------------------------------------
@@ -280,9 +287,11 @@ def run(params, data, out):
     ))
     out.chart(C.xy(
         f"5 · Smart Money Flow (SMFI) – {ews.weights['smfi']:.0%} Gewicht".replace("%", " %"),
-        [C.trace("SMFI", x, ind["smfi"], color=5, width=1.5)],
-        x=xa, y=C.axis("SMFI"), hlines=[C.hline(0, "")],
-        subtitle="Der Teil-Score steigt, wenn der SMFI in 20 Tagen um mehr als 5 Punkte fällt.", height=300,
+        [C.trace("SMFI-Änderung über 20 Tage", x, smfi_chg, color=5, width=1.5)],
+        x=xa, y=C.axis("Punkte in 20 Tagen"),
+        hlines=[C.hline(-5, "Warnung", "warning"), C.hline(-15, "Teil-Score 100", "critical")],
+        subtitle="Bewertet wird die Änderung, nicht der Stand: Fällt der SMFI in 20 Tagen um mehr als 5 Punkte, "
+                 "steigt der Teil-Score, ab −15 steht er auf 100.", height=300,
     ))
     step = max(1, int(np.ceil(m / 260)))
     starts = np.arange(0, m, step)
@@ -323,15 +332,16 @@ def run(params, data, out):
         key, name_de = TABLE_ROWS.get(name, (None, name))
         if key == "vix_term" and use_real_curve:
             name_de = "VIX-Kurve (VIX/VIX3M)"
+        w_txt = f"{weight:.0%}".replace("%", " %")
         if key is None:
-            rows.append([name_de, de(value, 1), weight, SIGNAL.get(signal, signal), float(comp[-1]), float(comp[-1])])
+            rows.append([name_de, de(value, 1), w_txt, SIGNAL.get(signal, signal), float(comp[-1]), float(comp[-1])])
         else:
             digits = 3 if key == "vix_term" else 2 if key == "gex" else 1
-            rows.append([name_de, de(value, digits), weight, SIGNAL.get(signal, signal),
+            rows.append([name_de, de(value, digits), w_txt, SIGNAL.get(signal, signal),
                          last["components"][key]["score"], last["components"][key]["contribution"]])
     out.table(f"Status am {label(m - 1)} (Tabelle des Frameworks)",
               ["Indikator", "Wert", "Gewicht", "Signal", "Teil-Score", "Beitrag"], rows,
-              formats=["text", "text", "pct", "text", "num", "num"],
+              formats=["text", "text", "text", "text", "num", "num"],
               note="Signale nach `create_indicator_summary_table`, ergänzt um Teil-Score und Beitrag (Punkte). "
                    "Die Originaltabelle gibt es unten als Textdatei.")
     out.download("fruehwarn_status.txt", text.strip("\n") + "\n")

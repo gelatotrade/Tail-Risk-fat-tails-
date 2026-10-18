@@ -16,28 +16,30 @@ SPEC = {
     "group": "dashboard",
     "order": 10,
     "summary": "Alles auf einen Blick: VaR, Expected Shortfall, Tail-Index, Volatilitätsregime und der "
-               "Composite-Risikoindex des Frameworks – mit Original-Dashboard und Textbericht.",
+               "Composite-Risikoindex des Frameworks – mit Textbericht und zuschaltbarem Original-Dashboard.",
     "description": (
         "`TailRiskDashboard` rechnet in einem Durchgang alles, was das Framework über die Ränder deiner Renditen "
         "weiß: rollierenden VaR und Expected Shortfall (99 %, 60 Tage), Schiefe, Kurtosis und Hill-Tail-Index, "
         "die drei Physik-Koordinatensysteme (Lévy, Tsallis, Phasenübergang) und das aktuelle Volatilitätsregime "
-        "(einfache Vola-Perzentile und ein Markov-Modell mit drei Zuständen). Die Original-Grafik "
-        "(`create_full_dashboard`) zeigt alles in 15 Feldern; oben findest du die wichtigsten Reihen interaktiv.\n\n"
+        "(einfache Vola-Perzentile und ein Markov-Modell mit drei Zuständen). Die wichtigsten Reihen siehst du "
+        "interaktiv; die Original-Grafik (`create_full_dashboard`) mit allen 14 Feldern lässt sich zuschalten.\n\n"
         "Der **Composite-Risikoindex** ist die Formel des Dashboards: (λ + 0,5·q + χ) / 2,5 aus Sprungintensität "
         "λ = |r|/σ (Lévy), Tsallis-q und Suszeptibilität χ, danach auf 0–100 über die gezeigte Historie skaliert. "
         "Über 75 heißt EXTREM, über 50 ERHÖHT, über 25 MODERAT. Weil λ die heutige Tagesbewegung misst, springt "
         "der Index von Tag zu Tag – lies deshalb auch das 20-Tage-Mittel.\n\n"
         "Der **Textbericht** (`create_summary_report`) fasst Momente, Tail-Index, VaR/ES und den 3σ-Vergleich "
         "mit der Normalverteilung zusammen; du kannst ihn im Original herunterladen. **Zeitraum** begrenzt die "
-        "Rechnung auf die letzten Handelstage (das Markov-Modell ist der teuerste Teil)."
+        "Rechnung auf die letzten Handelstage (das Markov-Modell ist der teuerste Teil).\n\n"
+        "Bei 60 Tagen liegt nur ein Wert jenseits des 99-%-VaR: Der rollierende Expected Shortfall ist dann genau "
+        "der größte Tagesverlust im Fenster – ein grobes, aber ehrliches Maß."
     ),
     "needs": ["returns"],
     "params": [
         {"name": "last_n", "type": "int", "default": 2520, "min": 250, "max": 5000, "step": 250,
          "label": "Zeitraum (letzte Handelstage)", "unit": "Tage",
          "help": "2520 Tage ≈ 10 Jahre. Längere Zeiträume brauchen deutlich mehr Rechenzeit."},
-        {"name": "figure", "type": "bool", "default": True, "label": "Original-Dashboard (Matplotlib) zeigen",
-         "help": "Die 15-Felder-Grafik aus create_full_dashboard – kostet im Browser einige Sekunden."},
+        {"name": "figure", "type": "bool", "default": False, "label": "Original-Dashboard (Matplotlib) zeichnen",
+         "help": "Die 14-Felder-Grafik aus create_full_dashboard – kostet im Browser rund 6 Sekunden extra."},
     ],
     "covers": [
         "src.visualization.dashboard.TailRiskDashboard",
@@ -52,7 +54,8 @@ SPEC = {
 CLASSES = [(75, "EXTREM", "critical"), (50, "ERHÖHT", "serious"), (25, "MODERAT", "warning"), (-1, "NIEDRIG", "good")]
 REGIMES = {"LOW_VOL": "Niedrige Vola", "MEDIUM_VOL": "Mittlere Vola", "HIGH_VOL": "Hohe Vola", "UNKNOWN": "unbekannt",
            "UNCONDITIONAL": "Gesamt (unbedingt)"}
-REGIME_STATUS = {"LOW_VOL": "good", "MEDIUM_VOL": "warning", "HIGH_VOL": "serious"}
+# MEDIUM_VOL is the middle half of the volatility history - normal, so it gets no warning colour
+REGIME_STATUS = {"LOW_VOL": "good", "MEDIUM_VOL": None, "HIGH_VOL": "serious"}
 
 # create_summary_report: English labels -> German
 REPORT_SECTIONS = {"BASIC STATISTICS": "Grundstatistik", "TAIL RISK METRICS": "Tail-Risiko",
@@ -134,6 +137,7 @@ def run(params, data, out):
     risk_level = (dash.levy_coords[2] + 0.5 * dash.tsallis_coords[0] + dash.phase_coords[0]) / 2.5
     composite = (risk_level - np.nanmin(risk_level)) / (np.nanmax(risk_level) - np.nanmin(risk_level) + 1e-10) * 100
     comp_now = float(composite[-1])
+    comp_pct = float(np.mean(composite <= comp_now))      # the 0-100 scale is min-max, not a percentile
     comp_avg = np.convolve(composite, np.ones(20) / 20, mode="full")[:k]
     comp_avg[:19] = np.nan
     cls, cls_status = next((name, st) for lim, name, st in CLASSES if comp_now > lim)
@@ -147,16 +151,18 @@ def run(params, data, out):
 
     # --- metrics ------------------------------------------------------------------------
     out.metric("Risikostufe (Composite)", cls, "text", status=cls_status,
-               hint=f"Index heute {_de(comp_now, 0)} von 100 · 20-Tage-Mittel {_de(float(comp_avg[-1]), 0)}")
+               hint=f"Index heute {_de(comp_now, 0)} von 100 (Perzentil {_de(100 * comp_pct, 0)} %) · "
+                    f"20-Tage-Mittel {_de(float(comp_avg[-1]), 0)}")
     out.metric("VaR 99 % (60 Tage)", var99, "pct", digits=2, hint="historisch, Tagesverlust",
                status="serious" if var99 > 0.03 else "warning" if var99 > 0.02 else None)
     out.metric("Expected Shortfall 99 %", es99, "pct", digits=2,
-               hint=f"Ø Verlust jenseits des VaR · ES/VaR = {_de(es99 / var99)}" if var99 > 0 else "")
+               hint=(f"Ø Verlust jenseits des VaR (bei 60 Tagen: der größte Tagesverlust) · "
+                     f"ES/VaR = {_de(es99 / var99)}") if var99 > 0 else "")
     out.metric("Tail-Index α (60 Tage)", alpha_now, "num", digits=2, hint="Hill · < 3: fette Ränder",
                status="warning" if alpha_now < 3 else None, badge="Fette Ränder" if alpha_now < 3 else "")
     out.metric("Exzess-Kurtosis (60 Tage)", kurt_now, "num", digits=1, hint="Normalverteilung = 0")
     out.metric("Volatilitätsregime", REGIMES.get(simple, simple), "text", status=REGIME_STATUS.get(simple),
-               hint="einfach: 20-Tage-Vola gegen ihre Perzentile")
+               hint="einfach: 20-Tage-Vola · niedrig unter dem 25., hoch über dem 75. Perzentil")
     if markov:
         key = {"LOW_VOL": "low_vol", "MEDIUM_VOL": "medium_vol", "HIGH_VOL": "high_vol"}.get(markov)
         p = probs.get(key)
@@ -173,7 +179,9 @@ def run(params, data, out):
          C.trace("VaR 99 %", x, rm["var_99"], color=1, width=1.5),
          C.trace("Expected Shortfall 99 %", x, rm["es_99"], color=2, width=1.5)],
         x=xa, y=C.axis("Tagesverlust", fmt="pct", digits=1),
-        subtitle="Der ES ist der Durchschnitt der Verluste jenseits des VaR – je größer der Abstand, desto fetter der Rand.",
+        subtitle="Der ES ist der Durchschnitt der Verluste jenseits des VaR – je größer der Abstand, desto fetter der "
+                 "Rand. Bei 60 Tagen ist das genau der größte Tagesverlust im Fenster. Der Wert an einem Datum stammt "
+                 "aus den 60 Tagen davor.",
     ))
     tail = np.asarray(rm["tail_index"], dtype=float)
     out.chart(C.xy(
@@ -226,11 +234,11 @@ def run(params, data, out):
 
     # --- verdict: the dashboard's own risk class ----------------------------------------
     texts = {
-        "EXTREM": "Der Composite-Index liegt im obersten Viertel seiner Historie – die heutige Bewegung, die Tsallis-q "
-                  "und die Suszeptibilität sind gemeinsam hoch.",
+        "EXTREM": "Der Composite-Index liegt im obersten Viertel seiner historischen Spanne – die heutige Bewegung, "
+                  "die Tsallis-q und die Suszeptibilität sind gemeinsam hoch.",
         "ERHÖHT": "Der Composite-Index liegt über 50: mehrere Physik-Koordinaten zeigen erhöhte Spannung.",
         "MODERAT": "Der Composite-Index liegt zwischen 25 und 50 – leicht erhöht, aber ohne Extremsignal.",
-        "NIEDRIG": "Der Composite-Index liegt im unteren Viertel seiner Historie.",
+        "NIEDRIG": "Der Composite-Index liegt im unteren Viertel seiner historischen Spanne.",
     }
     tail_txt = (f" Der Tail-Index von {_de(alpha_now)} zeigt fette Ränder." if alpha_now < 3
                 else f" Der Tail-Index von {_de(alpha_now)} liegt im Normalbereich.")

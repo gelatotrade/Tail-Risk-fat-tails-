@@ -57,8 +57,9 @@ CRASH_DE = {
          "Januar bis Oktober um ein Viertel. Ein langsamer Abverkauf: Der VIX blieb unter 40, die Signale schwach.")),
     "2025 Tariff Crash": (
         "Zoll-Crash 2025", "07.04.2025", "„Liberation Day“-Zölle",
-        ("Nach den Zollankündigungen vom 02.04. fiel der S&P 500 in zwei Handelstagen um gut 10 %, der VIX "
-         "sprang am 07.04. kurz auf 60. Die Zollpause vom 09.04. brachte die Wende.")),
+        ("Nach den Zollankündigungen vom 02.04. fiel der S&P 500 in zwei Handelstagen um gut 10 %, vom Rekordhoch "
+         "am 19.02. bis zum Schlusstief am 08.04. um knapp 19 %. Der VIX sprang am 07.04. im Handel kurz auf 60. "
+         "Die Zollpause vom 09.04. brachte die Wende.")),
 }
 # the framework's own reading of each crash (comments in CrashComparisonChart._plot_crash_indicators)
 PATTERN_DE = {"2018 Volmageddon": "VIX-Kurve war der Schlüssel", "2020 COVID Crash": "Gamma-Flip dominierte",
@@ -139,7 +140,7 @@ def run(params, data, out):
     out.chart(C.heatmap(
         "Wie oft lag der Indikator im Vorlauf im Warnbereich?", [v[4] for v in INDICATORS.values()],
         [CRASH_DE.get(c, (c,))[0] for c in crashes], share,
-        z=C.axis("Anteil der Tage", fmt="pct", digits=0), scale="risk", annotate=True,
+        z=C.axis("Anteil der Tage", fmt="pct", digits=0, range=(0, 1)), scale="sequential", annotate=True,
         subtitle=f"Anteil der letzten {lookback} Handelstage vor dem Crash. Hoch = das Signal kam vorher.",
     ))
 
@@ -148,13 +149,13 @@ def run(params, data, out):
     for c in crashes:
         name, date, trigger, story = CRASH_DE.get(c, (c, events[c]["date"], events[c]["trigger"], ""))
         spike = events[c]["vix_spike"]
-        spike_txt = f"+{de(spike, 1)} % an einem Tag" if "2018" in c else f"Hoch bei {de(spike, 1)}"
+        spike_txt = f"+{de(spike, 1)} % an einem Tag" if "2018" in c else f"Schlusshoch {de(spike, 1)}"
         rows.append([name, date, trigger, PATTERN_DE.get(c, ""), drops[c], spike_txt, story])
     out.table("Die vier Crashs", ["Crash", "Crash-Tag", "Auslöser", "Signal laut Framework", "Rückgang", "VIX",
                                   "Was passierte"], rows,
               formats=["text", "text", "text", "text", "pct", "text", "text"],
-              note="Rückgang und VIX wie im Framework hinterlegt: 2018 ein einzelner Handelstag, sonst vom Hoch zum "
-                   "Tief; VIX 2018 als Tagesanstieg, sonst als Höchststand.")
+              note="Rückgang und VIX wie im Framework hinterlegt, aus Schlusskursen: 2018 ein einzelner Handelstag, "
+                   "sonst vom Hoch zum Tief; VIX 2018 als Tagesanstieg, sonst als höchster Schlussstand.")
 
     rows = []
     for c in crashes:

@@ -19,7 +19,7 @@ from src.visualization.animated_risk import (
 from .. import charts as C
 from ..core import ToolError
 from ..data import index_axis
-from ._ews_common import LEVEL
+from ._ews_common import LEVEL, de
 
 SPEC = {
     "id": "animations",
@@ -38,7 +38,7 @@ SPEC = {
         "Verteilung, Sprungrisiko und den rollierenden 99-%-VaR.\n\n"
         "Gerendert wird mit Matplotlib im Browser, Bild für Bild. Die Original-Animation hätte Hunderte Bilder "
         "(eines pro Tag oder alle paar Tage). Das Werkzeug zeigt davon gleichmäßig verteilte Bilder, bei „Mittel“ "
-        "etwa 10–20 Sekunden Rechenzeit. Die Zeitachse in den Bildtiteln (t) zählt Handelstage ab Beginn des "
+        "etwa 10–15 Sekunden Rechenzeit. Die Zeitachse in den Bildtiteln (t) zählt Handelstage ab Beginn des "
         "gewählten Zeitraums.\n\n"
         "Die Diagramme oberhalb des GIFs zeigen dieselben Größen interaktiv. Die Punkte markieren die Tage, die "
         "im GIF als Bild erscheinen. Der Tacho nutzt den modellierten Frühwarn-Score (kausal gerechnet). Nur "
@@ -80,15 +80,16 @@ SPEC = {
 }
 
 # size (inches; the framework's figures are 10-16 in wide, too small to read as a web GIF), fps and frame counts
+# (browser rendering costs about 0.5 s per phase frame, 1.3 s per morph frame and 3 s per dashboard frame)
 KINDS = {
-    "phase": {"name": "Lévy-Phasenraum", "src": "PhaseSpaceAnimator", "size": (9.0, 7.0), "fps": 8,
-              "frames": {"short": 15, "medium": 30, "long": 48}},
-    "morph": {"name": "Verteilungs-Morphing", "src": "DistributionMorphAnimator", "size": (11.0, 4.6), "fps": 3,
-              "frames": {"short": 6, "medium": 12, "long": 24}},
+    "phase": {"name": "Lévy-Phasenraum", "src": "PhaseSpaceAnimator", "size": (9.0, 7.0), "fps": 6,
+              "frames": {"short": 11, "medium": 22, "long": 44}},
+    "morph": {"name": "Verteilungs-Morphing", "src": "DistributionMorphAnimator", "size": (11.0, 4.6), "fps": 2,
+              "frames": {"short": 4, "medium": 8, "long": 16}},
     "gauge": {"name": "Risiko-Tacho", "src": "RiskGaugeAnimator", "size": (9.0, 4.5), "fps": 8,
-              "frames": {"short": 24, "medium": 48, "long": 96}},
+              "frames": {"short": 18, "medium": 36, "long": 72}},
     "dashboard": {"name": "Tail-Risk-Dashboard", "src": "create_comprehensive_animation", "size": (11.0, 8.25),
-                  "fps": 2, "frames": {"short": 4, "medium": 8, "long": 16}},
+                  "fps": 2, "frames": {"short": 3, "medium": 5, "long": 10}},
 }
 WINDOW = 60          # rolling window of DistributionMorphAnimator (default) and create_comprehensive_animation
 COORD_WINDOW = 20    # levy_flight_3d_coordinates default
@@ -194,8 +195,9 @@ def run(params, data, out):
         out.metric("Tail-Schwere 2/α", Y[-1], "num", hint="Hill-Schätzer über 20 Tage; höher = fettere Ränder")
         big_txt = f"{Z.max():.1f}".replace(".", ",")
         out.metric("Sprungintensität |r|/σ", Z[-1], "num",
-                   hint=f"größter Sprung {big_txt} σ am {label(int(np.argmax(Z)))}")
-        out.metric("Tage mit Sprung > 3 σ", len(jumps), "int", hint=f"{len(jumps) / m:.1%} der Tage".replace(".", ","))
+                   hint=f"größter Sprung {big_txt} σ am {label(int(np.argmax(Z)))}; σ des Zeitraums")
+        out.metric("Tage mit Sprung > 3 σ", len(jumps), "int",
+                   hint=f"{100 * len(jumps) / m:.1f} % der Tage".replace(".", ","))
         s = slice(COORD_WINDOW, None)  # the tail index needs a full window first (2/α is 0 before)
         idx = np.arange(m)[s]
         traces = [C.path3d("Bahn", X[s], Y[s], Z[s], color=1, mode="lines", text=[label(i) for i in idx])]
@@ -215,13 +217,16 @@ def run(params, data, out):
                      "Ansicht mit der Maus.", height=520,
         ))
     elif kind == "morph":
-        kurt = np.asarray(RollingRiskMetrics(r, window=WINDOW).rolling_kurtosis(), dtype=float)
+        # RollingRiskMetrics' value at index t+1 uses returns[t-59 .. t], i.e. the window ending on day t (as in
+        # the GIF). The appended 0 never enters a window; it only makes the window ending on the last day exist.
+        kurt = np.asarray(RollingRiskMetrics(np.append(r, 0.0), window=WINDOW).rolling_kurtosis(), dtype=float)[1:]
         ok = np.isfinite(kurt)
         last = float(kurt[ok][-1]) if ok.any() else float("nan")
         i_max = int(np.nanargmax(kurt)) if ok.any() else 0
         out.metric("Exzess-Kurtosis (letztes Fenster)", last, "num", digits=1,
                    status="critical" if last > 6 else "serious" if last > 3 else None,
-                   badge="Fette Ränder" if last > 3 else "", hint="Normalverteilung = 0")
+                   badge="Fette Ränder" if last > 3 else "",
+                   hint=f"60 Tage bis {label(m - 1)}; Normalverteilung = 0")
         out.metric("Höchste Kurtosis", kurt[i_max], "num", digits=1, hint=f"Fenster bis {label(i_max)}")
         out.metric("Fenster mit Kurtosis > 3", float(np.mean(kurt[ok] > 3)) if ok.any() else 0.0, "pct", digits=0,
                    hint="Anteil der 60-Tage-Fenster mit deutlich fetten Rändern")
@@ -231,8 +236,8 @@ def run(params, data, out):
              C.trace("Bilder im GIF", fx, kurt[frames], type="scatter", color=2, size=7, decimate_to=None)],
             x=xa, y=C.axis("Exzess-Kurtosis"),
             hlines=[C.hline(0, "Normalverteilung"), C.hline(3, "deutlich fette Ränder", "serious")],
-            subtitle="Springt die Kurtosis hoch, haben einzelne extreme Tage das Fenster erreicht – im GIF "
-                     "liegen dann Balken weit draußen über der Gauß-Kurve.",
+            subtitle="Wert am Tag t: Fenster der 60 Handelstage bis t. Springt die Kurtosis hoch, haben einzelne "
+                     "extreme Tage das Fenster erreicht – im GIF liegen dann Balken weit draußen über der Gauß-Kurve.",
         ))
     elif kind == "gauge":
         st, lv = LEVEL[ews.compute_composite(*(float(s_[-1]) for s_ in scores))["level"]]
@@ -240,7 +245,8 @@ def run(params, data, out):
         i_max = int(np.argmax(comp))
         out.metric("Score (letzter Tag)", comp[-1], "num", digits=0, unit="/ 100", status=st,
                    hint=f"Tacho-Zone {zone} · Warnstufe des Frühwarnsystems: {lv}")
-        out.metric("Durchschnitt", float(np.mean(comp)), "num", digits=0, unit="/ 100")
+        out.metric("Durchschnitt", float(np.mean(comp)), "num", digits=0, unit="/ 100",
+                   hint=f"über {de(m, 0)} Handelstage")
         out.metric("Höchster Score", comp[i_max], "num", digits=0, unit="/ 100", hint=f"am {label(i_max)}")
         out.chart(C.xy(
             "Komposit-Score, den die Tachonadel zeigt",
@@ -256,7 +262,8 @@ def run(params, data, out):
         out.table("Zeit in den Zonen des Tachos", ["Zone", "Tage", "Anteil"], rows, formats=["text", "int", "pct"],
                   note="Zonen wie im animierten Tacho: 0–25 niedrig, 25–50 moderat, 50–75 erhöht, 75–100 extrem.")
         out.note("Der Score ist der Komposit des Frühwarnsystems. GEX, TailDex, DIX und SMFI sind dafür aus "
-                 "Renditen und VIX *modelliert* (illustrativ, keine echten Messwerte), kausal gerechnet."
+                 "Renditen und VIX *modelliert* (illustrativ, keine echten Messwerte), kausal gerechnet. "
+                 "„Current Level: … %“ im GIF-Titel meint Punkte von 100, keine Wahrscheinlichkeit."
                  + ("" if data.vix is not None else " Der VIX fehlt und wird aus den Renditen geschätzt."), "warning")
     else:
         var = np.asarray(RollingRiskMetrics(r, window=WINDOW).rolling_var(0.99), dtype=float)
@@ -265,13 +272,16 @@ def run(params, data, out):
         breach = ok & (loss > np.where(ok, var, np.inf))
         p90 = float(np.percentile(Z, 90))
         i_max = int(np.nanargmax(var))
-        out.metric("VaR 99 % (60 Tage)", var[-1], "pct", digits=2, hint=f"historisch, am {label(m - 1)}")
-        out.metric("VaR-Verletzungen", float(np.mean(breach[ok])), "pct", digits=1,
-                   hint="Tage mit Verlust über dem VaR; erwartet 1 %",
-                   status="serious" if np.mean(breach[ok]) > 0.02 else None)
+        rate = float(np.mean(breach[ok]))
+        out.metric("VaR 99 % (60 Tage)", var[-1], "pct", digits=2,
+                   hint=f"historisch, für den {label(m - 1)} aus den 60 Tagen davor")
+        out.metric("VaR-Verletzungen", rate, "pct", digits=1,
+                   hint=f"{int(breach.sum())} von {int(ok.sum())} Tagen · Soll 1\u00a0%",
+                   status="critical" if rate > 0.025 else "serious" if rate > 0.015 else "good")
         out.metric("Höchster VaR 99 %", var[i_max], "pct", digits=2, hint=f"am {label(i_max)}")
-        out.metric("Tage über der 90-%-Sprungschwelle", int(np.sum(Z > p90)), "int",
-                   hint=f"|r|/σ > {p90:.2f}".replace(".", ","))
+        n_jump = int(np.sum(Z > 3))
+        out.metric("Tage mit Sprung > 3 σ", n_jump, "int",
+                   hint=f"{100 * n_jump / m:.1f} % der Tage; σ des Zeitraums".replace(".", ","))
         out.chart(C.xy(
             "Tagesverlust und rollierender VaR 99 %",
             [C.trace("Tagesverlust", x, np.where(loss > 0, loss, np.nan), type="bar", color="muted"),
@@ -279,7 +289,8 @@ def run(params, data, out):
              C.trace("Verlust über dem VaR", [x[i] for i in np.flatnonzero(breach)], loss[breach], type="scatter",
                      color="critical", size=6, decimate_to=None)],
             x=xa, y=C.axis("Verlust", fmt="pct", digits=1),
-            subtitle="Wie Panel 4 der Animation: VaR am Tag t aus den 60 Tagen davor.",
+            subtitle="Wie Panel 4 der Animation: VaR am Tag t aus den 60 Tagen davor. Aus nur 60 Werten ist das "
+                     "1-%-Quantil kaum schätzbar – selbst bei stabiler Verteilung liegen gut 2 % der Tage darüber.",
         ))
         out.chart(C.xy(
             "Sprungintensität |r|/σ",
@@ -289,9 +300,9 @@ def run(params, data, out):
             subtitle="Wie Panel 3 der Animation („Tail Risk Evolution“).",
         ))
 
-    out.metric("Bilder im GIF", len(frames), "int", hint=f"aus {total} Bildern der Original-Animation")
+    out.metric("Bilder im GIF", len(frames), "int", hint=f"aus {de(total, 0)} Bildern der Original-Animation")
     kb = f"{len(gif) / 1024:,.0f}".replace(",", ".")
-    out.note(f"**{cfg['name']}** (`{cfg['src']}`): {len(frames)} von {total} Bildern, {cfg['fps']} Bilder/s, "
+    out.note(f"**{cfg['name']}** (`{cfg['src']}`): {len(frames)} von {de(total, 0)} Bildern, {cfg['fps']} Bilder/s, "
              f"{kb} KB. Zeitraum {label(0)} – {label(m - 1)}; t im Bildtitel = Handelstag ab {label(0)} (t = 0).",
              "info")
     out.image(gif, f"{cfg['name']} – Animation des Frameworks ({cfg['src']}, {len(frames)} Bilder)",

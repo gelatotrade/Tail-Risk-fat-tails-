@@ -39,8 +39,9 @@ SPEC = {
         {"name": "window", "type": "int", "default": 60, "min": 20, "max": 250, "step": 5,
          "label": "Fenster für Volatilität und α", "unit": "Tage"},
         {"name": "estimator", "type": "select", "default": "hill", "label": "Schätzer für α",
-         "options": [{"value": "hill", "label": "Hill (Rand der größten Tagesbewegungen)"},
-                     {"value": "stable", "label": "Lévy-stabil (McCulloch-Quantile)"}]},
+         "options": [{"value": "hill", "label": "Hill (größte Tagesbewegungen)"},
+                     {"value": "stable", "label": "Lévy-stabil (McCulloch)"}],
+         "help": "Hill misst den Rand der größten Tagesbewegungen, McCulloch liest α aus Quantilverhältnissen."},
         {"name": "horizon", "type": "int", "default": 30, "min": 5, "max": 60, "step": 5,
          "label": "Horizont", "unit": "Handelstage", "help": "Das README rechnet mit 30 Handelstagen."},
         {"name": "recent", "type": "int", "default": 60, "min": 10, "max": 250, "step": 10,
@@ -184,7 +185,8 @@ def run(params, data, out):
                hint="Anteil aller ausgewerteten Tage auf der Klippe oder darüber")
 
     # --- verdict ------------------------------------------------------------------------
-    where = (f"Bei {_pct(v_now)} Volatilität und α = {_de(a_now_s)} zeigt die Fläche {_pct(p_now)} für "
+    a_txt = _de(a_now) if abs(a_now - a_now_s) < 0.005 else f"{_de(a_now)} (auf der Fläche {_de(a_now_s)})"
+    where = (f"Bei {_pct(v_now)} Volatilität und α = {a_txt} zeigt die Fläche {_pct(p_now)} für "
              f"einen Tagesverlust über {thr_txt} in {horizon} Handelstagen.")
     if next_level is None:
         reach = " Das ist die höchste Zone der Fläche."
@@ -283,7 +285,7 @@ def run(params, data, out):
     has_future = day + horizon < n
     realized = (csum[np.minimum(day + 1 + horizon, n)] - csum[day + 1]) > 0
     zone_idx = np.array([_zone(p)[0] for p in prob])
-    rows = []
+    rows, zone_stats = [], []
     for i, (hi, name, status, region, action) in enumerate(ZONES):
         lo = ZONES[i - 1][0] if i else 0.0
         band = f"{_pct(lo, 0)} – {_pct(hi, 0)}" if np.isfinite(hi) else f"≥ {_pct(lo, 0)}"
@@ -292,6 +294,8 @@ def run(params, data, out):
         rows.append([f"{name} ({region})", band, action, float(mk.mean()),
                      float(prob[mf].mean()) if mf.any() else None,
                      float(realized[mf].mean()) if mf.any() else None, int(mf.sum())])
+        if mf.sum() >= 20:                                # enough days to compare model and outcome
+            zone_stats.append((name, float(prob[mf].mean()), float(realized[mf].mean())))
     out.table("Zonen der Fläche – und was danach wirklich passierte", [
         "Zone", "Bereich", "Handlung (README)", "Anteil Tage",
         "Ø Fläche", f"tatsächlich Verlust > {thr_txt} in {horizon} T", "Tage"],
@@ -313,13 +317,32 @@ def run(params, data, out):
                  "unter 2, die Bahn klebt dann an der Klippe. Vergleiche in der Tabelle „Ø Fläche“ mit der "
                  "tatsächlichen Häufigkeit.", "warning")
     if np.isfinite(pred) and np.isfinite(real):
-        ratio = pred / real if real > 0 else np.inf
-        verdict = ("überschätzt die Häufigkeit deutlich" if ratio > 2 else
-                   "unterschätzt die Häufigkeit deutlich" if ratio < 0.5 else "liegt in der richtigen Größenordnung")
+        if max(pred, real) < 0.005:
+            verdict = "beides ist praktisch null"
+        else:
+            ratio = pred / real if real > 0 else np.inf
+            verdict = ("das Modell überschätzt die Häufigkeit deutlich" if ratio > 2 else
+                       "das Modell unterschätzt die Häufigkeit deutlich" if ratio < 0.5 else
+                       "im Mittel stimmt die Größenordnung")
+        # the overall mean can hide opposite errors per zone (too calm on the plateau, too alarmed on the cliff)
+        parts = []
+        for name, p, q in zone_stats:
+            if q > 2 * p and q - p > 0.01:
+                parts.append(f"„{name}“ Ø {_pct(p)} gegen tatsächlich {_pct(q)} (unterschätzt)")
+            elif p > 2 * q and p - q > 0.05:
+                parts.append(f"„{name}“ Ø {_pct(p)} gegen tatsächlich {_pct(q)} (überschätzt)")
+        zone_txt = (" Je Zone liegen die Fehler weit auseinander: " + "; ".join(parts) + "." if parts else
+                    " Auch je Zone passt die Größenordnung." if len(zone_stats) > 1 else "")
+        seq = [q for _, _, q in zone_stats]
+        if len(seq) > 1:
+            zone_txt += (" Die Reihenfolge stimmt: Je höher die Zone, desto öfter folgte ein Crash-Tag."
+                         if all(b >= a for a, b in zip(seq, seq[1:])) else
+                         " Auch die Reihenfolge stimmt nicht durchgehend: Nach Tagen in einer höheren Zone "
+                         "folgte nicht immer öfter ein Crash-Tag.")
         out.note(f"Kalibrierung über die ganze Historie: Im Mittel zeigt die Fläche **{_pct(pred)}**, tatsächlich "
                  f"folgte in **{_pct(real)}** der Fälle ein Tagesverlust über {thr_txt} innerhalb von {horizon} "
-                 f"Tagen – das Modell {verdict}. Die Fläche ist eine Lesehilfe für die Richtung "
-                 "(Plateau → Klippe), keine kalibrierte Prognose. Werte außerhalb der Achsen "
+                 f"Tagen – {verdict}.{zone_txt} Lies die Fläche als Bild der Mechanik (Volatilität und "
+                 "fette Ränder treiben das Crash-Risiko), nicht als kalibrierte Prognose. Werte außerhalb der Achsen "
                  f"(Vola {_pct(v_lo, 0)}–{_pct(v_hi, 0)}, α {_de(a_lo)}–{_de(a_hi)}) sitzen auf dem Rand."
                  + (f" Lange Reihe: ausgewertet wird jeder {stride}. Tag." if stride > 1 else ""))
 
