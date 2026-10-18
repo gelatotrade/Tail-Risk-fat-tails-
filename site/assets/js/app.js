@@ -428,7 +428,8 @@ function openDatasetDialog() {
 function importTab(body, mode, setPending) {
   let table = null, fileName = mode === 'paste' ? 'Eingefügte Daten' : null, sheets = null;
   body.innerHTML = `${mode === 'file'
-    ? `<label class="dropzone" tabindex="0">${icon('upload')}<div><b>Excel- oder CSV-Datei hierher ziehen</b> oder klicken zum Auswählen</div><div class="help">.xlsx, .xls, .ods, .csv, .txt – z. B. ein Kursexport aus deinem Banksystem</div><input type="file" accept=".xlsx,.xlsm,.xls,.ods,.csv,.txt,.tsv" hidden></label>`
+    ? `<label class="dropzone" tabindex="0">${icon('upload')}<div><b>Excel- oder CSV-Datei hierher ziehen</b> oder klicken zum Auswählen</div><div class="help">.xlsx, .xls, .ods, .csv, .txt – z. B. ein Kursexport aus deinem Banksystem</div><input type="file" accept=".xlsx,.xlsm,.xls,.ods,.csv,.txt,.tsv" hidden></label>
+      <p class="help" style="margin:0">Unsicher beim Format? <button type="button" class="btn ghost sm" data-act="sample">${icon('download')} Beispieldatei (.xlsx) herunterladen</button></p>`
     : `<label class="field"><span class="lbl"><b>In Excel Spalten markieren (z. B. Datum und Schlusskurs), kopieren und hier einfügen</b></span><textarea placeholder="Datum&#9;Schlusskurs&#10;02.01.2025&#9;5.868,55&#10;03.01.2025&#9;5.942,47&#10;…"></textarea></label>`}
     <div data-slot="sheet"></div><div data-slot="map"></div>
     <p class="privacy">${icon('shield')}<span>Deine Daten werden nur hier im Browser verarbeitet und nicht hochgeladen. Deutsche Zahlenformate (1.234,56), absteigende Sortierung und Datumsformate wie 31.12.2024 werden automatisch erkannt.</span></p>`;
@@ -470,6 +471,11 @@ function importTab(body, mode, setPending) {
     sheetSlot.querySelector('select')?.addEventListener('change', (e) => useSheet(sheets[Number(e.target.value)].rows));
     useSheet(sheets[0].rows);
   };
+  body.querySelector('[data-act="sample"]')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget; // currentTarget is null after the first await
+    btn.disabled = true;
+    try { await downloadSample(); } catch (err) { toast(err.message); } finally { btn.disabled = false; }
+  });
   if (mode === 'file') {
     const dz = body.querySelector('.dropzone'), input = dz.querySelector('input');
     const take = async (file) => {
@@ -487,6 +493,28 @@ function importTab(body, mode, setPending) {
     let timer;
     ta.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { const rows = D.parseDelimited(ta.value); if (rows.length > 1) useSheet(rows); }, 250); });
   }
+}
+
+async function downloadSample() {
+  // A realistic template: what a price export from a bank system typically looks like (newest first).
+  const XLSX = await D.loadSheetJS();
+  const sp = app.market.datasets.find((d) => d.id === 'sp500');
+  const n = sp.dates.length, from = Math.max(0, n - 504);
+  const rows = [['Datum', 'Schlusskurs', 'VIX']];
+  for (let i = n - 1; i >= from; i--) {
+    const [y, m, d] = sp.dates[i].split('-').map(Number);
+    rows.push([new Date(y, m - 1, d), sp.prices[i], sp.vix?.[i] ?? null]);
+  }
+  const ws = XLSX.utils.aoa_to_sheet(rows, { cellDates: true });
+  for (let r = 1; r < rows.length; r++) {
+    const a = ws[XLSX.utils.encode_cell({ r, c: 0 })]; if (a) a.z = 'dd.mm.yyyy';
+    const b = ws[XLSX.utils.encode_cell({ r, c: 1 })]; if (b) b.z = '#,##0.00';
+    const c = ws[XLSX.utils.encode_cell({ r, c: 2 })]; if (c) c.z = '0.00';
+  }
+  ws['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 8 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Kurse');
+  XLSX.writeFile(wb, 'tail-risk-beispiel-sp500.xlsx');
 }
 
 // --------------------------------------------------------------------------- tool view
@@ -635,9 +663,10 @@ async function renderTool(id, query, { autorun } = {}) {
     const bar = h(`<div class="result-bar"><div class="meta">${icon('cpu', 'width="13" height="13" style="vertical-align:-2px"')} In ${fmt(res.seconds, 'num', 2)} s im Browser berechnet · ${escapeHtml(res.dataset?.name && spec.needs.length ? res.dataset.name : 'Simulation')}${res.dataset?.n && spec.needs.length ? ` · ${fmt(res.dataset.n, 'int')} Renditen` : ''}</div>
       <div class="actions"><button class="btn sm" data-act="xlsx">${icon('excel')} Excel</button><button class="btn sm" data-act="share">${icon('link')} Link</button><button class="btn sm" data-act="print">${icon('print')} Drucken / PDF</button></div></div>`);
     bar.querySelector('[data-act="xlsx"]').addEventListener('click', async (e) => {
-      e.currentTarget.disabled = true;
+      const btn = e.currentTarget; // currentTarget is null after the first await
+      btn.disabled = true;
       try { await exportXlsx({ spec, result: res, dataset: spec.needs.length ? app.dataset : { label: 'Simulation', detail: '' }, params: values }); }
-      catch (err) { toast(err.message); } finally { e.currentTarget.disabled = false; }
+      catch (err) { toast(err.message); } finally { btn.disabled = false; }
     });
     bar.querySelector('[data-act="share"]').addEventListener('click', async () => {
       const url = location.href;

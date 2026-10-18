@@ -4,7 +4,7 @@ import { chartRows } from './charts.js';
 
 const XL_FMT = { pct: '0.00%', int: '#,##0', num: '#,##0.0000', x: '0.0"×"', bp: '0', money: '#,##0.00' };
 const sheetName = (s, used) => {
-  let base = String(s || 'Blatt').replace(/[\\/?*[\]:]/g, ' ').slice(0, 28).trim() || 'Blatt';
+  let base = String(s || 'Blatt').replace(/[\\/?*[\]:]/g, '').replace(/\s+/g, ' ').slice(0, 28).trim() || 'Blatt';
   let name = base, i = 2;
   while (used.has(name)) name = `${base.slice(0, 25)} ${i++}`;
   used.add(name);

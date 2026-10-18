@@ -214,7 +214,7 @@ export function rerenderAll(root = document) {
 /** Plain table twin of a chart (accessibility + Excel export). */
 export function chartRows(spec) {
   if (spec.kind === 'xy') {
-    const cols = ['Reihe', spec.x.label || 'x', spec.y.label || 'y'];
+    const cols = ['Reihe', spec.x.label || (spec.x.type === 'date' ? 'Datum' : 'x'), spec.y.label || 'y'];
     const rows = [];
     for (const tr of spec.traces) tr.x.forEach((x, i) => rows.push([tr.name, x, tr.y[i]]));
     return { cols, rows, fmts: ['text', spec.x.type === 'date' ? 'text' : spec.x.fmt, spec.y.fmt] };
