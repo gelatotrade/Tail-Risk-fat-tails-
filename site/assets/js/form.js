@@ -3,7 +3,7 @@ import { escapeHtml } from './format.js';
 import { parseNumber } from './data.js';
 
 const dec = (step) => { const s = String(step ?? 1); return s.includes('.') ? s.split('.')[1].length : 0; };
-const show = (v, step) => Number(v).toLocaleString('de-DE', { minimumFractionDigits: dec(step), maximumFractionDigits: dec(step) });
+const show = (v, step) => Number(v).toLocaleString('en-GB', { minimumFractionDigits: dec(step), maximumFractionDigits: dec(step) });
 
 export function buildForm(spec, values, onChange) {
   const form = document.createElement('form');
@@ -35,11 +35,11 @@ export function buildForm(spec, values, onChange) {
       el.className = 'field';
       el.innerHTML = `<span class="lbl"><b>${escapeHtml(p.label)}</b><output for="${id}">${show(v, step)}${p.unit ? ' ' + escapeHtml(p.unit) : ''}</output></span>
         <div class="range-row"><input type="range" id="${id}" min="${p.min}" max="${p.max}" step="${step}" value="${v}">
-        <input type="text" inputmode="decimal" class="num-box" value="${show(v, step)}" aria-label="${escapeHtml(p.label)} (Zahl)"></div>
+        <input type="text" inputmode="decimal" class="num-box" value="${show(v, step)}" aria-label="${escapeHtml(p.label)} (number)"></div>
         ${p.help ? `<span class="help">${escapeHtml(p.help)}</span>` : ''}`;
       const range = el.querySelector('input[type=range]'), num = el.querySelector('input.num-box'), out = el.querySelector('output');
       const set = (raw, commit) => {
-        let x = typeof raw === 'number' ? raw : parseNumber(raw); // accepts 0,95 and 0.95
+        let x = typeof raw === 'number' ? raw : parseNumber(raw); // accepts 0.95 (and 0,95)
         if (!Number.isFinite(x)) { num.value = show(state[p.name], step); return; }
         x = Math.min(p.max, Math.max(p.min, x));
         if (p.type === 'int') x = Math.round(x);

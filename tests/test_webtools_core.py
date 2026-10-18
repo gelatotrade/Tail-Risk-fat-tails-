@@ -90,8 +90,8 @@ def test_vix_with_gaps_is_dropped_not_misaligned():
     assert ds.vix is None and ds.n == 199
 
 
-def test_dataset_require_message_is_german_and_actionable():
-    with pytest.raises(ToolError, match="VIX"):
+def test_dataset_require_message_is_actionable():
+    with pytest.raises(ToolError, match=r"does not contain: VIX\. Choose a dataset"):
         Dataset(returns=np.zeros(100)).require("returns", "vix")
 
 

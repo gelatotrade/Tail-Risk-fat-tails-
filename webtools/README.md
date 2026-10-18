@@ -1,96 +1,143 @@
-# webtools – das Framework als Web-Werkzeuge
+# webtools – the framework as web tools
 
-`webtools/` macht jedes Feature aus `src/` (und jedes Skript im Repo-Wurzelverzeichnis) als
-interaktives Werkzeug auf der GitHub-Pages-Seite nutzbar. Der Python-Code läuft dort
-**unverändert im Browser** (Pyodide 314.0.7 · CPython 3.14 · NumPy 2.4 · SciPy 1.18 ·
-Matplotlib 3.10) in einem Web Worker. Lokal und in CI läuft derselbe Code in CPython.
+`webtools/` exposes every feature of `src/` (and every script in the repository root) as an
+interactive tool on the GitHub Pages site. The Python code runs **unmodified in the browser**
+(Pyodide 314.0.7 · CPython 3.14 · NumPy 2.4 · SciPy 1.18 · Matplotlib 3.10) inside a Web Worker.
+Locally and in CI the same code runs on CPython.
 
 ```
-site/                 statisches Frontend (ES-Module, kein Build-Tool)
-webtools/core.py      Vertrag: SPEC-Validierung, Parameter-Coercion, Result-Builder, JSON
-webtools/charts.py    deklarative Diagramm-Specs (vom Browser mit Plotly gerendert)
-webtools/data.py      Datensätze: Marktdaten, Upload, synthetisch, Krisenszenario
-webtools/worker_api.py  die Funktionen, die der Web Worker aufruft
-webtools/tools/*.py   ein Modul pro Werkzeug
-scripts/build_site.py baut _site/ (Bundle, Katalog, Galerie)
+site/                 static front end (ES modules, no build tool)
+webtools/core.py      contract: SPEC validation, parameter coercion, result builder, JSON
+webtools/charts.py    declarative chart specs (rendered in the browser with Plotly)
+webtools/data.py      datasets: market data, uploads, synthetic series, crisis scenario
+webtools/worker_api.py  the functions the Web Worker calls
+webtools/tools/*.py   one module per tool
+scripts/build_site.py builds _site/ (bundle, catalogue, gallery)
 scripts/fetch_market_data.py  FRED → site/data/market.json
 ```
 
-## Ein Werkzeug schreiben
+## Writing a tool
 
-Datei `webtools/tools/<id_mit_unterstrichen>.py`:
+File `webtools/tools/<id_with_underscores>.py`:
 
 ```python
 from .. import charts as C
 from ..data import index_axis
 
 SPEC = {
-    "id": "risk-metrics",               # = Dateiname mit '-' statt '_'
-    "title": "VaR & Expected Shortfall",
+    "id": "risk-metrics",               # = file name with '-' instead of '_'
+    "title": "VaR and Expected Shortfall",
     "group": "risk",                    # data | risk | physics | regime | warning | surface | dashboard | scripts
-    "order": 20,                        # Reihenfolge innerhalb der Gruppe (optional)
-    "summary": "Ein Satz, was man lernt.",
-    "description": "Absätze durch Leerzeile getrennt. **fett**, *kursiv* und `code` erlaubt.",
-    "needs": ["returns"],               # [] = Simulation; sonst returns / prices / vix / vix3m / dates
+    "order": 20,                        # position within the group (optional)
+    "summary": "One sentence on what the user learns.",
+    "description": "Paragraphs separated by a blank line. **bold**, *italic* and `code` are allowed.",
+    "needs": ["returns"],               # [] = simulation; otherwise returns / prices / vix / vix3m / dates
     "params": [
         {"name": "confidence", "type": "float", "default": 0.99, "min": 0.9, "max": 0.999,
-         "step": 0.001, "label": "Konfidenzniveau", "help": "optional"},
-        {"name": "method", "type": "select", "default": "hill", "label": "Schätzer",
+         "step": 0.001, "label": "Confidence level", "help": "optional"},
+        {"name": "method", "type": "select", "default": "hill", "label": "Estimator",
          "options": [{"value": "hill", "label": "Hill"}, {"value": "pickands", "label": "Pickands"}]},
-        {"name": "show_fit", "type": "bool", "default": True, "label": "Fit einblenden",
-         "show_if": {"method": ["hill"]}},     # optional: nur sichtbar, wenn method == "hill"
+        {"name": "show_fit", "type": "bool", "default": True, "label": "Show fit",
+         "show_if": {"method": ["hill"]}},     # optional: only visible when method == "hill"
     ],
     "covers": ["src.models.risk_metrics.TailRiskMetrics.var_historical", "..."],
-    "cost": "fast",                     # fast (< 2 s, Live-Update) | medium | slow (> 20 s)
-    "preload": "import pandas",         # optional: Pakete, die Pyodide vorher laden muss
+    "cost": "fast",                     # fast (< 2 s, live update) | medium | slow (> 20 s)
+    "preload": "import pandas",         # optional: packages Pyodide must load first
 }
 
 def run(params, data, out):
-    r = data.returns                    # np.ndarray, tägliche Log-Renditen (dezimal)
-    out.metric("VaR 99 %", 0.023, "pct", hint="…", status=None, badge="")  # badge: eigener Plakettentext
-    out.table("Titel", ["Spalte", "Wert"], [["a", 0.1]], formats=["text", "pct:1"])  # Code[:Nachkommastellen]
-    out.chart(C.xy("Titel", [C.trace("Reihe", x, y)], x=C.axis("x"), y=C.axis("y", fmt="pct")))
-    out.figure(fig, "Bildunterschrift")  # Matplotlib-Figur aus src/ → PNG
-    out.note("Hinweis", "info")          # info | warning | success
-    out.set_verdict("serious", "Kurz-Einschätzung", "Ein Satz Begründung.")
+    r = data.returns                    # np.ndarray, daily log returns (decimal)
+    out.metric("99% VaR", 0.023, "pct", hint="…", status=None, badge="")  # badge: custom badge text
+    out.table("Title", ["Column", "Value"], [["a", 0.1]], formats=["text", "pct:1"])  # code[:decimals]
+    out.chart(C.xy("Title", [C.trace("Series", x, y)], x=C.axis("x"), y=C.axis("y", fmt="pct")))
+    out.figure(fig, "Caption")          # Matplotlib figure from src/ → PNG
+    out.note("Note", "info")            # info | warning | success
+    out.set_verdict("serious", "Short assessment", "One sentence of reasoning.")
 ```
 
-`params` kommen bereits typisiert und auf `[min, max]` begrenzt an. `data` ist ein
-`webtools.core.Dataset` (`returns`, `prices`, `vix`, `vix3m`, `dates`, `n`, `name`, `meta`).
-`data.require(...)` wird vor `run` anhand von `needs` geprüft.
+`params` arrive typed and clamped to `[min, max]`. `data` is a `webtools.core.Dataset`
+(`returns`, `prices`, `vix`, `vix3m`, `dates`, `n`, `name`, `meta`). `data.require(...)` is checked
+against `needs` before `run` is called.
 
-### Regeln
+### Rules
 
-* **Oberfläche auf Deutsch**, Du-Form, Fachbegriffe wie VaR, Expected Shortfall, GEX bleiben.
-* **Den Original-Code aufrufen**, nicht nachbauen. Webtools sind dünne Adapter. Fehler im
-  Original werden in `src/` behoben, nicht im Adapter umschifft.
-* `covers` listet vollständige Pfade (`src.paket.modul.Symbol[.methode]`; Skripte als
-  `script:<datei>.py`). `tests/test_feature_coverage.py` erzwingt, dass jedes öffentliche Symbol
-  in `src/` von mindestens einem Werkzeug abgedeckt ist.
-* Laufzeit mit Standardparametern (CPython): fast < 2 s, medium < 8 s, slow < 40 s. Pyodide ist
-  2–4× langsamer. Größere Simulationen gehören hinter Parameter, nicht in die Defaults.
-* Keine Dateien schreiben, kein `plt.show()`, kein Netzwerk. Zufall immer über einen `seed`-Parameter.
-* `ToolError("…")` für Fehler, die der Nutzer beheben kann (deutsche, handlungsleitende Meldung).
-* **Diagramme**: eine y-Achse pro Diagramm (nie Doppelachsen). Farben nach Rolle:
-  `color=1..8` für Reihen in fester Reihenfolge, `"muted"` für Referenzen (z. B. die Gauß-Kurve),
-  Statusfarben `good/warning/serious/critical` nur, wenn die Farbe einen Risikozustand *bedeutet*.
-  Prozentachsen mit `fmt="pct"` (Werte als Dezimalbruch). Lange Reihen werden automatisch
-  min/max-erhaltend ausgedünnt. Fächer und Konfidenzbänder mit `C.envelope(name, x, unten, oben)`,
-  Referenzlinien mit `C.hline` / `C.vline` (Beschriftungen weichen sich automatisch aus).
-* `set_verdict` nur, wenn das Werkzeug eine echte Einschätzung liefert.
-* Parameter, die nur für eine Ansicht oder einen Schalter gelten, bekommen `"show_if": {"param": [werte]}`;
-  sie werden dann nur angezeigt, wenn die Bedingung erfüllt ist (keine „Nur …“-Hinweise im Hilfetext).
-* Texte in Beschreibungen, Hinweisen, Untertiteln, Tabellennotizen und Urteilen dürfen **fett**, *kursiv*
-  und `code` enthalten.
-* Matplotlib-Figuren aus `src/visualization` sind willkommen (`out.figure`), interaktive
-  Plotly-Specs (`out.chart`) sind die Hauptdarstellung.
+* **Call the original code**, do not re-implement it. Web tools are thin adapters. Bugs in the
+  original are fixed in `src/`, not worked around in the adapter.
+* `covers` lists full paths (`src.package.module.Symbol[.method]`; scripts as `script:<file>.py`).
+  `tests/test_feature_coverage.py` enforces that every public symbol in `src/` is covered by at
+  least one tool.
+* Runtime with default parameters (CPython): fast < 2 s, medium < 8 s, slow < 40 s. Pyodide is
+  2–4× slower. Larger simulations belong behind parameters, not in the defaults.
+* No file writes, no `plt.show()`, no network. Randomness always via a `seed` parameter.
+* `ToolError("…")` for errors the user can fix (an actionable message in the site's language).
+* **Charts**: one y-axis per chart (never dual axes). Colours by role: `color=1..8` for series in a
+  fixed order, `"muted"` for references (e.g. the Gaussian curve), status colours
+  `good/warning/serious/critical` only when the colour *means* a risk state. Percentage axes use
+  `fmt="pct"` (values as decimal fractions). Long series are thinned automatically, preserving
+  minima and maxima. Fans and confidence bands with `C.envelope(name, x, lower, upper)`, reference
+  lines with `C.hline` / `C.vline` (labels avoid each other automatically).
+* `set_verdict` only when the tool delivers a genuine assessment.
+* Parameters that only apply to one view or switch get `"show_if": {"param": [values]}`; they are
+  shown only when the condition holds (no "only for …" remarks in help texts).
+* Descriptions, notes, chart subtitles, table notes, metric hints and verdicts may contain **bold**,
+  *italic* and `code`.
+* Matplotlib figures from `src/visualization` are welcome (`out.figure`); interactive Plotly specs
+  (`out.chart`) are the primary presentation.
 
-## Lokal testen und bauen
+## Language and style
+
+The site is written in **Business English with British spelling** (analyse, modelling, colour,
+behaviour, optimise, centre, programme). Write for risk managers, treasury and controlling teams:
+
+* **Concise and factual.** Short sentences, active voice, no hype, no exclamation marks.
+  Address the reader as "you" where an instruction is needed; otherwise neutral statements.
+* **Titles** are short noun phrases in sentence case ("Extreme value theory", "Rolling risk
+  metrics"); no questions, no trailing full stops. **Summaries** are one sentence.
+* **Parameter labels** are noun phrases in sentence case ("Confidence level", "Window (trading
+  days)"); units in the label or in `unit`.
+* **Numbers**: decimal point, thousands comma (1,234.56); percentages without a space (2.5%);
+  dates as `15 Oct 2026` in prose. Formatting of values is done by the front end — pass raw numbers.
+* Keep established terms in English finance usage (see glossary); do not invent synonyms.
+
+| German | English (use this) |
+|---|---|
+| Werkzeug | tool |
+| Datensatz | dataset |
+| Rendite / Tagesrendite | return / daily return |
+| Kurs / Schlusskurs | price / closing price |
+| Verlust / Tagesverlust | loss / one-day loss |
+| Kennzahlen | metrics / key figures |
+| Fette Ränder / Tails | fat tails |
+| Rand / Randbereich | tail |
+| Normalverteilung / Gauß | normal distribution / Gaussian |
+| Tail-Index | tail index |
+| Schwelle | threshold |
+| Konfidenzniveau | confidence level |
+| Zeitraum / Fenster | period / window |
+| Handelstage | trading days |
+| annualisiert / p. a. | annualised / p.a. |
+| Volatilität | volatility |
+| Einschätzung / Urteil | assessment |
+| Frühwarnsystem / Frühwarnsignal | early-warning system / early-warning signal |
+| Laufzeitstruktur (VIX) | term structure |
+| Krise / Crash / Einbruch | crisis / crash / sell-off |
+| Erholung | recovery |
+| Wiederkehrperiode / -niveau | return period / return level |
+| Überschreitung | exceedance |
+| Stichprobe / Ziehung | sample / draw |
+| Simulation / Pfad | simulation / path |
+| Phasenübergang | phase transition |
+| Regime / Regimewechsel | regime / regime switch |
+| Absicherung | hedge / hedging |
+| Hinweis | note |
+| Normal / Erhöht / Hoch / Kritisch (risk levels) | Normal / Elevated / High / Critical |
+
+## Testing and building locally
 
 ```bash
 pip install -r requirements.txt
-python -m pytest -q tests                 # alle Werkzeuge mit echten S&P-500-Daten
-python scripts/fetch_market_data.py       # FRED-Snapshot aktualisieren
+python -m pytest -q tests                 # every tool on real S&P 500 data
+python scripts/fetch_market_data.py       # refresh the FRED snapshot
 python scripts/build_site.py              # → _site/
 python -m http.server -d _site 8000       # http://localhost:8000
 ```

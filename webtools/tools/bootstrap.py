@@ -1,4 +1,4 @@
-"""Wie sicher sind die Zahlen? Bootstrap confidence intervals for VaR, Expected Shortfall, kurtosis and tail index."""
+"""How reliable are the numbers? Bootstrap confidence intervals for VaR, Expected Shortfall, kurtosis and tail index."""
 
 import numpy as np
 from scipy import stats
@@ -12,36 +12,36 @@ from .. import charts as C
 
 SPEC = {
     "id": "bootstrap",
-    "title": "Bootstrap-Konfidenzintervalle",
+    "title": "Bootstrap confidence intervals",
     "group": "data",
     "order": 50,
-    "summary": "Wie stark VaR, Expected Shortfall, Kurtosis und Tail-Index mit einer anderen, gleich "
-               "plausiblen Geschichte schwanken würden – als Konfidenzintervall.",
+    "summary": "How much VaR, Expected Shortfall, kurtosis and the tail index would vary under a different but "
+               "equally plausible history – expressed as confidence intervals.",
     "description": (
-        "Jede Risikokennzahl ist eine Schätzung aus einer einzigen Geschichte. Der **Bootstrap** "
-        "(`bootstrap_confidence_interval`) zieht aus deinen Tagesrenditen viele neue Stichproben gleicher "
-        "Länge mit Zurücklegen, rechnet die Kennzahl auf jeder neu und nimmt die mittleren 95 % (einstellbar) "
-        "der Ergebnisse als Konfidenzintervall. Breite Intervalle heißen: Die Zahl ist unsicher, egal wie viele "
-        "Nachkommastellen sie hat.\n\n"
-        "Untersucht werden der historische **VaR** und der **Expected Shortfall** (mittlerer Verlust jenseits "
-        "des VaR), die **Exzess-Kurtosis** und der **Hill-Tail-Index α** der absoluten Renditen (kleiner = "
-        "fettere Ränder; unter 2 unendliche Varianz). Die Histogramme zeigen die Bootstrap-Verteilung jeder "
-        "Kennzahl mit Schätzwert und Intervallgrenzen. Für α vergleicht die Tabelle zusätzlich das "
-        "asymptotische Wald-Intervall aus der Krümmung der Log-Likelihood (`numerical_hessian`).\n\n"
-        "Wichtig: Der einfache Bootstrap zieht Tage unabhängig voneinander. Volatilitäts-Cluster gehen dabei "
-        "verloren – bei echten Märkten sind die wahren Unsicherheiten eher größer. Der **Seed** macht das "
-        "Ergebnis reproduzierbar; mehr Stichproben glätten die Histogramme, kosten aber Rechenzeit."
+        "Every risk metric is an estimate from a single history. The **bootstrap** "
+        "(`bootstrap_confidence_interval`) draws many new samples of the same length from your daily returns "
+        "with replacement, recomputes the metric on each one and takes the middle 95% (adjustable) of the "
+        "results as the confidence interval. A wide interval means the figure is uncertain, however many decimal "
+        "places it shows.\n\n"
+        "The tool examines historical **VaR**, **Expected Shortfall** (the average loss beyond VaR), **excess "
+        "kurtosis** and the **Hill tail index α** of absolute returns (smaller = fatter tails; below 2, infinite "
+        "variance). The histograms show the bootstrap distribution of each metric with its point estimate and "
+        "interval bounds. For α the table also shows the asymptotic Wald interval derived from the curvature of "
+        "the log-likelihood (`numerical_hessian`).\n\n"
+        "Important: the simple bootstrap draws days independently of each other, so volatility clusters are lost "
+        "– in real markets the true uncertainty tends to be larger. The **seed** makes the result reproducible; "
+        "more samples smooth the histograms but take longer to compute."
     ),
     "needs": ["returns"],
     "params": [
         {"name": "n_boot", "type": "int", "default": 1000, "min": 100, "max": 5000, "step": 100,
-         "label": "Bootstrap-Stichproben", "help": "Bei langen Reihen begrenzt das Werkzeug die Zahl, damit es im "
-                                                    "Browser flüssig bleibt."},
+         "label": "Bootstrap samples", "help": "For long series the tool caps this number so that it stays "
+                                                "responsive in the browser."},
         {"name": "confidence", "type": "float", "default": 0.95, "min": 0.80, "max": 0.99, "step": 0.01,
-         "label": "Konfidenzniveau des Intervalls"},
+         "label": "Interval confidence level"},
         {"name": "level", "type": "float", "default": 0.99, "min": 0.90, "max": 0.995, "step": 0.005,
-         "label": "VaR-/ES-Niveau"},
-        {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 99999, "step": 1, "label": "Zufalls-Seed"},
+         "label": "VaR/ES level"},
+        {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 99999, "step": 1, "label": "Random seed"},
     ],
     "covers": [
         "src.utils.statistics.bootstrap_confidence_interval",
@@ -58,16 +58,16 @@ MAX_WORK = 4e6  # observations x resamples, keeps the browser responsive
 
 
 def _pct(x, digits=2):
-    return f"{x * 100:.{digits}f} %".replace(".", ",")
+    return f"{x * 100:.{digits}f}%"
 
 
 def _lvl(p):
-    """Confidence level as a short German percentage: 0.99 -> '99 %', 0.975 -> '97,5 %'."""
-    return f"{p * 100:.1f}".rstrip("0").rstrip(".").replace(".", ",") + "\u00a0%"
+    """Confidence level as a short percentage: 0.99 -> '99%', 0.975 -> '97.5%'."""
+    return f"{p * 100:.1f}".rstrip("0").rstrip(".") + "%"
 
 
 def _num(x, digits=2):
-    return f"{x:.{digits}f}".replace(".", ",").replace("-", "−")
+    return f"{x:.{digits}f}".replace("-", "−")
 
 
 def _hill_wald(r, alpha, z):
@@ -98,8 +98,8 @@ def run(params, data, out):
     n_boot = int(params["n_boot"])
     if n * n_boot > MAX_WORK:
         n_boot = max(100, int(MAX_WORK // n // 50 * 50))
-        out.note(f"Für {n} Beobachtungen rechnet das Werkzeug {n_boot} statt {int(params['n_boot'])} Stichproben, "
-                 "damit es im Browser flüssig bleibt.", "info")
+        out.note(f"For {n:,} observations the tool uses {n_boot:,} instead of {int(params['n_boot']):,} samples "
+                 "so that it stays responsive in the browser.", "info")
 
     # TailRiskMetrics precomputes skew/kurtosis in __init__ (milliseconds per call). Its historical VaR and
     # ES only read .returns, so one instance is reused and handed each resample.
@@ -114,10 +114,10 @@ def run(params, data, out):
         return trm.expected_shortfall(level)
 
     stats_def = [
-        ("var", f"VaR {_lvl(level)} (1 Tag)", var_hist, True),
-        ("es", f"Expected Shortfall {_lvl(level)}", es_hist, True),
-        ("kurt", "Exzess-Kurtosis", lambda s: compute_moments(s)["kurtosis"], False),
-        ("hill", "Hill-Tail-Index α", lambda s: estimate_tail_index(s, "hill"), False),
+        ("var", f"{_lvl(level)} VaR (1 day)", var_hist, True),
+        ("es", f"{_lvl(level)} Expected Shortfall", es_hist, True),
+        ("kurt", "Excess kurtosis", lambda s: compute_moments(s)["kurtosis"], False),
+        ("hill", "Hill tail index α", lambda s: estimate_tail_index(s, "hill"), False),
     ]
     results = {}
     for i, (key, name, fn, _) in enumerate(stats_def):
@@ -137,31 +137,31 @@ def run(params, data, out):
 
     cl = _lvl(conf)
     tail_obs = int(np.sum(r < -results["var"][0]))
-    out.metric(f"VaR {_lvl(level)} (1 Tag)", results["var"][0], "pct", digits=2,
-               hint=f"{cl}-Intervall {_pct(results['var'][1])} – {_pct(results['var'][2])}")
-    out.metric(f"Expected Shortfall {_lvl(level)}", results["es"][0], "pct", digits=2,
-               hint=f"{cl}-Intervall {_pct(results['es'][1])} – {_pct(results['es'][2])}")
-    out.metric("Exzess-Kurtosis", results["kurt"][0], "num", digits=1,
-               hint=f"{cl}-Intervall {_num(results['kurt'][1], 1)} – {_num(results['kurt'][2], 1)}")
-    out.metric("Hill-Tail-Index α", results["hill"][0], "num", digits=2,
-               hint=f"{cl}-Intervall {_num(results['hill'][1])} – {_num(results['hill'][2])}",
+    out.metric(f"{_lvl(level)} VaR (1 day)", results["var"][0], "pct", digits=2,
+               hint=f"{cl} interval: {_pct(results['var'][1])} to {_pct(results['var'][2])}")
+    out.metric(f"{_lvl(level)} Expected Shortfall", results["es"][0], "pct", digits=2,
+               hint=f"{cl} interval: {_pct(results['es'][1])} to {_pct(results['es'][2])}")
+    out.metric("Excess kurtosis", results["kurt"][0], "num", digits=1,
+               hint=f"{cl} interval: {_num(results['kurt'][1], 1)} to {_num(results['kurt'][2], 1)}")
+    out.metric("Hill tail index α", results["hill"][0], "num", digits=2,
+               hint=f"{cl} interval: {_num(results['hill'][1])} to {_num(results['hill'][2])}",
                status="critical" if results["hill"][2] < 2 else "serious" if results["hill"][0] < 3 else None)
-    out.metric("Tage jenseits des VaR", tail_obs, "int", hint=f"von {n}: darauf beruht der Expected Shortfall")
+    out.metric("Days beyond VaR", tail_obs, "int", hint=f"Out of {n:,} – Expected Shortfall rests on these days")
 
     # ---- bootstrap distributions --------------------------------------------------------------------
-    sub = {"var": "Größter Tagesverlust, der an {lv} der Tage nicht überschritten wird.",
-           "es": "Mittlerer Verlust an den schlimmsten Tagen jenseits des VaR.",
-           "kurt": "Wenige Extremtage bestimmen die Kurtosis – deshalb ist ihr Intervall so breit.",
-           "hill": "Unter 2: unendliche Varianz (Lévy-Bereich). Typisch für Aktien: 3 bis 4."}
+    sub = {"var": "Largest one-day loss that is not exceeded on {lv} of days.",
+           "es": "Average loss on the worst days beyond VaR.",
+           "kurt": "A handful of extreme days drive the kurtosis – hence its wide interval.",
+           "hill": "Below 2: infinite variance (Lévy regime). Typical for equities: 3 to 4."}
     for key, name, _, is_pct in stats_def:
         point, lo, hi, reps = results[key]
         centers, counts = C.histogram(reps, bins=40, density=False)
         out.chart(C.xy(
-            name, [C.trace("Bootstrap-Stichproben", centers, counts, type="bar", color=1)],
-            x=C.axis(name, fmt="pct" if is_pct else "num", digits=2), y=C.axis("Anzahl Stichproben", fmt="int"),
+            name, [C.trace("Bootstrap samples", centers, counts, type="bar", color=1)],
+            x=C.axis(name, fmt="pct" if is_pct else "num", digits=2), y=C.axis("Number of samples", fmt="int"),
             vlines=[C.vline(lo, f"{cl}: {_pct(lo) if is_pct else _num(lo)}", 2),
                     C.vline(hi, _pct(hi) if is_pct else _num(hi), 2),
-                    C.vline(point, "Schätzwert", "ink", dash=False)],
+                    C.vline(point, "Estimate", "ink", dash=False)],
             subtitle=sub[key].format(lv=_lvl(level)), height=300,
         ))
 
@@ -171,25 +171,24 @@ def run(params, data, out):
         point, lo, hi, reps = results[key]
         f = _pct if is_pct else _num
         rel = (hi - lo) / 2 / abs(point) if point else None
-        rows.append([name, "Bootstrap (Perzentil)", f(point), f(lo), f(hi), rel])
+        rows.append([name, "Bootstrap (percentile)", f(point), f(lo), f(hi), rel])
     z = stats.norm.ppf(0.5 + conf / 2)
     wald = _hill_wald(r, results["hill"][0], z)
-    note = (f"± relativ = halbe Intervallbreite ÷ Schätzwert. {n_boot} Stichproben mit Seed {seed}; "
-            "alle Kennzahlen nutzen dieselben Stichproben.")
+    note = (f"± relative = half the interval width ÷ estimate. {n_boot:,} samples with seed {seed}; "
+            "all metrics use the same samples.")
     if wald:
         lo_w, hi_w, se, grad, k = wald
-        rows.append(["Hill-Tail-Index α", f"Wald (Krümmung der Log-Likelihood, k = {k})", _num(results["hill"][0]),
+        rows.append(["Hill tail index α", f"Wald (log-likelihood curvature, k = {k})", _num(results["hill"][0]),
                      _num(lo_w), _num(hi_w), (hi_w - lo_w) / 2 / results["hill"][0]])
-        note += (f" Wald: Standardfehler α/√k = {_num(se, 3)} aus numerical_hessian; die Steigung der "
-                 f"Log-Likelihood am Schätzwert ist {grad:.1e} (≈ 0, also ein Maximum).".replace(".", ",", 1)
-                 .replace("e-0", "e−0"))
-    out.table(f"Konfidenzintervalle ({cl})", ["Kennzahl", "Methode", "Schätzwert", "untere Grenze", "obere Grenze",
-                                              "± relativ"], rows,
+        slope = f"{grad:.1e}".replace("-", "−")
+        note += (f" Wald: standard error α/√k = {_num(se, 3)} from numerical_hessian; the slope of the "
+                 f"log-likelihood at the estimate is {slope} (≈ 0, i.e. a maximum).")
+    out.table(f"Confidence intervals ({cl})", ["Metric", "Method", "Estimate", "Lower bound", "Upper bound",
+                                               "± relative"], rows,
               formats=["text", "text", "text", "text", "text", "pct"], note=note)
     if tail_obs < 10:
-        out.note(f"Nur {tail_obs} Tag{'e' if tail_obs != 1 else ''} jenseits des VaR: Der Expected Shortfall beruht "
-                 "auf so wenigen Verlusten, dass auch das Bootstrap-Intervall die Unsicherheit unterschätzt – der "
-                 "Bootstrap kann keine Verluste erfinden, die schlimmer sind als der schlimmste beobachtete Tag. "
-                 "Nimm eine längere Reihe oder ein niedrigeres Niveau.", "warning")
-    out.note("Der Bootstrap zieht Tage unabhängig. Volatilitäts-Cluster (ruhige und hektische Phasen) gehen dabei "
-             "verloren – in echten Märkten sind die Intervalle eher breiter als hier.", "warning")
+        out.note(f"Only {tail_obs} day{'s' if tail_obs != 1 else ''} beyond VaR: Expected Shortfall rests on so few "
+                 "losses that even the bootstrap interval understates the uncertainty – the bootstrap cannot invent "
+                 "losses worse than the worst observed day. Use a longer series or a lower level.", "warning")
+    out.note("The bootstrap draws days independently. Volatility clusters (calm and turbulent phases) are lost in the "
+             "process – in real markets the intervals tend to be wider than shown here.", "warning")

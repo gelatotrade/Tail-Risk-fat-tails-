@@ -45,8 +45,8 @@ export function heroChart(pulse, { width = 560, height = 300 } = {}) {
     grid.push(`<text x="${X(s)}" y="${pad.t + H + 18}" text-anchor="middle" font-size="10.5" fill="var(--muted)">${s > 0 ? '+' : ''}${s}σ</text>`);
   }
   const worst = Math.min(...z);
-  const worstLbl = `Schlechtester Tag: ${fmt(Math.min(...pulse.returns), 'pct', 1)} (${fmt(Math.abs(worst), 'num', 1)} σ)`;
-  return `<svg class="plot" viewBox="0 0 ${width} ${height}" role="img" aria-label="Verteilung der S&P-500-Tagesrenditen auf logarithmischer Skala im Vergleich zur Normalverteilung">
+  const worstLbl = `Worst day: ${fmt(Math.min(...pulse.returns), 'pct', 1)} (${fmt(Math.abs(worst), 'num', 1)}σ)`;
+  return `<svg class="plot" viewBox="0 0 ${width} ${height}" role="img" aria-label="Distribution of S&P 500 daily returns on a log scale compared with the normal distribution">
     ${grid.join('')}
     <line x1="${pad.l}" x2="${pad.l + W}" y1="${pad.t + H}" y2="${pad.t + H}" stroke="var(--axis)"/>
     ${bars}

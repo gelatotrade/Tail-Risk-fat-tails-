@@ -1,4 +1,4 @@
-"""Fokker-Planck-Tail-Risk: Prognoseverteilung, Tail-Kennzahlen und eine kleine 3D-Risikofläche."""
+"""Fokker-Planck tail risk: forecast distribution, tail metrics and a small 3D risk surface."""
 
 import numpy as np
 from scipy import stats
@@ -10,49 +10,49 @@ from ..core import ToolError
 
 SPEC = {
     "id": "fokker-planck-forecast",
-    "title": "Fokker-Planck: Prognose der Ränder",
+    "title": "Fokker-Planck: tail forecast",
     "group": "physics",
     "order": 45,
-    "summary": "Schreibt die heutige Verteilung mit der fraktionalen Fokker-Planck-Gleichung über h Tage fort und "
-               "misst, wie stark die Ränder gegenüber Gauß wachsen.",
+    "summary": "Projects today's distribution h days ahead with the fractional Fokker-Planck equation and "
+               "measures how much the tails grow relative to a Gaussian.",
     "description": (
-        "`FokkerPlanckTailRisk` startet mit einer Gauß-Glocke um die heutige Lage und lässt sie h Handelstage lang "
-        "nach der fraktionalen Fokker-Planck-Gleichung fließen: Mean-Reversion θ zur Mitte, dazu Lévy-Diffusion "
-        "der Ordnung **α** mit einer Stärke, die mit dem Quadrat des **Vola-Regimes** wächst (D_α = 0,01·Regime² "
-        "pro Jahr). Bei α = 2 läuft stattdessen gewöhnliche Diffusion. x ist die Tagesrendite in Einheiten der "
-        "heutigen Standardabweichung σ: Die Prognose zeigt, wie die Verteilung der Tagesrendite in h Tagen aussieht – "
-        "nicht die über h Tage aufsummierte Rendite. Weil die Diffusion im Modell klein ist, zieht die Mean-Reversion "
-        "die Glocke mit wachsendem Horizont sogar leicht zusammen.\n\n"
-        "So liest du das Ergebnis: Der Kern der Verteilung ändert sich über wenige Wochen kaum, aber weit draußen "
-        "wächst Masse nach, die eine Normalverteilung nie hätte. Die Faktoren in der Tabelle teilen die "
-        "Tail-Masse jenseits von kσ durch den Gauß-Wert – bei 2σ sind sie ≈ 1, bei 5σ oft zweistellig.\n\n"
-        "Die **3D-Risikofläche** (`generate_3d_risk_surface`) wiederholt die Prognose für ein kleines Gitter aus "
-        "Vola-Regime × Horizont, jeweils ab N(0, 1), und zeigt die Tail-Wahrscheinlichkeit jenseits der gewählten "
-        "Schwelle. Jede Zelle ist eine eigene Simulation; halte das Gitter im Browser klein."
+        "`FokkerPlanckTailRisk` starts with a Gaussian bell around today's position and lets it flow for h trading "
+        "days according to the fractional Fokker-Planck equation: mean reversion θ towards the centre, plus Lévy "
+        "diffusion of order **α** whose strength grows with the square of the **volatility regime** "
+        "(D_α = 0.01·regime² per year). At α = 2 ordinary diffusion is used instead. x is the daily return in units "
+        "of today's standard deviation σ: the forecast shows what the distribution of the daily return looks like "
+        "in h days – not the return accumulated over h days. Because diffusion in the model is small, mean "
+        "reversion even narrows the bell slightly as the horizon grows.\n\n"
+        "How to read the result: the body of the distribution barely changes over a few weeks, but far out mass "
+        "builds up that a normal distribution would never have. The ratios in the table divide the tail mass "
+        "beyond kσ by the Gaussian value – at 2σ they are ≈ 1, at 5σ often in double digits.\n\n"
+        "The **3D risk surface** (`generate_3d_risk_surface`) repeats the forecast on a small grid of volatility "
+        "regime × horizon, each starting from N(0, 1), and shows the tail probability beyond the selected "
+        "threshold. Each cell is a separate simulation, so keep the grid small in the browser."
     ),
     "needs": [],
     "params": [
         {"name": "alpha", "type": "float", "default": 1.7, "min": 1.0, "max": 2.0, "step": 0.05,
-         "label": "Fraktionale Ordnung α", "help": "2 = gewöhnliche Diffusion; kleiner = fettere Ränder."},
+         "label": "Fractional order α", "help": "2 = ordinary diffusion; smaller = fatter tails."},
         {"name": "theta", "type": "float", "default": 0.1, "min": 0.0, "max": 3.0, "step": 0.05,
-         "label": "Mean-Reversion θ (pro Jahr)"},
+         "label": "Mean reversion θ (per year)"},
         {"name": "horizon", "type": "int", "default": 20, "min": 1, "max": 252, "step": 1,
-         "label": "Horizont (Handelstage)"},
+         "label": "Horizon (trading days)"},
         {"name": "vol_regime", "type": "float", "default": 1.0, "min": 0.5, "max": 4.0, "step": 0.1,
-         "label": "Vola-Regime", "help": "1 = normal, 2 = doppelte Vola (vierfache Lévy-Diffusion)."},
+         "label": "Volatility regime", "help": "1 = normal, 2 = double volatility (four times the Lévy diffusion)."},
         {"name": "current_return", "type": "float", "default": 0.0, "min": -3.0, "max": 3.0, "step": 0.1,
-         "label": "Heutige Lage (in σ)", "help": "Mitte der Start-Glocke."},
+         "label": "Today's position (in σ)", "help": "Centre of the initial bell."},
         {"name": "current_vol", "type": "float", "default": 1.0, "min": 0.5, "max": 3.0, "step": 0.1,
-         "label": "Heutige Breite (in σ)"},
-        {"name": "surface", "type": "bool", "default": True, "label": "3D-Risikofläche berechnen"},
+         "label": "Today's width (in σ)"},
+        {"name": "surface", "type": "bool", "default": True, "label": "Compute 3D risk surface"},
         {"name": "surface_n", "type": "int", "default": 3, "min": 2, "max": 5, "step": 1,
-         "label": "Fläche: Punkte je Achse", "show_if": {"surface": [True]}},
+         "label": "Surface: points per axis", "show_if": {"surface": [True]}},
         {"name": "surface_h_max", "type": "int", "default": 60, "min": 10, "max": 120, "step": 5,
-         "label": "Fläche: Horizont bis (Tage)", "show_if": {"surface": [True]}},
+         "label": "Surface: maximum horizon (days)", "show_if": {"surface": [True]}},
         {"name": "surface_vol_max", "type": "float", "default": 3.0, "min": 1.5, "max": 4.0, "step": 0.5,
-         "label": "Fläche: Vola-Regime bis", "show_if": {"surface": [True]}},
+         "label": "Surface: maximum volatility regime", "show_if": {"surface": [True]}},
         {"name": "threshold", "type": "float", "default": 4.0, "min": 2.0, "max": 5.0, "step": 0.5,
-         "label": "Fläche: Schwelle (σ)", "show_if": {"surface": [True]}},
+         "label": "Surface: threshold (σ)", "show_if": {"surface": [True]}},
     ],
     "covers": [
         "src.physics.fokker_planck.FokkerPlanckTailRisk",
@@ -67,8 +67,8 @@ SPEC = {
 MAX_DAYS = 1300   # simulated forecast days in one run (~4 Crank-Nicolson steps per day, dense 500 x 500)
 
 
-def _de(x, digits=2):
-    return f"{x:.{digits}f}".replace(".", ",")
+def _fmt(x, digits=2):
+    return f"{x:.{digits}f}"
 
 
 def run(params, data, out):
@@ -80,40 +80,40 @@ def run(params, data, out):
     hs = np.unique(np.clip(np.round(hs / 5) * 5, 5, h_max).astype(int))  # round horizons to 5-day steps
     surface_days = int(len(vols) * hs.sum()) if params["surface"] else 0
     if h + surface_days > MAX_DAYS:
-        raise ToolError(f"Prognose plus Risikofläche wären {h + surface_days} simulierte Tage (Grenze {MAX_DAYS}). "
-                        "Verkleinere das Flächengitter, den maximalen Horizont oder schalte die Fläche ab.")
+        raise ToolError(f"Forecast plus risk surface would require {h + surface_days:,} simulated days (limit "
+                        f"{MAX_DAYS:,}). Reduce the surface grid or the maximum horizon, or switch the surface off.")
 
     model = FokkerPlanckTailRisk(alpha=alpha, theta=theta)
     solver = model.solver
     x = solver.x
     P0 = model.initial_distribution(params["current_return"], params["current_vol"])
-    out.progress("Prognose der Verteilung …", 0.05)
+    out.progress("Forecasting the distribution…", 0.05)
     P = model.forecast_distribution(P0, horizon=h, vol_regime=regime)
     m = model.compute_tail_risk_metrics(P)
     mo, tp = m["moments"], m["tail_probabilities"]
     m0 = solver.compute_moments(P0)
 
-    out.metric(f"Streuung in {h} Tagen", mo["std"], "num",
-               hint=f"in heutigen σ; Start {_de(m0['std'])}. θ zieht zusammen, die Lévy-Diffusion weitet")
-    out.metric("Exzess-Kurtosis", mo["kurtosis"], "num", hint="Normalverteilung = 0",
+    out.metric(f"Standard deviation in {h} days", mo["std"], "num",
+               hint=f"in today's σ; start {_fmt(m0['std'])}. θ narrows the bell, Lévy diffusion widens it")
+    out.metric("Excess kurtosis", mo["kurtosis"], "num", hint="normal distribution = 0",
                status="critical" if mo["kurtosis"] > 6 else "serious" if mo["kurtosis"] > 1 else None)
-    out.metric("Masse jenseits 3σ", tp["3sigma"]["total"], "pct", hint=f"Gauß: {_de(200 * stats.norm.sf(3))} %")
+    out.metric("Mass beyond 3σ", tp["3sigma"]["total"], "pct", hint=f"Gaussian: {_fmt(200 * stats.norm.sf(3))}%")
     for key, k in (("4sigma", 4), ("5sigma", 5)):
         ratio = tp[key]["ratio_to_gaussian"]
-        out.metric(f"Faktor gegenüber Gauß ({k}σ)", ratio, "x", hint=f"Tail-Masse jenseits {k}σ ÷ Gauß-Wert",
+        out.metric(f"Ratio to Gaussian ({k}σ)", ratio, "x", hint=f"tail mass beyond {k}σ ÷ Gaussian value",
                    status="critical" if ratio > 20 else "serious" if ratio > 3 else None)
-    out.metric("Fat-Tail-Faktor 2/α", m["fat_tail_factor"], "num", hint=f"Tail-Index α = {_de(m['tail_index'])}")
+    out.metric("Fat-tail factor 2/α", m["fat_tail_factor"], "num", hint=f"tail index α = {_fmt(m['tail_index'])}")
 
     # --- chart 1: start vs forecast density, log scale
     floor = 1e-7
     keep = lambda y: np.where(y >= floor, y, np.nan)  # noqa: E731
     out.chart(C.xy(
-        f"Verteilung heute und in {h} Tagen",
-        [C.trace(f"In {h} Tagen (Fokker-Planck)", x, keep(P), color=1, width=2.5),
-         C.trace("Heute (Gauß)", x, keep(P0), color=2, width=1.5),
-         C.trace("Gauß gleicher Varianz", x, keep(stats.norm.pdf(x, mo["mean"], mo["std"])), color="muted", dash=True)],
-        x=C.axis("Rendite (in heutigen σ)"), y=C.axis("Dichte", type="log", range=(floor, 3 * float(max(P.max(), P0.max())))),
-        subtitle="Logarithmische Skala: Der Kern bleibt fast gleich, die Ränder heben sich von der Gauß-Parabel ab.",
+        f"Distribution today and in {h} days",
+        [C.trace(f"In {h} days (Fokker-Planck)", x, keep(P), color=1, width=2.5),
+         C.trace("Today (Gaussian)", x, keep(P0), color=2, width=1.5),
+         C.trace("Gaussian with equal variance", x, keep(stats.norm.pdf(x, mo["mean"], mo["std"])), color="muted", dash=True)],
+        x=C.axis("Return (in today's σ)"), y=C.axis("Density", type="log", range=(floor, 3 * float(max(P.max(), P0.max())))),
+        subtitle="Logarithmic scale: the body stays almost unchanged, while the tails rise above the Gaussian parabola.",
     ))
 
     # --- chart 2: how many times more tail mass than a Gaussian, as a function of the distance in sigma
@@ -121,42 +121,42 @@ def run(params, data, out):
     tails = np.array([sum(solver.tail_probability(P, k)) for k in ks])
     ratio = tails / (2 * stats.norm.sf(ks))
     out.chart(C.xy(
-        "Tail-Masse gegenüber Gauß nach Abstand",
-        [C.trace("Fokker-Planck-Prognose", ks, np.where(tails > 1e-12, ratio, np.nan), color=1, width=2.5),
-         C.trace("Normalverteilung = 1", [ks[0], ks[-1]], [1.0, 1.0], color="muted", dash=True)],
-        x=C.axis("Abstand k (in σ der Prognose)"), y=C.axis("P(|X − μ| > kσ) ÷ Gauß-Wert", type="log"),
-        subtitle="Bis etwa 3σ liegt die Prognose beim Gauß-Wert – weiter draußen hat sie ein Vielfaches an Masse.",
+        "Tail mass relative to Gaussian by distance",
+        [C.trace("Fokker-Planck forecast", ks, np.where(tails > 1e-12, ratio, np.nan), color=1, width=2.5),
+         C.trace("Normal distribution = 1", [ks[0], ks[-1]], [1.0, 1.0], color="muted", dash=True)],
+        x=C.axis("Distance k (in σ of the forecast)"), y=C.axis("P(|X − μ| > kσ) ÷ Gaussian value", type="log"),
+        subtitle="Up to about 3σ the forecast stays close to the Gaussian value – further out it has many times the mass.",
     ))
 
     rows = []
     for k in (2, 3, 4, 5):
         t = tp[f"{k}sigma"]
         rows.append([f"{k} σ", t["left"], t["right"], t["total"], float(2 * stats.norm.sf(k)), t["ratio_to_gaussian"]])
-    out.table("Tail-Kennzahlen der Prognose", ["Schwelle", "links", "rechts", "gesamt", "Gauß gesamt", "Faktor"],
+    out.table("Tail metrics of the forecast", ["Threshold", "Left", "Right", "Total", "Gaussian total", "Ratio"],
               rows, formats=["text", "pct", "pct", "pct", "pct", "x"],
-              note="Aus compute_tail_risk_metrics: Masse jenseits Mittelwert ± k·σ der prognostizierten Dichte.")
+              note="From compute_tail_risk_metrics: mass beyond mean ± k·σ of the forecast density.")
 
     if not params["surface"]:
-        out.note("3D-Risikofläche ausgeschaltet.", "info")
+        out.note("3D risk surface switched off.", "info")
         return
 
-    out.progress(f"3D-Risikofläche: {len(vols) * len(hs)} Prognosen …", 0.3)
+    out.progress(f"3D risk surface: {len(vols) * len(hs)} forecasts…", 0.3)
     thr = params["threshold"]
     Z = model.generate_3d_risk_surface(vols, hs, threshold_sigma=thr)
     points = []
     if params["current_return"] == 0 and params["current_vol"] == 1:
         own = float(sum(solver.tail_probability(P, thr)))
-        points.append(C.path3d("Deine Prognose", [h], [regime], [own], color="critical", mode="markers", size=9))
+        points.append(C.path3d("Your forecast", [h], [regime], [own], color="critical", mode="markers", size=9))
     out.chart(C.surface(
-        f"Risikofläche: P(|X| > {_de(thr, 1)}σ)", hs.tolist(), vols.tolist(), Z,
-        x=C.axis("Horizont (Tage)", fmt="int"), y=C.axis("Vola-Regime"), z=C.axis("Tail-Wahrscheinlichkeit", fmt="pct"),
+        f"Risk surface: P(|X| > {_fmt(thr, 1)}σ)", hs.tolist(), vols.tolist(), Z,
+        x=C.axis("Horizon (days)", fmt="int"), y=C.axis("Volatility regime"), z=C.axis("Tail probability", fmt="pct"),
         points=points, height=520,
-        subtitle=f"{len(vols)} × {len(hs)} Prognosen ab N(0, 1). Gauß-Niveau: {200 * stats.norm.sf(thr):.3g} %".replace(".", ",")
-                 + ". Ziehen dreht, Mausrad zoomt.",
+        subtitle=f"{len(vols)} × {len(hs)} forecasts from N(0, 1). Gaussian level: {200 * stats.norm.sf(thr):.3g}%"
+                 + ". Drag to rotate, scroll to zoom.",
     ))
     g_thr = float(2 * stats.norm.sf(thr))
-    out.table(f"Risikofläche als Vielfaches des Gauß-Werts ({200 * stats.norm.sf(thr):.3g} %)".replace(".", ","),
-              ["Vola-Regime"] + [f"{d} Tage" for d in hs],
+    out.table(f"Risk surface as a multiple of the Gaussian value ({200 * stats.norm.sf(thr):.3g}%)",
+              ["Volatility regime"] + [f"{d} days" for d in hs],
               [[float(v)] + [float(z) / g_thr for z in Z[i]] for i, v in enumerate(vols)],
               formats=["num"] + ["x"] * len(hs),
-              note=f"P(|X| > {_de(thr, 1)}σ) jeder Zelle geteilt durch den Wert einer Normalverteilung.")
+              note=f"P(|X| > {_fmt(thr, 1)}σ) of each cell divided by the value for a normal distribution.")

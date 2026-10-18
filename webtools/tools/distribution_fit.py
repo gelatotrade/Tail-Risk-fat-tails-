@@ -16,37 +16,38 @@ from .. import charts as C
 from ..core import ToolError
 
 LEVELS = [{"value": v, "label": l} for v, l in
-          ((0.95, "95 %"), (0.975, "97,5 %"), (0.99, "99 %"), (0.995, "99,5 %"), (0.999, "99,9 %"))]
+          ((0.95, "95%"), (0.975, "97.5%"), (0.99, "99%"), (0.995, "99.5%"), (0.999, "99.9%"))]
 
 SPEC = {
     "id": "distribution-fit",
-    "title": "Verteilungs-Fit & Modellwahl",
+    "title": "Distribution fit and model selection",
     "group": "data",
     "order": 20,
-    "summary": "Passt Normal-, Student-t-, NIG- und Variance-Gamma-Verteilung an deine Renditen an und zeigt, "
-               "welche die Ränder am besten trifft.",
+    "summary": "Fits normal, Student-t, NIG and Variance Gamma distributions to your returns and shows which one "
+               "captures the tails best.",
     "description": (
-        "`compare_distributions` schätzt vier Modelle: die **Normalverteilung** und die **Student-t** per "
-        "Maximum Likelihood, **NIG** und **Variance Gamma** über die Momentenmethode (Mittelwert, Varianz, Schiefe, "
-        "Kurtosis). Der **Kolmogorov-Smirnov-Abstand** misst die größte Lücke zwischen empirischer und Modell-"
-        "Verteilungsfunktion; das **AIC** belohnt hohe Likelihood und bestraft Parameter. Kleiner ist bei beiden "
-        "besser. Die KS-p-Werte sind optimistisch, weil die Parameter aus denselben Daten stammen.\n\n"
-        "So liest du die Diagramme: Im **Q-Q-Plot** liegt ein passendes Modell auf der Diagonale. Knicken die "
-        "Punkte an den Enden weg, unterschätzt das Modell die Extreme. Die **logarithmische Dichte** zeigt dasselbe "
-        "für die Ränder, das dritte Diagramm direkt die Crash-Häufigkeit P(Rendite < −x).\n\n"
-        "VaR und Expected Shortfall je Modell sind Tagesverluste (positive Dezimalzahl): Gauß und Student-t "
-        "analytisch, NIG und Variance Gamma per Monte Carlo (ihre Crash-Häufigkeit im dritten Diagramm aus der "
-        "numerisch integrierten Dichte). Momenten-Fits treffen die Kurtosis, aber nicht "
-        "unbedingt die Form; das zeigt sich oft in einem schlechten KS-Wert."
+        "`compare_distributions` estimates four models: the **normal distribution** and the **Student-t** by "
+        "maximum likelihood, **NIG** and **Variance Gamma** by the method of moments (mean, variance, skewness, "
+        "kurtosis). The **Kolmogorov-Smirnov distance** measures the largest gap between the empirical and the "
+        "model distribution function; the **AIC** rewards a high likelihood and penalises parameters. For both, "
+        "smaller is better. The KS p-values are optimistic because the parameters are estimated from the same "
+        "data.\n\n"
+        "How to read the charts: in the **Q-Q plot** a well-fitting model lies on the diagonal. If the points bend "
+        "away at the ends, the model underestimates the extremes. The **logarithmic density** shows the same for "
+        "the tails, and the third chart shows the crash frequency P(return < −x) directly.\n\n"
+        "VaR and Expected Shortfall per model are one-day losses (positive decimals): analytical for the Gaussian "
+        "and Student-t, by Monte Carlo for NIG and Variance Gamma (their crash frequency in the third chart comes "
+        "from the numerically integrated density). Moment fits match the kurtosis but not necessarily the shape; "
+        "this often shows up as a poor KS value."
     ),
     "needs": ["returns"],
     "params": [
-        {"name": "confidence", "type": "select", "default": 0.99, "label": "Konfidenzniveau", "options": LEVELS},
+        {"name": "confidence", "type": "select", "default": 0.99, "label": "Confidence level", "options": LEVELS},
         {"name": "bins", "type": "int", "default": 100, "min": 30, "max": 200, "step": 10,
-         "label": "Klassen im Histogramm"},
+         "label": "Histogram bins"},
         {"name": "n_mc", "type": "int", "default": 200000, "min": 20000, "max": 1000000, "step": 20000,
-         "label": "Monte-Carlo-Ziehungen", "help": "Für Quantile, VaR und ES von NIG und Variance Gamma."},
-        {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 99999, "step": 1, "label": "Zufalls-Seed"},
+         "label": "Monte Carlo draws", "help": "For quantiles, VaR and ES of NIG and Variance Gamma."},
+        {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 99999, "step": 1, "label": "Random seed"},
     ],
     "covers": [
         "src.models.fat_tail_distributions.compare_distributions",
@@ -67,20 +68,20 @@ SPEC = {
     "cost": "medium",
 }
 
-NAMES = {"gaussian": "Normalverteilung", "student_t": "Student-t", "nig": "NIG", "variance_gamma": "Variance Gamma"}
+NAMES = {"gaussian": "Normal distribution", "student_t": "Student-t", "nig": "NIG", "variance_gamma": "Variance Gamma"}
 COLORS = {"gaussian": "muted", "student_t": 1, "nig": 2, "variance_gamma": 3}
 N_PARAMS = {"gaussian": 2, "student_t": 3, "nig": 4, "variance_gamma": 4}
 
 
-def _de(x, digits=2):
-    return f"{x:.{digits}f}".replace(".", ",").replace("-", "−")
+def _num(x, digits=2):
+    return f"{x:.{digits}f}".replace("-", "−")
 
 
 def _p(p):
-    """p-value as German text; tiny values as '< 0,001' instead of 3,0e-26."""
+    """p-value as text; tiny values as '< 0.001' instead of 3.0e-26."""
     if p is None or not np.isfinite(p):
         return "–"
-    return "< 0,001" if p < 0.001 else _de(p, 3)
+    return "< 0.001" if p < 0.001 else _num(p, 3)
 
 
 def _p_text(p):
@@ -111,11 +112,11 @@ def run(params, data, out):
     r = np.asarray(data.returns, dtype=float)
     n = len(r)
     if np.std(r) <= 0:
-        raise ToolError("Die Renditen sind konstant – es gibt keine Verteilung anzupassen.")
+        raise ToolError("The returns are constant – there is no distribution to fit.")
     conf, seed, n_mc = float(params["confidence"]), int(params["seed"]), int(params["n_mc"])
     lvl = next(o["label"] for o in LEVELS if o["value"] == params["confidence"])
 
-    out.progress("Passe vier Verteilungen an …", 0.1)
+    out.progress("Fitting four distributions …", 0.1)
     res = compare_distributions(r)
     best = res["best_fit"]
 
@@ -126,19 +127,19 @@ def run(params, data, out):
     nig = NormalInverseGaussian.fit(r)
     vg = VarianceGamma.fit(r)
 
-    out.progress("Monte Carlo für NIG und Variance Gamma …", 0.5)
+    out.progress("Monte Carlo for NIG and Variance Gamma …", 0.5)
     s_nig = np.asarray(nig.sample(n_mc, seed=seed), dtype=float)
     s_vg = np.asarray(vg.sample(n_mc, seed=seed + 1), dtype=float)
 
     models = {
         "gaussian": {"pdf": gauss.pdf, "ppf": gauss.ppf, "cdf": gauss.cdf, "sample": None,
-                     "par": f"μ = {_de(100 * gp['loc'], 3)} %, σ = {_de(100 * gp['scale'])} %"},
+                     "par": f"μ = {_num(100 * gp['loc'], 3)}%, σ = {_num(100 * gp['scale'])}%"},
         "student_t": {"pdf": t_dist.pdf, "ppf": t_dist.ppf, "cdf": t_dist.cdf, "sample": None,
-                      "par": f"ν = {_de(tp['nu'])}, Skala = {_de(100 * tp['scale'])} %"},
+                      "par": f"ν = {_num(tp['nu'])}, scale = {_num(100 * tp['scale'])}%"},
         "nig": {"pdf": nig.pdf, "ppf": None, "cdf": None, "sample": s_nig,
-                "par": f"α = {_de(nig.alpha, 1)}, β = {_de(nig.beta, 1)}, δ = {_de(100 * nig.delta)} %"},
+                "par": f"α = {_num(nig.alpha, 1)}, β = {_num(nig.beta, 1)}, δ = {_num(100 * nig.delta)}%"},
         "variance_gamma": {"pdf": vg.pdf, "ppf": None, "cdf": None, "sample": s_vg,
-                           "par": f"σ = {_de(100 * vg.sigma)} %, θ = {_de(100 * vg.theta, 3)} %, ν = {_de(vg.nu)}"},
+                           "par": f"σ = {_num(100 * vg.sigma)}%, θ = {_num(100 * vg.theta, 3)}%, ν = {_num(vg.nu)}"},
     }
     alpha = 1 - conf
     for key, m in models.items():
@@ -158,26 +159,26 @@ def run(params, data, out):
     trm = TailRiskMetrics(r)
     var_h, es_h = float(trm.var_historical(conf)), float(trm.expected_shortfall(conf, "historical"))
 
-    out.metric("Bestes Modell (KS)", NAMES[best], "text", hint=f"KS-Abstand {_de(models[best]['ks'], 3)}")
-    out.metric("Bestes Modell (AIC)", NAMES[best_aic], "text")
-    out.metric("Student-t: Freiheitsgrade ν", tp["nu"], "num", hint="< 4: unendliche Kurtosis · < 2: unendliche Varianz",
+    out.metric("Best model (KS)", NAMES[best], "text", hint=f"KS distance {_num(models[best]['ks'], 3)}")
+    out.metric("Best model (AIC)", NAMES[best_aic], "text")
+    out.metric("Student-t: degrees of freedom ν", tp["nu"], "num", hint="< 4: infinite kurtosis · < 2: infinite variance",
                status="critical" if tp["nu"] < 2.5 else "serious" if tp["nu"] < 4 else "warning" if tp["nu"] < 8 else None)
-    out.metric(f"VaR {lvl} · historisch", var_h, "pct", hint=f"ES {_de(100 * es_h)} %")
-    out.metric(f"VaR {lvl} · {NAMES[best]}", models[best]["var"], "pct", hint=f"ES {_de(100 * models[best]['es'])} %")
-    out.metric(f"VaR {lvl} · Gauß", models["gaussian"]["var"], "pct", hint=f"ES {_de(100 * models['gaussian']['es'])} %")
+    out.metric(f"{lvl} VaR · historical", var_h, "pct", hint=f"ES {_num(100 * es_h)}%")
+    out.metric(f"{lvl} VaR · {NAMES[best]}", models[best]["var"], "pct", hint=f"ES {_num(100 * models[best]['es'])}%")
+    out.metric(f"{lvl} VaR · Gaussian", models["gaussian"]["var"], "pct", hint=f"ES {_num(100 * models['gaussian']['es'])}%")
 
     order = sorted(models, key=lambda k: models[k]["ks"] if models[k]["ks"] is not None else np.inf)
     rows = []
     for rank, key in enumerate(order, 1):
         m = models[key]
         rows.append([rank, NAMES[key], m["par"], m["ks"], _p(m["p"]), m["ll"], m["aic"] - aic_min, m["var"], m["es"]])
-    rows.append(["", "Empirisch", f"{n:,} Tage".replace(",", "."), None, None, None, None, var_h, es_h])
+    rows.append(["", "Empirical", f"{n:,} days", None, None, None, None, var_h, es_h])
     out.table(
-        "Modellvergleich (sortiert nach KS-Abstand)",
-        ["Rang", "Modell", "Parameter", "KS-Abstand", "KS p-Wert", "Log-Likelihood", "ΔAIC", f"VaR {lvl}", f"ES {lvl}"],
+        "Model comparison (sorted by KS distance)",
+        ["Rank", "Model", "Parameters", "KS distance", "KS p-value", "Log-likelihood", "ΔAIC", f"{lvl} VaR", f"{lvl} ES"],
         rows, formats=["text", "text", "text", "num", "text", "num", "num", "pct", "pct"],
-        note="ΔAIC = AIC − bestes AIC (0 = bestes Modell; > 10 = deutlich schlechter). NIG und Variance Gamma sind "
-             "Momenten-Fits, keine Maximum-Likelihood-Schätzungen; ihre Log-Likelihood ist daher nicht maximal.",
+        note="ΔAIC = AIC − best AIC (0 = best model; > 10 = clearly worse). NIG and Variance Gamma are moment fits, "
+             "not maximum likelihood estimates; their log-likelihood is therefore not maximised.",
     )
 
     # --- chart 1: histogram vs fitted densities on a log scale
@@ -186,15 +187,15 @@ def run(params, data, out):
     lo, hi = float(r.min()), float(r.max())
     pad = 0.08 * (hi - lo)
     grid = np.linspace(lo - pad, hi + pad, 600)
-    traces = [C.trace("Beobachtet", centers, np.where(heights > 0, heights, np.nan), type="bar", color=4)]
+    traces = [C.trace("Observed", centers, np.where(heights > 0, heights, np.nan), type="bar", color=4)]
     for key in ("gaussian", "student_t", "nig", "variance_gamma"):
         y = np.asarray(models[key]["pdf"](grid), dtype=float)
         y = np.where(np.isfinite(y) & (y >= floor), np.minimum(y, 10 * heights.max()), np.nan)
         traces.append(C.trace(NAMES[key], grid, y, color=COLORS[key], dash=key == "gaussian"))
     out.chart(C.xy(
-        "Tagesrenditen und angepasste Dichten – logarithmisch", traces,
-        x=C.axis("Tagesrendite", fmt="pct", digits=1), y=C.axis("Dichte", type="log", range=(floor, heights.max() * 3)),
-        subtitle="Wo die Balken über einer Kurve liegen, unterschätzt das Modell die Häufigkeit.",
+        "Daily returns and fitted densities – log scale", traces,
+        x=C.axis("Daily return", fmt="pct", digits=1), y=C.axis("Density", type="log", range=(floor, heights.max() * 3)),
+        subtitle="Where the bars lie above a curve, the model underestimates the frequency.",
     ))
 
     # --- chart 2: QQ plot (tails in full, the centre thinned)
@@ -203,23 +204,23 @@ def run(params, data, out):
     edge = min(150, n // 4)
     idx = np.unique(np.concatenate([np.arange(edge), np.linspace(edge, n - edge - 1, 200).astype(int),
                                     np.arange(n - edge, n)]))
-    qq = [C.trace("Perfekter Fit", [rs[0], rs[-1]], [rs[0], rs[-1]], color="ink", dash=True, width=1)]
+    qq = [C.trace("Perfect fit", [rs[0], rs[-1]], [rs[0], rs[-1]], color="ink", dash=True, width=1)]
     for key in reversed(order):  # best model last, i.e. drawn on top
         m = models[key]
         q = np.asarray(m["ppf"](p[idx]), dtype=float) if m["ppf"] is not None else np.quantile(m["sample"], p[idx])
         qq.append(C.trace(NAMES[key], q, rs[idx], type="scatter", color=COLORS[key], size=5, decimate_to=None))
     span = (rs[0] * 1.3, rs[-1] * 1.3)
     out.chart(C.xy(
-        "Q-Q-Plot: Modell-Quantile gegen beobachtete Quantile", qq,
-        x=C.axis("Modell-Quantil", fmt="pct", digits=0, range=span), y=C.axis("Beobachtetes Quantil", fmt="pct", digits=0),
-        subtitle="Punkte unter der Diagonale links: Die echten Crashs sind tiefer, als das Modell erwartet.",
+        "Q-Q plot: model quantiles vs. observed quantiles", qq,
+        x=C.axis("Model quantile", fmt="pct", digits=0, range=span), y=C.axis("Observed quantile", fmt="pct", digits=0),
+        subtitle="Points below the diagonal on the left: actual crashes are deeper than the model expects.",
     ))
 
     # --- chart 3: left tail, P(r < -x)
     losses = np.sort(-r[r < 0])[::-1]
     xs = np.geomspace(max(np.median(losses), 1e-4), losses[0] * 1.5, 70)
     emp = np.array([np.mean(r < -x) for x in xs])
-    tail = [C.trace("Beobachtet", xs, np.where(emp > 0, emp, np.nan), type="scatter", color=4, size=6, decimate_to=None)]
+    tail = [C.trace("Observed", xs, np.where(emp > 0, emp, np.nan), type="scatter", color=4, size=6, decimate_to=None)]
     far = max(1.0, 20 * float(losses[0]))  # NIG and VG tails are exponential: no mass left out there
     y_floor = min(1e-6, 0.3 / n)
     for key in ("gaussian", "student_t", "nig", "variance_gamma"):
@@ -229,11 +230,11 @@ def run(params, data, out):
         tail.append(C.trace(NAMES[key], xs, np.where(y > y_floor, y, np.nan), color=COLORS[key],
                             dash=key == "gaussian"))
     out.chart(C.xy(
-        "Crash-Häufigkeit: P(Tagesrendite < −x)", tail,
-        x=C.axis("Tagesverlust x", type="log", fmt="pct", digits=0), y=C.axis("Wahrscheinlichkeit pro Tag", type="log",
-                                                                                  range=(y_floor, 1)),
-        subtitle="Log-Log-Achsen. Die Normalverteilung bricht ab; die Fat-Tail-Modelle folgen den Daten länger.",
-        hlines=[C.hline(1 / 252, "einmal pro Jahr")],
+        "Crash frequency: P(daily return < −x)", tail,
+        x=C.axis("One-day loss x", type="log", fmt="pct", digits=0), y=C.axis("Probability per day", type="log",
+                                                                                 range=(y_floor, 1)),
+        subtitle="Log-log axes. The normal distribution drops away; the fat-tailed models follow the data for longer.",
+        hlines=[C.hline(1 / 252, "once a year")],
     ))
 
     if models["gaussian"]["p"] is not None and models["gaussian"]["p"] < 0.05 and best != "gaussian":
@@ -241,12 +242,12 @@ def run(params, data, out):
         fits = bp is not None and bp >= 0.05
         out.set_verdict(
             "good" if fits else "warning",
-            f"{NAMES[best]} beschreibt die Renditen am besten",
-            f"Die Normalverteilung wird abgelehnt (KS-Test: {_p_text(models['gaussian']['p'])}). "
-            + (f"{NAMES[best]} wird vom KS-Test nicht abgelehnt (p = {_de(bp, 2)})."
-               if fits else f"Aber auch {NAMES[best]} passt nicht perfekt ({_p_text(bp)}); "
-                            "Volatilitäts-Cluster lassen sich mit keiner festen Verteilung erfassen."),
+            f"{NAMES[best]} describes the returns best",
+            f"The normal distribution is rejected (KS test: {_p_text(models['gaussian']['p'])}). "
+            + (f"{NAMES[best]} is not rejected by the KS test (p = {_num(bp, 2)})."
+               if fits else f"However, {NAMES[best]} does not fit perfectly either ({_p_text(bp)}); "
+                            "no fixed distribution can capture volatility clustering."),
         )
     elif best == "gaussian":
-        out.set_verdict("good", "Die Normalverteilung passt hier am besten",
-                        "Das ist bei kurzen oder ruhigen Reihen möglich; die Fat-Tail-Modelle bringen keinen Vorteil.")
+        out.set_verdict("good", "The normal distribution fits best here",
+                        "This can happen with short or calm series; the fat-tailed models offer no advantage.")

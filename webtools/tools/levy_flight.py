@@ -1,4 +1,4 @@
-"""Kurspfade mit Lévy-Sprüngen: Fächer, Drawdowns, Pfad-VaR und der Pfad im Lévy-Phasenraum."""
+"""Price paths with Lévy jumps: fan chart, drawdowns, path VaR and the path in Lévy phase space."""
 
 import numpy as np
 
@@ -9,48 +9,49 @@ from ..core import ToolError
 
 SPEC = {
     "id": "levy-flight",
-    "title": "Lévy-Flug: Kurspfade mit Sprüngen",
+    "title": "Lévy flight: price paths with jumps",
     "group": "physics",
     "order": 30,
-    "summary": "Simuliert Kurse als Brown'sche Bewegung plus Lévy-Sprünge und zeigt, wie seltene große Sprünge "
-               "Drawdowns und Value at Risk verändern.",
+    "summary": "Simulates prices as Brownian motion plus Lévy jumps and shows how rare large jumps change "
+               "drawdowns and Value at Risk.",
     "description": (
-        "Der `LevyFlightProcess` erweitert die geometrische Brown'sche Bewegung um Sprünge: Der Log-Kurs bekommt "
-        "je Zeitschritt (μ − σ²/2)·dt + σ·dW und zusätzlich eine Poisson-Zahl von Sprüngen (im Mittel **λ pro "
-        "Jahr**), deren Größe einer Lévy-stabilen Verteilung folgt. Die **Sprung-Skala γ** ist die typische "
-        "Sprunggröße in Prozent; **α** steuert, wie oft aus einem typischen Sprung ein Crash wird.\n\n"
-        "Zum Vergleich läuft derselbe Prozess **ohne Sprünge** (λ = 0) mit gleich vielen Pfaden mit. Verglichen "
-        "werden die Verteilungen über alle Pfade: Die Sprünge verbrauchen eigene Zufallszahlen, deshalb sind die "
-        "Brown'schen Pfade trotz gleichem Seed nicht Pfad für Pfad identisch. Der Kursfächer zeigt Median und "
-        "Quantilbänder, die Drawdown- und die Crash-Kurve den Anteil der Pfade, die mindestens x % vom Hoch bzw. an "
-        "einem einzigen Tag verlieren. Der Value at Risk bezieht sich auf die einfache Rendite über die gesamte "
-        "Laufzeit.\n\n"
-        "Der 3D-Plot verwandelt die Tagesrenditen des Pfads mit dem tiefsten Einbruch in Koordinaten des "
-        "Lévy-Phasenraums: X = rollierende Volatilität (Mittel = 1), Y = 2/Hill-Tail-Index (höher = fettere "
-        "Ränder), Z = |Rendite|/σ. Ruhige Phasen liegen nahe am Ursprung, ein Black-Swan-Sprung ragt weit nach oben."
+        "`LevyFlightProcess` extends geometric Brownian motion with jumps: in each time step the log price "
+        "receives (μ − σ²/2)·dt + σ·dW plus a Poisson number of jumps (on average **λ per year**) whose size "
+        "follows a Lévy-stable distribution. The **jump scale γ** is the typical jump size in per cent; **α** "
+        "controls how often a typical jump turns into a crash.\n\n"
+        "For comparison, the same process runs **without jumps** (λ = 0) with the same number of paths. The "
+        "comparison is between distributions across all paths: the jumps consume their own random numbers, so the "
+        "Brownian paths are not identical path by path despite the same seed. The price fan shows the median and "
+        "quantile bands; the drawdown and crash curves show the share of paths that lose at least x% from their "
+        "peak or on a single day, respectively. Value at Risk refers to the simple return over the entire "
+        "horizon.\n\n"
+        "The 3D plot turns the daily returns of the crash example (the red path) into coordinates in Lévy phase "
+        "space: X = rolling volatility (mean = 1), Y = 2/Hill tail index (higher = fatter tails), "
+        "Z = |return|/σ. Calm phases sit close to the origin; a black-swan jump towers far above them."
     ),
     "needs": [],
     "params": [
         {"name": "alpha", "type": "float", "default": 1.7, "min": 0.8, "max": 2.0, "step": 0.05,
-         "label": "α der Sprunggrößen", "help": "2 = normalverteilte Sprünge, kleiner = häufiger riesige Sprünge."},
+         "label": "α of jump sizes", "help": "2 = normally distributed jumps; smaller = huge jumps more often."},
         {"name": "beta", "type": "float", "default": -0.2, "min": -1.0, "max": 1.0, "step": 0.05,
-         "label": "β der Sprunggrößen", "help": "< 0: große Sprünge eher nach unten."},
+         "label": "β of jump sizes", "help": "< 0: large jumps tend to be downward."},
         {"name": "jump_scale", "type": "float", "default": 1.5, "min": 0.1, "max": 5.0, "step": 0.1, "unit": "%",
-         "label": "Sprung-Skala γ", "help": "Typische Sprunggröße als Log-Rendite in %."},
+         "label": "Jump scale γ", "help": "Typical jump size as a log return in %."},
         {"name": "jump_intensity", "type": "float", "default": 12.0, "min": 0.0, "max": 100.0, "step": 1.0,
-         "label": "Sprünge pro Jahr λ"},
+         "label": "Jumps per year λ"},
         {"name": "mu", "type": "float", "default": 7.0, "min": -20.0, "max": 30.0, "step": 0.5, "unit": "%",
-         "label": "Drift μ p. a."},
+         "label": "Drift μ p.a."},
         {"name": "sigma", "type": "float", "default": 15.0, "min": 1.0, "max": 80.0, "step": 1.0, "unit": "%",
-         "label": "Volatilität σ p. a.", "help": "Nur der Brown'sche Anteil, ohne Sprünge."},
+         "label": "Volatility σ p.a.", "help": "Brownian component only, excluding jumps."},
         {"name": "years", "type": "float", "default": 1.0, "min": 0.25, "max": 5.0, "step": 0.25,
-         "label": "Laufzeit (Jahre)", "help": "252 Handelstage pro Jahr."},
+         "label": "Horizon (years)", "help": "252 trading days per year."},
         {"name": "n_paths", "type": "int", "default": 2000, "min": 100, "max": 5000, "step": 100,
-         "label": "Anzahl Pfade", "help": "Für VaR und Expected Shortfall 99 % zählen nur die schlechtesten 1 % der Pfade."},
-        {"name": "confidence", "type": "select", "default": 0.99, "label": "VaR-Niveau",
-         "options": [{"value": 0.95, "label": "95 %"}, {"value": 0.99, "label": "99 %"},
-                     {"value": 0.995, "label": "99,5 %"}]},
-        {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 9999, "step": 1, "label": "Zufalls-Seed"},
+         "label": "Number of paths",
+         "help": "For 99% VaR and Expected Shortfall only the worst 1% of paths count."},
+        {"name": "confidence", "type": "select", "default": 0.99, "label": "VaR level",
+         "options": [{"value": 0.95, "label": "95%"}, {"value": 0.99, "label": "99%"},
+                     {"value": 0.995, "label": "99.5%"}]},
+        {"name": "seed", "type": "int", "default": 42, "min": 0, "max": 9999, "step": 1, "label": "Random seed"},
     ],
     "covers": [
         "src.physics.levy_flight.LevyFlightProcess",
@@ -65,8 +66,8 @@ MAX_CELLS = 3_000_000  # paths x steps (two simulations)
 LOG_CAP = 40.0          # |log price ratio| cap for statistics (e^40: an exploded path)
 
 
-def _de(x, digits=2):
-    return f"{x:.{digits}f}".replace(".", ",")
+def _fmt(x, digits=2):
+    return f"{x:.{digits}f}"
 
 
 def _stats(paths, c):
@@ -86,17 +87,17 @@ def run(params, data, out):
     years, n_paths, c, seed = params["years"], params["n_paths"], float(params["confidence"]), params["seed"]
     n_steps = max(2, int(round(252 * years)))
     if 2 * n_paths * n_steps > MAX_CELLS:
-        raise ToolError(f"{n_paths} Pfade × {n_steps} Schritte sind zu viel für den Browser. "
-                        "Verringere die Anzahl Pfade oder die Laufzeit.")
+        raise ToolError(f"{n_paths:,} paths × {n_steps:,} steps is too much for the browser. "
+                        "Reduce the number of paths or the horizon.")
 
     jumps = LevyStableDistribution(alpha=params["alpha"], beta=params["beta"], gamma=params["jump_scale"], delta=0.0)
     mu, sigma, lam = params["mu"] / 100.0, params["sigma"] / 100.0, params["jump_intensity"]
     proc = LevyFlightProcess(jumps, mu=mu, sigma_gaussian=sigma, jump_intensity=lam)
     plain = LevyFlightProcess(jumps, mu=mu, sigma_gaussian=sigma, jump_intensity=0.0)
 
-    out.progress("Pfade mit Lévy-Sprüngen …", 0.1)
+    out.progress("Paths with Lévy jumps…", 0.1)
     paths = proc.simulate_path(S0, years, n_steps=n_steps, n_paths=n_paths, seed=seed)
-    out.progress("Vergleich ohne Sprünge …", 0.4)
+    out.progress("Comparison without jumps…", 0.4)
     ref = plain.simulate_path(S0, years, n_steps=n_steps, n_paths=n_paths, seed=seed)
 
     exploded = int(np.sum(~np.isfinite(paths[:, -1]) | (paths[:, -1] <= 0)))
@@ -107,21 +108,21 @@ def run(params, data, out):
     with np.errstate(divide="ignore", invalid="ignore"):
         worst_day0 = np.diff(np.log(ref), axis=1).min(axis=1)
 
-    lvl = f"{_de(100 * c, 1 if c == 0.995 else 0)} %"
-    horizon = f"{_de(years, 2).rstrip('0').rstrip(',')} J."
-    out.metric(f"VaR {lvl} ({horizon})", var, "pct", digits=1, hint=f"ohne Sprünge: {_de(100 * var0, 1)} %",
+    lvl = f"{_fmt(100 * c, 1 if c == 0.995 else 0)}%"
+    horizon = f"{_fmt(years, 2).rstrip('0').rstrip('.')} year" + ("" if years == 1 else "s")
+    out.metric(f"VaR {lvl} ({horizon})", var, "pct", digits=1, hint=f"without jumps: {_fmt(100 * var0, 1)}%",
                status="critical" if var > 2 * var0 + 0.05 else "serious" if var > 1.25 * var0 else None)
-    out.metric(f"Expected Shortfall {lvl}", es, "pct", digits=1, hint=f"ohne Sprünge: {_de(100 * es0, 1)} %")
-    out.metric("Median Max-Drawdown", -float(np.median(dd)), "pct", digits=1,
-               hint=f"ohne Sprünge: {_de(-100 * np.median(dd0), 1)} %")
-    out.metric(f"Max-Drawdown im schlechtesten {_de(100 * (1 - c), 1 if c == 0.995 else 0)} %",
+    out.metric(f"Expected Shortfall {lvl}", es, "pct", digits=1, hint=f"without jumps: {_fmt(100 * es0, 1)}%")
+    out.metric("Median max drawdown", -float(np.median(dd)), "pct", digits=1,
+               hint=f"without jumps: {_fmt(-100 * np.median(dd0), 1)}%")
+    out.metric(f"Max drawdown, worst {_fmt(100 * (1 - c), 1 if c == 0.995 else 0)}% of paths",
                -float(np.quantile(dd, 1 - c)), "pct", digits=1,
-               hint=f"ohne Sprünge: {_de(-100 * np.quantile(dd0, 1 - c), 1)} %")
-    out.metric("Pfade mit Crash-Tag < −10 %", float(np.mean(worst_day < np.log(0.9))), "pct", digits=1,
-               hint="mindestens ein Tag mit mehr als 10 % Verlust")
-    out.metric("Sprünge je Pfad", lam * years, "num", digits=1, hint="erwartet: λ × Laufzeit")
+               hint=f"without jumps: {_fmt(-100 * np.quantile(dd0, 1 - c), 1)}%")
+    out.metric("Paths with a crash day < −10%", float(np.mean(worst_day < np.log(0.9))), "pct", digits=1,
+               hint="at least one day with a loss of more than 10%")
+    out.metric("Jumps per path", lam * years, "num", digits=1, hint="expected: λ × horizon")
 
-    # --- chart 1: price fan. Example path: its worst day is a "1-in-20" crash (5 % quantile over all paths)
+    # --- chart 1: price fan. Example path: its worst day is a "1-in-20" crash (5% quantile over all paths)
     t = np.arange(n_steps + 1) / 252.0
     price = S0 * np.exp(logp)
     q = np.quantile(price, [0.01, 0.05, 0.5, 0.95, 0.99], axis=0)
@@ -130,19 +131,19 @@ def run(params, data, out):
     order = np.argsort(total)
     i_mid = int(order[len(order) // 2])
     traces = [
-        C.envelope("1–99 %", t, q[0], q[4], color=1),
-        C.envelope("5–95 %", t, q[1], q[3], color=1),
+        C.envelope("1–99%", t, q[0], q[4], color=1),
+        C.envelope("5–95%", t, q[1], q[3], color=1),
         C.trace("Median", t, q[2], color=1, width=2.5),
-        C.trace("Median ohne Sprünge", t, np.quantile(ref, 0.5, axis=0), color="muted", dash=True),
-        C.trace(f"Crash-Beispiel ({_de(100 * crash_day, 1).replace('-', '−')} %)", t, price[i_crash],
+        C.trace("Median without jumps", t, np.quantile(ref, 0.5, axis=0), color="muted", dash=True),
+        C.trace(f"Crash example ({_fmt(100 * crash_day, 1).replace('-', '−')}%)", t, price[i_crash],
                 color="critical", width=1.3),
-        C.trace("Typischer Pfad", t, price[i_mid], color=3, width=1.3),
+        C.trace("Typical path", t, price[i_mid], color=3, width=1.3),
     ]
     out.chart(C.xy(
-        "Kursfächer mit Lévy-Sprüngen", traces,
-        x=C.axis("Zeit (Jahre)"), y=C.axis("Kurs (Start 100)"),
-        subtitle="Bänder: Quantile über alle Pfade. Das Crash-Beispiel ist ein Pfad, dessen schlimmster Tag (Wert "
-                 "in Klammern) so schlecht ist wie bei jedem 20. Pfad.", height=380,
+        "Price fan with Lévy jumps", traces,
+        x=C.axis("Time (years)"), y=C.axis("Price (start = 100)"),
+        subtitle="Bands: quantiles across all paths. The crash example is a path whose worst day (value in "
+                 "brackets) is as bad as that of one path in 20.", height=380,
     ))
 
     # --- chart 2: drawdown exceedance curve
@@ -151,11 +152,12 @@ def run(params, data, out):
     share = np.array([np.mean(-dd >= v) for v in levels])
     share0 = np.array([np.mean(-dd0 >= v) for v in levels])
     out.chart(C.xy(
-        "Wie tief fallen die Pfade? Max-Drawdown",
-        [C.trace("Mit Lévy-Sprüngen", levels, share, color=2, width=2.5),
-         C.trace("Ohne Sprünge", levels, share0, color="muted", dash=True)],
-        x=C.axis("Max-Drawdown mindestens", fmt="pct", digits=0), y=C.axis("Anteil der Pfade", fmt="pct", digits=0),
-        subtitle="Lesebeispiel: Bei x = 30 % steht der Anteil der Pfade, die zwischenzeitlich 30 % oder mehr vom Hoch verlieren.",
+        "Max drawdown across paths",
+        [C.trace("With Lévy jumps", levels, share, color=2, width=2.5),
+         C.trace("Without jumps", levels, share0, color="muted", dash=True)],
+        x=C.axis("Max drawdown of at least", fmt="pct", digits=0), y=C.axis("Share of paths", fmt="pct", digits=0),
+        subtitle="Example: at x = 30% the curve shows the share of paths that lose 30% or more from their peak "
+                 "at some point.",
     ))
 
     # --- chart 3: distribution of the total return
@@ -167,14 +169,14 @@ def run(params, data, out):
     mid = 0.5 * (edges[:-1] + edges[1:])
     floor = 0.5 / (len(total) * w)
     out.chart(C.xy(
-        f"Verteilung der Rendite über {horizon}",
-        [C.trace("Mit Lévy-Sprüngen", mid, np.where(h1 > 0, h1, np.nan), type="bar", color=2),
-         C.trace("Ohne Sprünge", mid, np.where(h0 > 0, h0, np.nan), type="step", color="muted")],
-        x=C.axis("Einfache Rendite", fmt="pct", digits=0),
-        y=C.axis("Dichte", type="log", range=(floor, 3 * max(h1.max(), h0.max()))),
+        f"Return distribution over {horizon}",
+        [C.trace("With Lévy jumps", mid, np.where(h1 > 0, h1, np.nan), type="bar", color=2),
+         C.trace("Without jumps", mid, np.where(h0 > 0, h0, np.nan), type="step", color="muted")],
+        x=C.axis("Simple return", fmt="pct", digits=0),
+        y=C.axis("Density", type="log", range=(floor, 3 * max(h1.max(), h0.max()))),
         vlines=[C.vline(-var, f"VaR {lvl}", color="serious")],
-        subtitle="Logarithmische Dichte: Sprünge machen den linken Rand dick. Werte jenseits der 0,2-%-Quantile "
-                 "sind am Rand gesammelt.",
+        subtitle="Log density: jumps fatten the left tail. Values beyond the 0.2% and 99.8% quantiles are "
+                 "collected at the edges.",
     ))
 
     # --- chart 4: how often a single day crashes by at least x
@@ -182,13 +184,13 @@ def run(params, data, out):
     crash_share = np.array([np.mean(np.expm1(worst_day) <= -v) for v in crash_levels])
     crash_share0 = np.array([np.mean(np.expm1(worst_day0) <= -v) for v in crash_levels])
     out.chart(C.xy(
-        "Crash-Tage: schlechtester Tag je Pfad",
-        [C.trace("Mit Lévy-Sprüngen", crash_levels, crash_share, color=2, width=2.5),
-         C.trace("Ohne Sprünge", crash_levels, crash_share0, color="muted", dash=True)],
-        x=C.axis("Tagesverlust mindestens", fmt="pct", digits=0), y=C.axis("Anteil der Pfade", fmt="pct", digits=0),
-        vlines=[C.vline(0.10, "−10 %")],
-        subtitle="Anteil der Pfade mit mindestens einem Tag, der so viel oder mehr verliert. Ohne Sprünge fällt die "
-                 f"Kurve jenseits von etwa 4 Tages-σ (≈ {_de(400 * sigma / np.sqrt(252), 1)} %) praktisch auf null.",
+        "Crash days: worst day per path",
+        [C.trace("With Lévy jumps", crash_levels, crash_share, color=2, width=2.5),
+         C.trace("Without jumps", crash_levels, crash_share0, color="muted", dash=True)],
+        x=C.axis("One-day loss of at least", fmt="pct", digits=0), y=C.axis("Share of paths", fmt="pct", digits=0),
+        vlines=[C.vline(0.10, "−10%")],
+        subtitle="Share of paths with at least one day that loses this much or more. Without jumps the curve "
+                 f"drops to practically zero beyond about 4 daily σ (≈ {_fmt(400 * sigma / np.sqrt(252), 1)}%).",
     ))
 
     # --- chart 5: Lévy phase space of the crash example (the first `win` points are placeholders)
@@ -196,34 +198,34 @@ def run(params, data, out):
     win = int(min(20, max(5, len(rets) // 4)))
     X, Y, Z = (np.asarray(v, dtype=float)[win:] for v in levy_flight_3d_coordinates(rets, window=win))
     days = np.arange(win + 1, len(rets) + 1)
-    txt = [f"Tag {d}: {100 * np.expm1(v):+.1f} %".replace(".", ",") for d, v in zip(days, rets[win:])]
+    txt = [f"Day {d}: {100 * np.expm1(v):+.1f}%" for d, v in zip(days, rets[win:])]
     j = int(np.argmin(rets[win:]))
     out.chart(C.scatter3d(
-        "Das Crash-Beispiel im Lévy-Phasenraum",
-        [C.path3d("Tagesweise Bahn", X, Y, Z, color=1, mode="lines+markers", size=2, text=txt),
-         C.path3d("Schlimmster Tag", [X[j]], [Y[j]], [Z[j]], color="critical", mode="markers", size=8, text=[txt[j]])],
-        x=C.axis("X: Volatilität (Mittel = 1)"), y=C.axis("Y: 2 / Tail-Index"), z=C.axis("Z: |Rendite| / σ"),
-        subtitle=f"levy_flight_3d_coordinates mit Fenster {win} Tage auf den Tagesrenditen des roten Pfads. "
-                 "Ziehen dreht, Mausrad zoomt.",
+        "The crash example in Lévy phase space",
+        [C.path3d("Daily trajectory", X, Y, Z, color=1, mode="lines+markers", size=2, text=txt),
+         C.path3d("Worst day", [X[j]], [Y[j]], [Z[j]], color="critical", mode="markers", size=8, text=[txt[j]])],
+        x=C.axis("X: volatility (mean = 1)"), y=C.axis("Y: 2 / tail index"), z=C.axis("Z: |return| / σ"),
+        subtitle=f"levy_flight_3d_coordinates with a {win}-day window on the daily returns of the red path. "
+                 "Drag to rotate, scroll to zoom.",
         height=520,
     ))
 
     out.table(
-        "Mit und ohne Sprünge",
-        ["Kennzahl", "Mit Lévy-Sprüngen", "Ohne Sprünge"],
-        [[f"VaR {lvl} über {horizon}", var, var0],
+        "With and without jumps",
+        ["Metric", "With Lévy jumps", "Without jumps"],
+        [[f"VaR {lvl} over {horizon}", var, var0],
          [f"Expected Shortfall {lvl}", es, es0],
-         ["Median-Rendite", float(np.median(total)), float(np.median(total0))],
-         ["Median Max-Drawdown", -float(np.median(dd)), -float(np.median(dd0))],
-         ["Schlechtester Tag (Median der Pfade)", float(np.expm1(np.median(worst_day))),
+         ["Median return", float(np.median(total)), float(np.median(total0))],
+         ["Median max drawdown", -float(np.median(dd)), -float(np.median(dd0))],
+         ["Worst day (median across paths)", float(np.expm1(np.median(worst_day))),
           float(np.expm1(np.median(worst_day0)))]],
         formats=["text", "pct", "pct"],
-        note="Verglichen werden Verteilungen über alle Pfade. Die Sprünge verbrauchen eigene Zufallszahlen, deshalb "
-             "sind die Brown'schen Pfade trotz gleichem Seed nicht identisch – nur ihre Statistik ist es.",
+        note="The comparison is between distributions across all paths. The jumps consume their own random numbers, "
+             "so the Brownian paths are not identical despite the same seed – only their statistics are.",
     )
     if exploded:
-        out.note(f"{exploded} von {n_paths} Pfaden sind numerisch explodiert oder auf null gefallen – bei α ≤ 1 "
-                 "hat schon ein einzelner Sprung keinen endlichen Mittelwert. Für die Kennzahlen sind diese Pfade "
-                 f"bei e^±{LOG_CAP:.0f} gekappt.", "warning")
+        out.note(f"{exploded:,} of {n_paths:,} paths exploded numerically or fell to zero – for α ≤ 1 even a single "
+                 "jump has no finite mean. For the metrics these paths are capped "
+                 f"at e^±{LOG_CAP:.0f}.", "warning")
     if lam == 0:
-        out.note("λ = 0: ohne Sprünge sind beide Simulationen identisch.", "info")
+        out.note("λ = 0: without jumps, both simulations are identical.", "info")

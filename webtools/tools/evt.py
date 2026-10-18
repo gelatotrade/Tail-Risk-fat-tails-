@@ -9,37 +9,38 @@ from .. import charts as C
 from ..core import ToolError
 
 LEVELS = [{"value": v, "label": l} for v, l in
-          ((0.95, "95 %"), (0.975, "97,5 %"), (0.99, "99 %"), (0.995, "99,5 %"), (0.999, "99,9 %"))]
+          ((0.95, "95%"), (0.975, "97.5%"), (0.99, "99%"), (0.995, "99.5%"), (0.999, "99.9%"))]
 DAYS = 252
 
 SPEC = {
     "id": "evt",
-    "title": "Extremwerttheorie (EVT)",
+    "title": "Extreme value theory (EVT)",
     "group": "risk",
     "order": 20,
-    "summary": "Modelliert nur den Rand: GPD oberhalb einer Schwelle, GEV für Blockmaxima – mit VaR, Expected "
-               "Shortfall und Verlusten, die einmal in 10 oder 100 Jahren auftreten.",
+    "summary": "Models the tail only – GPD above a threshold, GEV for block maxima – with VaR, Expected "
+               "Shortfall and the losses expected once in 10 or 100 years.",
     "description": (
-        "Die Extremwerttheorie passt kein Modell an alle Tage an, sondern nur an die extremen. **Peaks over "
-        "Threshold:** Alle Verluste oberhalb einer Schwelle u folgen näherungsweise einer **Generalisierten "
-        "Pareto-Verteilung (GPD)**. Ihr Formparameter ξ ist der Tail-Index: ξ > 0 heißt fetter Rand (Fréchet-Bereich, "
-        "nur Momente unterhalb der Ordnung 1/ξ existieren), ξ = 0 exponentieller Rand wie bei Gauß. **Blockmaxima:** "
-        "Der größte Verlust je Block (z. B. 20 Handelstage) folgt einer **GEV-Verteilung**.\n\n"
-        "So wählst du die Schwelle: Im **Mean-Excess-Plot** sollte die mittlere Überschreitung oberhalb von u etwa "
-        "linear verlaufen; im **Hill-Plot** sollte die Schätzung stabil sein. Zu niedrige Schwellen verzerren, zu hohe "
-        "lassen zu wenige Punkte übrig. Das **Wiederkehr-Diagramm** zeigt, welcher Tagesverlust im Mittel einmal in "
-        "T Jahren (252 Handelstage pro Jahr) überschritten wird – GPD, GEV, Gauß und die Daten im Vergleich.\n\n"
-        "Alle Verluste sind tägliche Log-Renditen als positive Dezimalzahl; die 10- und 100-Jahres-Verluste oben "
-        "stammen aus der GPD, weil sie direkt den einzelnen Tag modelliert. Die Tabelle aus `comprehensive_report` "
-        "zeigt zusätzlich, um welchen Faktor die Normalverteilung 3-, 4- und 5-σ-Tage unterschätzt."
+        "Extreme value theory does not fit a model to every day, only to the extreme ones. **Peaks over "
+        "threshold:** all losses above a threshold u approximately follow a **generalised Pareto distribution "
+        "(GPD)**. Its shape parameter ξ is the tail index: ξ > 0 means a fat tail (Fréchet domain; only moments "
+        "below order 1/ξ exist), ξ = 0 an exponential tail as in the Gaussian case. **Block maxima:** the largest "
+        "loss per block (e.g. 20 trading days) follows a **GEV distribution**.\n\n"
+        "Choosing the threshold: in the **mean excess plot**, the mean exceedance above u should be roughly "
+        "linear; in the **Hill plot**, the estimate should be stable. Thresholds that are too low introduce bias, "
+        "thresholds that are too high leave too few points. The **return level chart** shows which one-day loss is "
+        "exceeded on average once in T years (252 trading days per year) – GPD, GEV, Gaussian and the data "
+        "compared.\n\n"
+        "All losses are daily log returns expressed as positive decimals; the 10-year and 100-year losses at the "
+        "top come from the GPD because it models the individual day directly. The table from "
+        "`comprehensive_report` also shows by what factor the normal distribution understates 3σ, 4σ and 5σ days."
     ),
     "needs": ["returns"],
     "params": [
         {"name": "threshold_quantile", "type": "float", "default": 0.95, "min": 0.85, "max": 0.99, "step": 0.005,
-         "label": "Schwelle u (Quantil)", "help": "0,95 = die 5 % größten Verluste fließen in den GPD-Fit."},
+         "label": "Threshold u (quantile)", "help": "0.95 = the largest 5% of losses enter the GPD fit."},
         {"name": "block_size", "type": "int", "default": 20, "min": 5, "max": 63, "step": 1,
-         "label": "Blockgröße GEV (Handelstage)", "help": "20 ≈ ein Monat, 63 ≈ ein Quartal."},
-        {"name": "confidence", "type": "select", "default": 0.99, "label": "Konfidenzniveau", "options": LEVELS},
+         "label": "GEV block size (trading days)", "help": "20 ≈ one month, 63 ≈ one quarter."},
+        {"name": "confidence", "type": "select", "default": 0.99, "label": "Confidence level", "options": LEVELS},
     ],
     "covers": [
         "src.models.extreme_value.EVTTailRiskAnalyzer",
@@ -61,22 +62,23 @@ SPEC = {
 }
 
 
-def _de(x, digits=2):
-    return f"{x:.{digits}f}".replace(".", ",")
+def _num(x, digits=2):
+    return f"{x:.{digits}f}"
 
 
 SUP = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
 
 
-def _years(x):
+def _once_in(x):
+    """'once in … years' for a return period in years; 'never' if it is infinite."""
     if not np.isfinite(x):
-        return "nie"
+        return "never"
     if x >= 1e6:
         mant, exp = f"{x:.1e}".split("e")
-        return f"{mant.replace('.', ',')} · 10{str(int(exp)).translate(SUP)} Jahren"
+        return f"once in {mant} · 10{str(int(exp)).translate(SUP)} years"
     if x >= 100:
-        return f"{x:,.0f} Jahren".replace(",", ".")
-    return f"{_de(x, 1)} Jahren"
+        return f"once in {x:,.0f} years"
+    return f"once in {_num(x, 1)} years"
 
 
 def run(params, data, out):
@@ -87,20 +89,20 @@ def run(params, data, out):
     if n * (1 - q) < 10:
         lo = next(p["min"] for p in SPEC["params"] if p["name"] == "threshold_quantile")
         if n * (1 - lo) < 10:
-            raise ToolError(f"Für die Extremwerttheorie ist die Reihe zu kurz ({n} Tage): Selbst beim "
-                            f"{_de(100 * lo, 0)}-%-Quantil blieben weniger als 10 Verluste über der Schwelle. "
-                            f"Nimm eine Reihe mit mindestens {int(np.ceil(10 / (1 - lo)))} Tagen.")
-        raise ToolError(f"Bei {n} Tagen bleiben über dem {_de(100 * q, 1)}-%-Quantil weniger als 10 Verluste. "
-                        f"Senke die Schwelle auf höchstens {_de(1 - 10 / n, 3)}.")
+            raise ToolError(f"The series is too short for extreme value theory ({n:,} days): even at the "
+                            f"{_num(100 * lo, 0)}% quantile, fewer than 10 losses would remain above the threshold. "
+                            f"Use a series of at least {int(np.ceil(10 / (1 - lo))):,} days.")
+        raise ToolError(f"With {n:,} days, fewer than 10 losses remain above the {_num(100 * q, 1)}% quantile. "
+                        f"Lower the threshold to at most {_num(1 - 10 / n, 3)}.")
     if n // m < 10:
-        raise ToolError(f"Mit Blöcken à {m} Tagen gibt es nur {n // m} Blockmaxima (mindestens 10 nötig). "
-                        "Verkleinere die Blockgröße.")
+        raise ToolError(f"Blocks of {m} days give only {n // m:,} block maxima (at least 10 required). "
+                        "Reduce the block size.")
 
-    out.progress("Passe GPD und GEV an beide Ränder an …", 0.2)
+    out.progress("Fitting GPD and GEV to both tails …", 0.2)
     try:
         evt = EVTTailRiskAnalyzer(r, block_size=m, threshold_quantile=q)
     except ValueError as exc:
-        raise ToolError(f"Der EVT-Fit ist nicht möglich: {exc}")
+        raise ToolError(f"The EVT fit is not possible: {exc}")
     report = evt.comprehensive_report()
 
     xi_l, xi_r = float(evt.tail_index("left")), float(evt.tail_index("right"))
@@ -120,17 +122,17 @@ def run(params, data, out):
         p = stats.norm.cdf((-loss - mu) / sd)
         return 1 / p / DAYS if p > 0 else np.inf
 
-    out.metric("Tail-Index ξ · Verluste", xi_l, "num", hint="GPD-Form: > 0 fetter Rand, 0 wie Gauß",
+    out.metric("Tail index ξ · losses", xi_l, "num", hint="GPD shape: > 0 fat tail, 0 as Gaussian",
                status="critical" if xi_l > 0.4 else "serious" if xi_l > 0.25 else "warning" if xi_l > 0.1 else "good")
-    out.metric("Tail-Index ξ · Gewinne", xi_r, "num")
-    out.metric("Schwelle u", u, "pct", hint=f"{st['n_exceedances']} Verluste darüber ({_de(100 * p_u, 1)} %)")
-    out.metric(f"VaR {lvl} · GPD", var_c, "pct", hint=f"Gauß {_de(100 * gauss_var(conf))} %")
-    out.metric(f"Expected Shortfall {lvl} · GPD", es_c, "pct")
-    out.metric(f"VaR {lvl} · GEV", var_gev, "pct", hint=f"aus {m}-Tage-Blockmaxima")
-    out.metric("10-Jahres-Tagesverlust · GPD", gpd10, "pct",
-               hint=f"GEV {_de(100 * rl10, 1)} % · Gauß: einmal in {_years(gauss_years(gpd10))}")
-    out.metric("100-Jahres-Tagesverlust · GPD", gpd100, "pct",
-               hint=f"GEV {_de(100 * rl100, 1)} % · Gauß: einmal in {_years(gauss_years(gpd100))}")
+    out.metric("Tail index ξ · gains", xi_r, "num")
+    out.metric("Threshold u", u, "pct", hint=f"{st['n_exceedances']:,} losses above it ({_num(100 * p_u, 1)}%)")
+    out.metric(f"{lvl} VaR · GPD", var_c, "pct", hint=f"Gaussian {_num(100 * gauss_var(conf))}%")
+    out.metric(f"{lvl} Expected Shortfall · GPD", es_c, "pct")
+    out.metric(f"{lvl} VaR · GEV", var_gev, "pct", hint=f"from {m}-day block maxima")
+    out.metric("10-year one-day loss · GPD", gpd10, "pct",
+               hint=f"GEV {_num(100 * rl10, 1)}% · Gaussian: {_once_in(gauss_years(gpd10))}")
+    out.metric("100-year one-day loss · GPD", gpd100, "pct",
+               hint=f"GEV {_num(100 * rl100, 1)}% · Gaussian: {_once_in(gauss_years(gpd100))}")
 
     # --- chart 1: tail fit, P(loss > x)
     losses = np.sort(-r)[::-1]
@@ -141,14 +143,14 @@ def run(params, data, out):
     floor = min(0.2 / n, 1e-5)
     keep = lambda y: np.where(y > floor * 0.5, y, np.nan)  # noqa: E731
     out.chart(C.xy(
-        "Verlust-Rand: P(Tagesverlust > x) oberhalb der Schwelle",
-        [C.trace("Beobachtet", xs, np.where(emp > 0, emp, np.nan), type="step", color=4, width=2),
-         C.trace(f"GPD (ξ = {_de(xi_l)})", xs, keep(gpd_tail), color=1, width=2.5),
-         C.trace("Normalverteilung", xs, keep(gauss_tail), color="muted", dash=True)],
-        x=C.axis("Tagesverlust x", fmt="pct", digits=0), y=C.axis("Wahrscheinlichkeit pro Tag", type="log",
+        "Loss tail: P(one-day loss > x) above the threshold",
+        [C.trace("Observed", xs, np.where(emp > 0, emp, np.nan), type="step", color=4, width=2),
+         C.trace(f"GPD (ξ = {_num(xi_l)})", xs, keep(gpd_tail), color=1, width=2.5),
+         C.trace("Normal distribution", xs, keep(gauss_tail), color="muted", dash=True)],
+        x=C.axis("One-day loss x", fmt="pct", digits=0), y=C.axis("Probability per day", type="log",
                                                                    range=(floor, p_u * 1.5)),
-        subtitle="Die GPD folgt den beobachteten Extremen; die Gauß-Kurve stürzt ab.",
-        hlines=[C.hline(1 / DAYS, "einmal pro Jahr"), C.hline(1 / (10 * DAYS), "einmal in 10 Jahren")],
+        subtitle="The GPD follows the observed extremes; the Gaussian curve drops away.",
+        hlines=[C.hline(1 / DAYS, "once a year"), C.hline(1 / (10 * DAYS), "once in 10 years")],
     ))
 
     # --- chart 2: return levels in years
@@ -161,26 +163,26 @@ def run(params, data, out):
     ranks = np.unique(np.geomspace(1, k_max, 28).round().astype(int))  # evenly spread on the log axis
     emp_years = (n + 1) / ranks / DAYS
     out.chart(C.xy(
-        "Wiederkehrniveaus: Welcher Tagesverlust kommt einmal in T Jahren?",
-        [C.trace("Beobachtet", emp_years, losses[ranks - 1], type="scatter", color=4, size=5, decimate_to=None),
-         C.trace("Normalverteilung", years, g_rl, color="muted", dash=True),
-         C.trace(f"GEV ({m}-Tage-Blockmaxima)", years, gev_rl, color=2, width=2.5),
-         C.trace("GPD (Peaks over Threshold)", years, gpd_rl, color=1, width=2.5)],
-        x=C.axis("Wiederkehrperiode (Jahre)", type="log"), y=C.axis("Tagesverlust", fmt="pct", digits=0),
-        subtitle="Punkte: tatsächliche Verluste; der k-größte Verlust kommt im Mittel einmal in (n + 1)/k Tagen vor.",
-        vlines=[C.vline(10, "10 Jahre"), C.vline(100, "100 Jahre")],
+        "Return levels: the one-day loss expected once in T years",
+        [C.trace("Observed", emp_years, losses[ranks - 1], type="scatter", color=4, size=5, decimate_to=None),
+         C.trace("Normal distribution", years, g_rl, color="muted", dash=True),
+         C.trace(f"GEV ({m}-day block maxima)", years, gev_rl, color=2, width=2.5),
+         C.trace("GPD (peaks over threshold)", years, gpd_rl, color=1, width=2.5)],
+        x=C.axis("Return period (years)", type="log"), y=C.axis("One-day loss", fmt="pct", digits=0),
+        subtitle="Dots: actual losses; the k-th largest loss occurs on average once in (n + 1)/k days.",
+        vlines=[C.vline(10, "10 years"), C.vline(100, "100 years")],
     ))
 
     # --- chart 3: mean excess plot for threshold choice
     me = mean_excess_plot(-r)
     ok = np.isfinite(me["mean_excess"])
     out.chart(C.xy(
-        "Mean-Excess-Plot: mittlere Überschreitung e(u)",
-        [C.trace("e(u) = E[Verlust − u | Verlust > u]", np.asarray(me["thresholds"])[ok], me["mean_excess"][ok],
+        "Mean excess plot: mean exceedance e(u)",
+        [C.trace("e(u) = E[loss − u | loss > u]", np.asarray(me["thresholds"])[ok], me["mean_excess"][ok],
                  type="scatter", color=1, size=6, decimate_to=None)],
-        x=C.axis("Schwelle u (Tagesverlust)", fmt="pct", digits=1), y=C.axis("Mittlere Überschreitung", fmt="pct", digits=2),
-        subtitle="Steigt e(u) oberhalb der Schwelle linear, passt die GPD; Steigung > 0 heißt ξ > 0.",
-        vlines=[C.vline(u, "gewählte Schwelle", color="critical")],
+        x=C.axis("Threshold u (one-day loss)", fmt="pct", digits=1), y=C.axis("Mean exceedance", fmt="pct", digits=2),
+        subtitle="If e(u) rises linearly above the threshold, the GPD fits; a positive slope means ξ > 0.",
+        vlines=[C.vline(u, "selected threshold", color="critical")],
     ))
 
     # --- chart 4: Hill plot on the loss tail
@@ -188,70 +190,71 @@ def run(params, data, out):
     hp = hill_plot(loss_only)
     kv, hv = np.asarray(hp["k_values"]), np.asarray(hp["hill_estimates"], dtype=float)
     inv_xi = 1 / xi_l if xi_l > 0.02 else np.nan
-    hlines = [C.hline(inv_xi, f"1/ξ (GPD) = {_de(inv_xi, 1)}", color="critical")] if np.isfinite(inv_xi) else []
+    hlines = [C.hline(inv_xi, f"1/ξ (GPD) = {_num(inv_xi, 1)}", color="critical")] if np.isfinite(inv_xi) else []
     if len(kv) and np.any(np.isfinite(hv)):
         half = 1.96 * hv / np.sqrt(kv)  # asymptotic standard error of Hill: alpha / sqrt(k)
         top = np.nanmax([np.nanmax(hv + half), inv_xi if np.isfinite(inv_xi) and inv_xi < 3 * np.nanmax(hv) else 0])
         out.chart(C.xy(
-            "Hill-Plot: Tail-Index α der Verluste je Zahl k der Extremwerte",
-            [C.envelope("95-%-Band", kv, np.maximum(hv - half, 0), hv + half, color=1),
-             C.trace("Hill-Schätzer α(k)", kv, hv, color=1)],
-            x=C.axis("k (größte Verluste)", fmt="int"), y=C.axis("Tail-Index α", range=(0, top * 1.1)),
-            subtitle="Ein stabiles Plateau ist der glaubwürdige Tail-Index; α = 1/ξ, α < 4 heißt unendliche Kurtosis. "
-                     "Hill und GPD-Fit weichen oft deutlich ab – beide sind unsicher, wie das Band zeigt.",
+            "Hill plot: tail index α of losses by number k of extremes",
+            [C.envelope("95% band", kv, np.maximum(hv - half, 0), hv + half, color=1),
+             C.trace("Hill estimator α(k)", kv, hv, color=1)],
+            x=C.axis("k (largest losses)", fmt="int"), y=C.axis("Tail index α", range=(0, top * 1.1)),
+            subtitle="A stable plateau is the credible tail index; α = 1/ξ, and α < 4 means infinite kurtosis. "
+                     "Hill and the GPD fit often differ markedly – both are uncertain, as the band shows.",
             hlines=hlines, vlines=[C.vline(st["n_exceedances"], f"k = {st['n_exceedances']}")],
         ))
 
     # --- tables
     hist_level = lambda T: float(np.quantile(-r, 1 - 1 / T)) if T <= n else None  # noqa: E731
     rows = [
-        ["VaR 99 %", report["var_99"], float(evt.var(0.99, "gev")), float(np.quantile(-r, 0.99)), gauss_var(0.99)],
-        ["VaR 99,5 %", report["var_995"], float(evt.var(0.995, "gev")), float(np.quantile(-r, 0.995)), gauss_var(0.995)],
-        ["VaR 99,9 %", report["var_999"], float(evt.var(0.999, "gev")), float(np.quantile(-r, 0.999)), gauss_var(0.999)],
-        ["Expected Shortfall 99 %", report["es_99"], None, float(np.mean(-r[-r >= np.quantile(-r, 0.99)])),
+        ["99% VaR", report["var_99"], float(evt.var(0.99, "gev")), float(np.quantile(-r, 0.99)), gauss_var(0.99)],
+        ["99.5% VaR", report["var_995"], float(evt.var(0.995, "gev")), float(np.quantile(-r, 0.995)), gauss_var(0.995)],
+        ["99.9% VaR", report["var_999"], float(evt.var(0.999, "gev")), float(np.quantile(-r, 0.999)), gauss_var(0.999)],
+        ["99% Expected Shortfall", report["es_99"], None, float(np.mean(-r[-r >= np.quantile(-r, 0.99)])),
          -mu + sd * stats.norm.pdf(stats.norm.ppf(0.01)) / 0.01],
-        ["10-Jahres-Tagesverlust", gpd10, rl10, hist_level(t10), gauss_var(1 - 1 / t10)],
-        ["100-Jahres-Tagesverlust", gpd100, rl100, hist_level(t100), gauss_var(1 - 1 / t100)],
+        ["10-year one-day loss", gpd10, rl10, hist_level(t10), gauss_var(1 - 1 / t10)],
+        ["100-year one-day loss", gpd100, rl100, hist_level(t100), gauss_var(1 - 1 / t100)],
     ]
-    out.table("Risikokennzahlen: EVT gegen historisch und Gauß",
-              ["Kennzahl", "GPD (POT)", f"GEV ({m} Tage)", "Historisch", "Gauß"], rows,
+    out.table("Risk metrics: EVT vs historical and Gaussian",
+              ["Metric", "GPD (POT)", f"GEV ({m} days)", "Historical", "Gaussian"], rows,
               formats=["text", "pct", "pct", "pct", "pct"],
-              note="Wiederkehrniveaus in Handelstagen: 10 Jahre = 2.520 Tage. Historische Werte (–) gibt es nur, "
-                   "wenn die Reihe mindestens so lang ist; der GEV liefert keinen Expected Shortfall.")
+              note="Return levels in trading days: 10 years = 2,520 days. Historical values are only available if "
+                   "the series is at least that long (otherwise –); the GEV yields no Expected Shortfall.")
 
     gc = report["gaussian_comparison"]
-    out.table("Wie stark die Normalverteilung extreme Tage unterschätzt",
-              ["Schwelle", "Gauß", "Beobachtet", "GPD", "Faktor beobachtet", "Faktor GPD"],
+    out.table("How far the normal distribution understates extreme days",
+              ["Threshold", "Gaussian", "Observed", "GPD", "Factor (observed)", "Factor (GPD)"],
               [[f"{k} σ", v["gaussian_probability"], v["empirical_probability"], v["gpd_probability"],
                 v["underestimation_factor_empirical"], v["underestimation_factor_gpd"]]
                for k, v in zip((3, 4, 5), (gc["3sigma"], gc["4sigma"], gc["5sigma"]))],
               formats=["text", "pct", "pct", "pct", "x", "x"],
-              note="Wahrscheinlichkeit pro Tag für |Rendite| > k σ (beide Ränder). GPD: Fits beider Ränder.")
+              note="Probability per day of |return| > kσ (both tails). GPD: fits to both tails.")
 
     sr = evt.stats_right
-    out.table("Angepasste Modelle", ["Rand", "Schwelle u", "Überschreitungen", "ξ (GPD)", "σ (GPD)", "ξ (GEV)"],
-              [["Verluste", u, st["n_exceedances"], xi_l, st["sigma"], evt.gev_minima.xi],
-               ["Gewinne", sr["threshold"], sr["n_exceedances"], xi_r, sr["sigma"], evt.gev_maxima.xi]],
+    out.table("Fitted models", ["Tail", "Threshold u", "Exceedances", "ξ (GPD)", "σ (GPD)", "ξ (GEV)"],
+              [["Losses", u, st["n_exceedances"], xi_l, st["sigma"], evt.gev_minima.xi],
+               ["Gains", sr["threshold"], sr["n_exceedances"], xi_r, sr["sigma"], evt.gev_maxima.xi]],
               formats=["text", "pct", "int", "num", "pct", "num"],
-              note=f"GEV an {n // m} Blockmaxima à {m} Handelstage angepasst.")
+              note=f"GEV fitted to {n // m:,} block maxima of {m} trading days each.")
 
     if var_gev < 0.9 * var_c:
-        out.note("Der GEV-VaR liegt unter dem GPD-VaR: Die Umrechnung vom Blockmaximum auf den einzelnen Tag "
-                 "unterstellt unabhängige Tage. Verluste kommen aber in Clustern, ein Block enthält dann mehrere "
-                 "extreme Tage – der GPD-Wert ist hier der verlässlichere.", "info")
+        out.note("The GEV VaR is below the GPD VaR: converting a block maximum into a single-day figure assumes "
+                 "independent days. Losses, however, arrive in clusters, so a block often contains several extreme "
+                 "days – the GPD figure is the more reliable one here.", "info")
 
     yrs = gauss_years(gpd10)
     if xi_l > 0.1:
         out.set_verdict(
             "serious" if xi_l > 0.25 else "warning",
-            f"Fetter Verlust-Rand (Fréchet-Bereich, ξ = {_de(xi_l)})",
-            f"Den 10-Jahres-Tagesverlust von {_de(100 * gpd10, 1)} % (GPD) hält die Normalverteilung für ein Ereignis "
-            f"einmal in {_years(yrs)}. Gauß-basierte Stresstests unterschätzen hier die Extreme.",
+            f"Fat loss tail (Fréchet domain, ξ = {_num(xi_l)})",
+            f"The normal distribution treats the 10-year one-day loss of {_num(100 * gpd10, 1)}% (GPD) as "
+            + (f"an event that occurs {_once_in(yrs)}" if np.isfinite(yrs) else "practically impossible")
+            + ". Gaussian-based stress tests understate the extremes here.",
         )
     elif xi_l > -0.05:
-        out.set_verdict("good", f"Der Verlust-Rand ist etwa exponentiell (ξ = {_de(xi_l)})",
-                        "Oberhalb der Schwelle verhalten sich die Verluste nahezu wie bei einer Normal- oder "
-                        "Exponentialverteilung; prüfe mit dem Hill-Plot, ob die Schwelle passt.")
+        out.set_verdict("good", f"The loss tail is roughly exponential (ξ = {_num(xi_l)})",
+                        "Above the threshold, losses behave almost as under a normal or exponential distribution; "
+                        "use the Hill plot to check whether the threshold is appropriate.")
     else:
-        out.set_verdict("good", f"Beschränkter Verlust-Rand (ξ = {_de(xi_l)})",
-                        "Die größten Verluste wachsen langsamer als exponentiell (Weibull-Bereich).")
+        out.set_verdict("good", f"Bounded loss tail (ξ = {_num(xi_l)})",
+                        "The largest losses grow more slowly than exponentially (Weibull domain).")

@@ -1,4 +1,4 @@
-"""Rollierende Tsallis-Entropie und q: taugen sie als Frühindikator für Volatilität?"""
+"""Rolling Tsallis entropy and q: do they work as a leading indicator of volatility?"""
 
 import numpy as np
 from scipy import stats
@@ -10,35 +10,34 @@ from ..core import ToolError
 
 SPEC = {
     "id": "tsallis-entropy",
-    "title": "Tsallis-Entropie im Zeitverlauf",
+    "title": "Tsallis entropy over time",
     "group": "regime",
     "order": 50,
-    "summary": "Rollierende Tsallis-Entropie und Tail-Index q neben realisierter Volatilität und VIX – mit einem "
-               "ehrlichen Test, ob die Entropie künftige Turbulenz ankündigt.",
+    "summary": "Rolling Tsallis entropy and tail index q alongside realised volatility and the VIX – with an "
+               "honest test of whether entropy anticipates future turbulence.",
     "description": (
-        "`TsallisEntropyAnalyzer.rolling_entropy` schätzt in jedem Fenster zuerst den Index **q** aus dem "
-        "Hill-Tail-Index der größten |Renditen| und berechnet dann die Tsallis-Entropie S_q = (1 − Σpᵢ^q)/(q − 1) "
-        "des Histogramms der Fensterrenditen. Die Idee aus der Physik: Steigende Entropie zeigt wachsende "
-        "Unordnung und soll Turbulenz vorausgehen.\n\n"
-        "Das Werkzeug prüft diese Behauptung an deinen Daten: Es vergleicht die Entropie (und q) mit der "
-        "**zukünftigen** realisierten Volatilität der nächsten Tage, und zwar gegen die einfachste Konkurrenz – die "
-        "Volatilität der Vergangenheit. Die Rangkorrelation nach Spearman ist robust gegen Ausreißer. Im "
-        "Quintil-Diagramm siehst du, ob die Tage mit der höchsten Entropie wirklich die unruhigsten Folgewochen "
-        "hatten.\n\n"
-        "Gut zu wissen: Das Histogramm hat eine feste Zahl von Klassen über die Spannweite des Fensters. Ein "
-        "einzelner Crash-Tag streckt die Spannweite und drückt alle übrigen Renditen in wenige Klassen – die Entropie "
-        "**sinkt** dann eher. Die Entropie misst die Form der Verteilung, nicht ihre Breite."
+        "`TsallisEntropyAnalyzer.rolling_entropy` first estimates the index **q** in each window from the Hill "
+        "tail index of the largest |returns| and then computes the Tsallis entropy S_q = (1 − Σpᵢ^q)/(q − 1) of "
+        "the histogram of the window's returns. The idea from physics: rising entropy signals growing disorder "
+        "and is supposed to precede turbulence.\n\n"
+        "The tool tests this claim on your data: it compares entropy (and q) with the **future** realised "
+        "volatility over the following days, against the simplest competitor – past volatility. Spearman's rank "
+        "correlation is robust to outliers. The quintile chart shows whether the days with the highest entropy "
+        "really were followed by the most turbulent weeks.\n\n"
+        "Worth knowing: the histogram has a fixed number of bins spanning the window's range. A single crash day "
+        "stretches the range and squeezes all other returns into a few bins – entropy then tends to **fall**. "
+        "Entropy measures the shape of the distribution, not its width."
     ),
     "needs": ["returns"],
     "params": [
         {"name": "window", "type": "int", "default": 50, "min": 30, "max": 250, "step": 5,
-         "label": "Fenster (Handelstage)"},
+         "label": "Window (trading days)"},
         {"name": "n_bins", "type": "int", "default": 25, "min": 10, "max": 100, "step": 5,
-         "label": "Klassen im Histogramm"},
+         "label": "Histogram bins"},
         {"name": "horizon", "type": "int", "default": 20, "min": 5, "max": 60, "step": 5,
-         "label": "Vorlauf-Test: Vola der nächsten … Tage"},
+         "label": "Lead test: volatility over the next … days"},
         {"name": "last_n", "type": "int", "default": 2520, "min": 250, "max": 15000, "step": 250,
-         "label": "Zeitraum (letzte Handelstage)", "help": "Begrenzt die Rechenzeit bei sehr langen Reihen."},
+         "label": "Period (most recent trading days)", "help": "Limits computation time for very long series."},
     ],
     "covers": [
         "src.physics.tsallis_statistics.TsallisEntropyAnalyzer",
@@ -50,8 +49,9 @@ SPEC = {
 }
 
 
-def _de(x, digits=2):
-    return f"{x:.{digits}f}".replace(".", ",")
+def _num(x, digits=2):
+    """Number inside text: decimal point, thousands comma."""
+    return f"{x:,.{digits}f}"
 
 
 def _rho(a, b):
@@ -76,18 +76,18 @@ def run(params, data, out):
     m = min(params["last_n"], data.n)
     r = np.asarray(data.returns[-m:], dtype=float)
     if data.n < 30 + 5 + 60:
-        raise ToolError(f"Die Reihe ist mit {data.n} Renditen zu kurz: Fenster, Vorlauf-Test und genug Vergleichstage "
-                        "brauchen mindestens 95 Handelstage. Wähle einen längeren Datensatz.")
+        raise ToolError(f"With {data.n:,} returns the series is too short: the window, the lead test and enough "
+                        "comparison days require at least 95 trading days. Choose a longer dataset.")
     if m < w + h + 60:
-        raise ToolError(f"Für ein Fenster von {w} Tagen und {h} Tage Vorlauf ist die Reihe zu kurz ({m} Tage). "
-                        "Verkleinere Fenster oder Vorlauf" + (" oder vergrößere den Zeitraum." if m < data.n else "."))
+        raise ToolError(f"For a window of {w} days and a {h}-day lead the series is too short ({m:,} days). "
+                        "Reduce the window or the lead" + (" or extend the period." if m < data.n else "."))
     x = list(data.dates[-m:]) if data.dates else list(range(data.n - m, data.n))
-    xa = C.axis("", type="date") if data.dates else C.axis("Handelstag", fmt="int")
+    xa = C.axis("", type="date") if data.dates else C.axis("Trading day", fmt="int")
     vix = np.asarray(data.vix[-m:], dtype=float) / 100.0 if data.vix is not None else None
-    vix_name = "VIX" if data.meta.get("source") not in ("synthetic", "crisis") else "VIX (aus Renditen abgeleitet)"
+    vix_name = "VIX" if data.meta.get("source") not in ("synthetic", "crisis") else "VIX (derived from returns)"
 
     analyzer = TsallisEntropyAnalyzer()
-    out.progress("Rollierende Tsallis-Entropie …", 0.1)
+    out.progress("Rolling Tsallis entropy …", 0.1)
     S = np.asarray(analyzer.rolling_entropy(r, window=w, n_bins=bins), dtype=float)
     S[:w] = np.nan
     q = np.full(m, np.nan)
@@ -108,70 +108,73 @@ def run(params, data, out):
     pct_s = float(np.mean(S[valid] <= s_now))
     pct_q = float(np.mean(q[valid] <= q_now))
     rho_s, rho_q, rho_p = _rho(S, future), _rho(q, future), _rho(past, future)
-    out.metric("Tsallis-Entropie heute", s_now, "num", hint=f"höher als an {_de(100 * pct_s, 0)} % der Tage")
-    out.metric("q heute (Hill)", q_now, "num", hint=f"höher als an {_de(100 * pct_q, 0)} % der Tage")
-    out.metric("Realisierte Vola heute", float(past[-1]), "pct", digits=1, hint=f"{w} Tage bis gestern, annualisiert – wie das Entropie-Fenster")
-    out.metric(f"Rangkorrelation Entropie → Vola {h} T.", rho_s, "num",
-               hint="Spearman ρ mit der zukünftigen Vola")
-    out.metric(f"Zum Vergleich: Vola → Vola {h} T.", rho_p, "num", hint="vergangene Vola als einfachster Prognostiker")
+    out.metric("Tsallis entropy today", s_now, "num", hint=f"higher than on {_num(100 * pct_s, 0)}% of days")
+    out.metric("q today (Hill)", q_now, "num", hint=f"higher than on {_num(100 * pct_q, 0)}% of days")
+    out.metric("Realised volatility today", float(past[-1]), "pct", digits=1,
+               hint=f"{w} days up to yesterday, annualised – matching the entropy window")
+    out.metric(f"Rank correlation entropy → {h}-day vol", rho_s, "num",
+               hint="Spearman ρ with future volatility")
+    out.metric(f"For comparison: vol → {h}-day vol", rho_p, "num",
+               hint="past volatility as the simplest predictor")
 
     # --- charts over time
     med = float(np.nanmedian(S))
     out.chart(C.xy(
-        "Rollierende Tsallis-Entropie S_q",
+        "Rolling Tsallis entropy S_q",
         [C.trace("S_q", x, S, color=1, width=1.3)], x=xa, y=C.axis("S_q"),
         hlines=[C.hline(med, "Median")],
-        subtitle=f"Fenster {w} Tage, {bins} Klassen, q je Fenster aus dem Hill-Schätzer.",
+        subtitle=f"Window {w} days, {bins} bins, q per window from the Hill estimator.",
     ))
     out.chart(C.xy(
-        "Rollierender Tsallis-Index q",
+        "Rolling Tsallis index q",
         [C.trace("q (Hill)", x, q, color=2, width=1.3)], x=xa, y=C.axis("q"),
-        hlines=[C.hline(1.0, "Gauß (q = 1)"), C.hline(5 / 3, "Varianz → ∞ (q = 5/3)")],
-        subtitle="Hill auf nur einem Fenster ist sehr verrauscht; Sprünge in q zeigen einzelne Extremtage im Fenster.",
+        hlines=[C.hline(1.0, "Gaussian (q = 1)"), C.hline(5 / 3, "Variance → ∞ (q = 5/3)")],
+        subtitle="Hill on a single window is very noisy; jumps in q reflect individual extreme days in the window.",
     ))
-    vol_traces = [C.trace(f"Realisierte Vola ({w} T.)", x, past, color=1, width=1.5)]
+    vol_traces = [C.trace(f"Realised volatility ({w} days)", x, past, color=1, width=1.5)]
     if vix is not None:
         vol_traces.append(C.trace(vix_name, x, vix, color=2, width=1.2))
     out.chart(C.xy(
-        "Volatilität: realisiert" + (" und VIX" if vix is not None else ""), vol_traces, x=xa,
-        y=C.axis("Annualisierte Volatilität", fmt="pct", digits=0),
-        subtitle="Zum Abgleich: Wann war es wirklich unruhig?",
+        "Realised volatility" + (" and VIX" if vix is not None else ""), vol_traces, x=xa,
+        y=C.axis("Annualised volatility", fmt="pct", digits=0),
+        subtitle="For reference: when was the market genuinely turbulent?",
     ))
 
     # --- does it lead? quintile chart
-    labels = ["Q1 niedrig", "Q2", "Q3", "Q4", "Q5 hoch"]
-    traces = [C.trace("Entropie S_q", labels, _quintile_means(S, future), color=1, width=2.5),
+    labels = ["Q1 low", "Q2", "Q3", "Q4", "Q5 high"]
+    traces = [C.trace("Entropy S_q", labels, _quintile_means(S, future), color=1, width=2.5),
               C.trace("q (Hill)", labels, _quintile_means(q, future), color=2, width=2.5),
-              C.trace("vergangene Vola", labels, _quintile_means(past, future), color=3, width=2.5)]
+              C.trace("Past volatility", labels, _quintile_means(past, future), color=3, width=2.5)]
     out.chart(C.xy(
-        f"Vola der nächsten {h} Tage je Quintil des Signals", traces,
-        x=C.axis("Quintil des Signals am Tag t", type="category"),
-        y=C.axis(f"Ø realisierte Vola t … t+{h}", fmt="pct", digits=0),
-        subtitle="Je Linie werden alle Tage nach einem Signal in fünf gleich große Gruppen sortiert. Ein gutes "
-                 "Frühwarnsignal steigt von Q1 nach Q5 deutlich an.",
+        f"Volatility over the next {h} days by signal quintile", traces,
+        x=C.axis("Signal quintile on day t", type="category"),
+        y=C.axis(f"Avg. realised volatility t … t+{h}", fmt="pct", digits=0),
+        subtitle="For each line, all days are sorted by the signal into five groups of equal size. A good "
+                 "early-warning signal rises markedly from Q1 to Q5.",
     ))
 
-    rows = [["Entropie S_q", rho_s, _rho(S, past)], ["q (Hill)", rho_q, _rho(q, past)],
-            [f"Vergangene Vola ({w} T.)", rho_p, 1.0]]
-    cols = ["Signal am Tag t", f"mit Vola t … t+{h}", f"mit Vola t−{w} … t"]
+    rows = [["Entropy S_q", rho_s, _rho(S, past)], ["q (Hill)", rho_q, _rho(q, past)],
+            [f"Past volatility ({w} days)", rho_p, 1.0]]
+    cols = ["Signal on day t", f"With vol t … t+{h}", f"With vol t−{w} … t"]
     if vix is not None:
         for row, sig in zip(rows, (S, q, past)):
             row.append(_rho(sig, vix))
-        cols.append("mit VIX")
-    out.table("Rangkorrelationen (Spearman)", cols,
+        cols.append("With VIX")
+    out.table("Rank correlations (Spearman)", cols,
               rows, formats=["text"] + ["num"] * (len(cols) - 1),
-              note=f"{int(np.sum(np.isfinite(S) & np.isfinite(future)))} Tage. Die erste Spalte ist der eigentliche "
-                   "Vorlauf-Test: Nur Daten bis t−1 fließen ins Signal, die Vola danach ist echte Zukunft.")
+              note=f"{int(np.sum(np.isfinite(S) & np.isfinite(future))):,} days. The first column is the actual "
+                   "lead test: only data up to t−1 enter the signal, and the volatility that follows lies genuinely "
+                   "in the future.")
 
     if rho_s is not None and rho_p is not None:
         if rho_s > 0.2 and rho_s >= rho_p - 0.05:
-            out.note(f"Hier kündigt die Entropie Turbulenz an: ρ = {_de(rho_s)}, so gut wie die vergangene Vola "
-                     f"(ρ = {_de(rho_p)}).", "success")
+            out.note(f"Here entropy does anticipate turbulence: ρ = {_num(rho_s)}, as good as past volatility "
+                     f"(ρ = {_num(rho_p)}).", "success")
         elif rho_p > 0.2:
-            out.note(f"Auf diesem Datensatz hat die Entropie kaum Vorlauf: ρ = {_de(rho_s)} mit der künftigen Vola, "
-                     f"während die schlichte vergangene Vola ρ = {_de(rho_p)} erreicht.", "warning")
+            out.note(f"On this dataset entropy has little lead: ρ = {_num(rho_s)} with future volatility, whereas "
+                     f"plain past volatility reaches ρ = {_num(rho_p)}.", "warning")
         else:
-            out.note(f"Hier ist die künftige Vola kaum vorhersagbar: weder die Entropie (ρ = {_de(rho_s)}) noch die "
-                     f"vergangene Vola (ρ = {_de(rho_p)}) haben nennenswerten Vorlauf.", "info")
+            out.note(f"Future volatility is hardly predictable here: neither entropy (ρ = {_num(rho_s)}) nor past "
+                     f"volatility (ρ = {_num(rho_p)}) has any meaningful lead.", "info")
     if m < data.n:
-        out.note(f"Ausgewertet sind die letzten {m} von {data.n} Handelstagen (Parameter „Zeitraum“).", "info")
+        out.note(f"Analysing the most recent {m:,} of {data.n:,} trading days (parameter ‘Period’).", "info")

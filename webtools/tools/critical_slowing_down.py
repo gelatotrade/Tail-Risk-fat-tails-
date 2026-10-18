@@ -10,37 +10,39 @@ from ..data import index_axis
 
 SPEC = {
     "id": "critical-slowing-down",
-    "title": "Kritisches Verlangsamen: AC(1) & Varianz",
+    "title": "Critical slowing down: AC(1) and variance",
     "group": "regime",
     "order": 30,
-    "summary": "Ob Autokorrelation und Varianz systematisch steigen – das klassische Vorzeichen eines "
-               "Kipppunkts, mit Kendall-τ-Trendtest und Warnstufe.",
+    "summary": "Tests whether autocorrelation and variance are rising systematically – the classic precursor of a "
+               "tipping point – with a Kendall τ trend test and a warning level.",
     "description": (
-        "Kurz vor einem Kipppunkt erholt sich ein System immer langsamer von kleinen Störungen. Messbar wird das "
-        "als **steigende Autokorrelation AC(1)** (der Markt „erinnert“ sich länger an gestern) und **steigende "
-        "Varianz** (die Ausschläge werden größer). Der Detektor kumuliert dazu die Renditen zum Log-Kurs, zieht "
-        "in jedem rollierenden Fenster einen Gauß-geglätteten Trend ab und misst AC(1) und Varianz des Rests. "
-        "Die Schiefe kommt aus den Renditen selbst.\n\n"
-        "So liest du die Diagramme: Entscheidend ist nicht das Niveau, sondern der **Trend im Analysefenster** "
-        "(grau hinterlegt). Schon eine reine Irrfahrt hat hier eine hohe AC(1) – die gestrichelte Linie zeigt "
-        "dieses Vergleichsniveau. Kendall-τ misst diesen Trend: +1 heißt „steigt ständig“, 0 „kein Trend“. Daraus folgt die "
-        "Warnstufe: Kritisch, wenn AC(1) **und** Varianz deutlich steigen (τ > 0,3, p < 0,05). Der "
-        "Kompositindikator ist der Mittelwert der z-Werte von AC(1) und Varianz über die ganze Reihe.\n\n"
-        "Parameter: Das **Fenster** bestimmt, wie viele Tage in jede Messung eingehen (kürzer = schneller, aber "
-        "verrauschter). **σ** ist die Breite des Gauß-Trends; ist σ größer als das Fenster, wird praktisch nur "
-        "der Mittelwert abgezogen (die Voreinstellung σ = 100 entspricht dem Klassifikator im Werkzeug „Marktphase“). "
-        "Das **Analysefenster** legt fest, über welche letzten Tage der Trend getestet wird."
+        "Shortly before a tipping point, a system recovers from small disturbances ever more slowly. This shows up "
+        "as **rising autocorrelation AC(1)** (the market ‘remembers’ yesterday for longer) and **rising "
+        "variance** (the swings become larger). To measure this, the detector cumulates the returns into a log "
+        "price, subtracts a Gaussian-smoothed trend in each rolling window and measures AC(1) and variance of the "
+        "residual. Skewness is taken from the returns themselves.\n\n"
+        "How to read the charts: what matters is not the level but the **trend within the analysis window** "
+        "(shaded grey). Even a pure random walk has a high AC(1) here – the dashed line shows this reference "
+        "level. Kendall's τ measures the trend: +1 means ‘rises consistently’, 0 means ‘no trend’. The warning "
+        "level follows from it: Critical when AC(1) **and** variance are both rising markedly (τ > 0.3, "
+        "p < 0.05). The composite indicator is the mean of the z-scores of AC(1) and variance over the full "
+        "series.\n\n"
+        "Parameters: the **window** sets how many days enter each measurement (shorter = faster but noisier). "
+        "**σ** is the width of the Gaussian trend; if σ is larger than the window, effectively only the mean is "
+        "subtracted (the default σ = 100 matches the classifier in the ‘Market phase’ tool). The **analysis "
+        "window** sets the most recent days over which the trend is tested."
     ),
     "needs": ["returns"],
     "params": [
         {"name": "window", "type": "int", "default": 50, "min": 20, "max": 250, "step": 5,
-         "label": "Rollierendes Fenster", "unit": "Tage"},
+         "label": "Rolling window", "unit": "days"},
         {"name": "detrend_window", "type": "int", "default": 100, "min": 5, "max": 200, "step": 5,
-         "label": "Glättungsbreite σ des Trends", "unit": "Tage",
-         "help": "Gauß-Filter zur Trendbereinigung in jedem Fenster."},
+         "label": "Trend smoothing width σ", "unit": "days",
+         "help": "Gaussian filter used to detrend each window."},
         {"name": "lookback", "type": "int", "default": 500, "min": 100, "max": 20000, "step": 50,
-         "label": "Analysefenster (letzte Handelstage)", "unit": "Tage",
-         "help": "Über diesen Zeitraum testet Kendall-τ, ob die Signale steigen. Größer als der Datensatz = alles."},
+         "label": "Analysis window", "unit": "days",
+         "help": "The most recent trading days over which Kendall's τ tests whether the signals are rising. "
+                 "Larger than the dataset = all data."},
     ],
     "covers": [
         "src.physics.phase_transitions.CriticalSlowingDownDetector",
@@ -56,23 +58,24 @@ SPEC = {
 }
 
 LEVELS = {
-    "NORMAL": ("good", "Normal", "Kein kritisches Verlangsamen erkennbar"),
-    "MODERATE": ("warning", "Moderat", "Leichter Aufwärtstrend in den Frühwarnsignalen"),
-    "ELEVATED": ("serious", "Erhöht", "Erhöhte Frühwarnstufe: ein Signal steigt deutlich"),
-    "CRITICAL": ("critical", "Kritisch", "Kritisches Verlangsamen: AC(1) und Varianz steigen gemeinsam"),
+    "NORMAL": ("good", "Normal", "No critical slowing down detected"),
+    "MODERATE": ("warning", "Moderate", "Slight upward trend in the early-warning signals"),
+    "ELEVATED": ("serious", "Elevated", "Elevated warning level: one signal is rising markedly"),
+    "CRITICAL": ("critical", "Critical", "Critical slowing down: AC(1) and variance are rising together"),
 }
 # The detector detrends each window with a (window x window) kernel matrix: cost ~ observations x window².
 MAX_WORK = 6e9  # ~6 s native at the limit (two passes plus the reference walk), bounded runtime in the browser
 N_REFERENCE = 1000  # windows of the random-walk reference for AC(1)
 
 
-def _de(x, digits=2):
-    return f"{x:.{digits}f}".replace(".", ",")
+def _num(x, digits=2):
+    """Number inside text: decimal point, thousands comma."""
+    return f"{x:,.{digits}f}"
 
 
 def _p(p):
-    """'p < 0,001' or 'p = 0,076'."""
-    return "p < 0,001" if p < 0.001 else f"p = {_de(p, 3)}"
+    """'p < 0.001' or 'p = 0.076'."""
+    return "p < 0.001" if p < 0.001 else f"p = {_num(p, 3)}"
 
 
 def _padded(a, w):
@@ -87,120 +90,121 @@ def run(params, data, out):
     look = min(params["lookback"], n)
     if look - w < 30:
         if look == n:  # the dataset itself is the limit
-            raise ToolError(f"Der Datensatz hat nur {n} Tage – bei einem Fenster von {w} Tagen bleiben zu wenige "
-                            f"Messpunkte für den Trendtest. Verkleinere das Fenster auf höchstens {n - 30} Tage.")
-        raise ToolError(f"Das Analysefenster ({look} Tage) ist zu kurz für ein Fenster von {w} Tagen. "
-                        "Verkleinere das Fenster oder vergrößere das Analysefenster.")
+            raise ToolError(f"The dataset has only {n:,} days – with a window of {w} days too few data points remain "
+                            f"for the trend test. Reduce the window to at most {n - 30:,} days.")
+        raise ToolError(f"The analysis window ({look:,} days) is too short for a window of {w} days. "
+                        "Reduce the window or enlarge the analysis window.")
     if (n + look + N_REFERENCE + w) * w * w > MAX_WORK:
-        raise ToolError(f"Ein Fenster von {w} Tagen ist für {n} Beobachtungen zu rechenintensiv. "
-                        "Verkleinere das Fenster oder das Analysefenster.")
+        raise ToolError(f"A window of {w} days is too computationally expensive for {n:,} observations. "
+                        "Reduce the window or the analysis window.")
 
     det = CriticalSlowingDownDetector(window=w, detrend_window=sigma)
     full = det.compute_ews(r)                                   # charts: the whole history
     ews = det.compute_ews(r[-look:]) if look < n else full      # trend test: the analysis window
     level = ews["warning_level"]
-    status, level_de, title = LEVELS[level]
+    status, level_label, title = LEVELS[level]
     ac_tau, ac_p = ews["ac1_trend"]["tau"], ews["ac1_trend"]["p_value"]
     var_tau, var_p = ews["var_trend"]["tau"], ews["var_trend"]["p_value"]
     # Reference: AC(1) of a pure random walk (i.i.d. returns) with the same window and σ
     walk = np.cumsum(np.random.default_rng(0).standard_normal(N_REFERENCE + w))
     ac_walk = float(np.median(det.autocorrelation_lag1(walk)[w:]))
 
-    out.metric("Warnstufe", level_de, "text", status=status, hint="aus den Kendall-τ-Trends im Analysefenster")
-    out.metric("Trend AC(1): Kendall-τ", ac_tau, "num", hint=_p(ac_p),
+    out.metric("Warning level", level_label, "text", status=status,
+               hint="from the Kendall τ trends in the analysis window")
+    out.metric("AC(1) trend: Kendall τ", ac_tau, "num", hint=_p(ac_p),
                status="warning" if ac_tau > 0.2 and ac_p < 0.1 else None)
-    out.metric("Trend Varianz: Kendall-τ", var_tau, "num", hint=_p(var_p),
+    out.metric("Variance trend: Kendall τ", var_tau, "num", hint=_p(var_p),
                status="warning" if var_tau > 0.2 and var_p < 0.1 else None)
-    out.metric("AC(1) aktuell", full["autocorrelation"][-1], "num",
-               hint=f"des trendbereinigten Log-Kurses · reine Irrfahrt: ≈ {_de(ac_walk)}")
-    out.metric("Streuung aktuell", np.sqrt(full["variance"][-1]), "pct",
-               hint="√Varianz des trendbereinigten Log-Kurses im letzten Fenster")
-    out.metric("Schiefe aktuell", full["skewness"][-1], "num", hint="der Tagesrenditen im letzten Fenster")
+    out.metric("Current AC(1)", full["autocorrelation"][-1], "num",
+               hint=f"of the detrended log price · pure random walk: ≈ {_num(ac_walk)}")
+    out.metric("Current dispersion", np.sqrt(full["variance"][-1]), "pct",
+               hint="√variance of the detrended log price in the latest window")
+    out.metric("Current skewness", full["skewness"][-1], "num", hint="of daily returns in the latest window")
     comp_now = full["composite"][-1]
-    out.metric("Kompositindikator", comp_now, "num", hint="z-Wert, Mittel aus AC(1) und Varianz",
+    out.metric("Composite indicator", comp_now, "num", hint="z-score, mean of AC(1) and variance",
                status="serious" if comp_now > 2 else "warning" if comp_now > 1 else None)
 
     x, xa = index_axis(data)
-    bands = [C.band(x[n - look], x[-1], "Analysefenster", color="muted")] if look < n else []
+    bands = [C.band(x[n - look], x[-1], "Analysis window", color="muted")] if look < n else []
     meta = data.meta or {}
     if "crisis_start" in meta and "crisis_end" in meta and not data.dates:
-        bands.append(C.band(int(meta["crisis_start"]), int(meta["crisis_end"]), "Krise (synthetisch)"))
+        bands.append(C.band(int(meta["crisis_start"]), int(meta["crisis_end"]), "Crisis (synthetic)"))
 
     level_path = np.cumsum(r)
     out.chart(C.xy(
-        "Zustand: kumulierte Log-Rendite",
-        [C.trace("Kumulierte Log-Rendite", x, level_path, color=1, width=1.5)],
-        x=xa, y=C.axis("Kumulierte Log-Rendite", fmt="pct", digits=0), bands=bands, height=280,
-        subtitle="Der Detektor arbeitet auf diesem Log-Kurs (Schiefe: auf den Tagesrenditen).",
+        "State: cumulative log return",
+        [C.trace("Cumulative log return", x, level_path, color=1, width=1.5)],
+        x=xa, y=C.axis("Cumulative log return", fmt="pct", digits=0), bands=bands, height=280,
+        subtitle="The detector works on this log price (skewness: on daily returns).",
     ))
     # What the detector subtracts in its most recent window (entry i uses the days i-w .. i-1)
     last = level_path[n - 1 - w:n - 1]
     trend = last - det.detrend(last)
     flat = sigma >= w
     out.chart(C.xy(
-        f"Trendbereinigung im letzten Fenster ({w} Tage)",
-        [C.trace("Kumulierte Log-Rendite", x[n - 1 - w:n - 1], last, color=1, width=2),
-         C.trace(f"abgezogener Gauß-Trend (σ = {sigma} Tage)", x[n - 1 - w:n - 1], trend, color=2, dash=True)],
-        x=xa, y=C.axis("Kumulierte Log-Rendite", fmt="pct", digits=1), height=280,
-        subtitle=("σ ist nicht kleiner als das Fenster: Der Trend ist praktisch flach, abgezogen wird nur der "
-                  "Mittelwert. AC(1) und Varianz messen dann die Wanderung des Kurses im Fenster."
+        f"Detrending in the latest window ({w} days)",
+        [C.trace("Cumulative log return", x[n - 1 - w:n - 1], last, color=1, width=2),
+         C.trace(f"Subtracted Gaussian trend (σ = {sigma} days)", x[n - 1 - w:n - 1], trend, color=2, dash=True)],
+        x=xa, y=C.axis("Cumulative log return", fmt="pct", digits=1), height=280,
+        subtitle=("σ is not smaller than the window: the trend is practically flat and only the mean is "
+                  "subtracted. AC(1) and variance then measure how the price wanders within the window."
                   if flat else
-                  "AC(1) und Varianz werden auf dem Abstand zwischen Kurs und Trend gemessen – in jedem Fenster neu."),
+                  "AC(1) and variance are measured on the gap between price and trend – recomputed in every window."),
     ))
     out.chart(C.xy(
-        f"Autokorrelation AC(1) – rollierend über {w} Tage",
+        f"Autocorrelation AC(1) – rolling {w}-day window",
         [C.trace("AC(1)", x, _padded(full["autocorrelation"], w), color=1, width=1.5)],
         x=xa, y=C.axis("AC(1)"), bands=bands, height=280,
-        hlines=[C.hline(ac_walk, "reine Irrfahrt")],
-        subtitle=f"Kendall-τ im Analysefenster: {_de(ac_tau)} ({_p(ac_p)}). "
-                 "Steigt AC(1), erholt sich der Markt langsamer.",
+        hlines=[C.hline(ac_walk, "pure random walk")],
+        subtitle=f"Kendall τ in the analysis window: {_num(ac_tau)} ({_p(ac_p)}). "
+                 "Rising AC(1) means the market recovers more slowly.",
     ))
     out.chart(C.xy(
-        f"Streuung um den Trend – rollierend über {w} Tage",
-        [C.trace("√Varianz", x, np.sqrt(_padded(full["variance"], w)), color=1, width=1.5)],
-        x=xa, y=C.axis("Streuung des Log-Kurses", fmt="pct", digits=1), bands=bands, height=280,
-        subtitle=f"Kendall-τ der Varianz im Analysefenster: {_de(var_tau)} ({_p(var_p)}). "
-                 "Steigende Streuung: Die Ausschläge werden größer.",
+        f"Dispersion around the trend – rolling {w}-day window",
+        [C.trace("√Variance", x, np.sqrt(_padded(full["variance"], w)), color=1, width=1.5)],
+        x=xa, y=C.axis("Dispersion of the log price", fmt="pct", digits=1), bands=bands, height=280,
+        subtitle=f"Kendall τ of the variance in the analysis window: {_num(var_tau)} ({_p(var_p)}). "
+                 "Rising dispersion: the swings are becoming larger.",
     ))
     out.chart(C.xy(
-        f"Schiefe der Tagesrenditen – rollierend über {w} Tage",
-        [C.trace("Schiefe", x, _padded(full["skewness"], w), color=1, width=1.5)],
-        x=xa, y=C.axis("Schiefe"), bands=bands, hlines=[C.hline(0.0)], height=280,
-        subtitle="Stark negative Werte: einzelne Crash-Tage dominieren das Fenster.",
+        f"Skewness of daily returns – rolling {w}-day window",
+        [C.trace("Skewness", x, _padded(full["skewness"], w), color=1, width=1.5)],
+        x=xa, y=C.axis("Skewness"), bands=bands, hlines=[C.hline(0.0)], height=280,
+        subtitle="Strongly negative values: individual crash days dominate the window.",
     ))
     out.chart(C.xy(
-        "Kompositindikator (z-Wert)",
-        [C.trace("½ z(AC1) + ½ z(Varianz)", x, _padded(full["composite"], w), color=1, width=1.5)],
-        x=xa, y=C.axis("z-Wert"), bands=bands, height=280,
+        "Composite indicator (z-score)",
+        [C.trace("½ z(AC1) + ½ z(variance)", x, _padded(full["composite"], w), color=1, width=1.5)],
+        x=xa, y=C.axis("z-score"), bands=bands, height=280,
         hlines=[C.hline(0.0), C.hline(2.0, "+2", color="warning")],
-        subtitle="Über +2: AC(1) und Varianz liegen gemeinsam weit über ihrem Mittel. Mittel und Streuung stammen "
-                 "aus der ganzen Reihe – frühere Werte sind also mit späteren Daten normiert.",
+        subtitle="Above +2: AC(1) and variance are both well above their mean. Mean and standard deviation come "
+                 "from the full series – earlier values are therefore normalised with later data.",
     ))
 
     def ok(cond):
-        return "ja" if cond else "nein"
+        return "yes" if cond else "no"
 
     rules = [
-        ("Kritisch", "τ(AC1) > 0,3 mit p < 0,05 UND τ(Var) > 0,3 mit p < 0,05",
+        ("Critical", "τ(AC1) > 0.3 with p < 0.05 AND τ(Var) > 0.3 with p < 0.05",
          ac_tau > 0.3 and ac_p < 0.05 and var_tau > 0.3 and var_p < 0.05),
-        ("Erhöht", "τ(AC1) > 0,2 mit p < 0,1 ODER τ(Var) > 0,2 mit p < 0,1",
+        ("Elevated", "τ(AC1) > 0.2 with p < 0.1 OR τ(Var) > 0.2 with p < 0.1",
          (ac_tau > 0.2 and ac_p < 0.1) or (var_tau > 0.2 and var_p < 0.1)),
-        ("Moderat", "τ(AC1) > 0,1 ODER τ(Var) > 0,1", ac_tau > 0.1 or var_tau > 0.1),
-        ("Normal", "keine der Regeln oben", True),
+        ("Moderate", "τ(AC1) > 0.1 OR τ(Var) > 0.1", ac_tau > 0.1 or var_tau > 0.1),
+        ("Normal", "none of the rules above", True),
     ]
     rows, hit = [], False
     for name, rule, cond in rules:
         mark = ok(cond)
         if cond and not hit:
-            mark, hit = "ja → Ergebnis", True
+            mark, hit = "yes → result", True
         rows.append([name, rule, mark])
-    out.table("Regeln der Warnstufe (erste erfüllte Regel gilt)", ["Stufe", "Regel", "erfüllt"], rows,
+    out.table("Warning-level rules (the first rule met applies)", ["Level", "Rule", "Met"], rows,
               formats=["text", "text", "text"],
-              note=f"Analysefenster: letzte {look} Handelstage, davon {look - w} mit vollem Fenster.")
-    out.note("Die p-Werte sind zu optimistisch: Benachbarte rollierende Fenster überlappen fast vollständig, "
-             "die Messpunkte sind also nicht unabhängig. Achte vor allem auf die Größe von τ und darauf, ob AC(1) "
-             "und Varianz gemeinsam steigen.")
+              note=f"Analysis window: last {look:,} trading days, {look - w:,} of them with a full window.")
+    out.note("The p-values are too optimistic: adjacent rolling windows overlap almost completely, so the data "
+             "points are not independent. Focus mainly on the size of τ and on whether AC(1) and variance rise "
+             "together.")
 
-    detail = (f"Kendall-τ im Analysefenster: AC(1) {_de(ac_tau)}, Varianz {_de(var_tau)} "
-              f"(letzte {look} Handelstage).")
+    detail = (f"Kendall τ in the analysis window: AC(1) {_num(ac_tau)}, variance {_num(var_tau)} "
+              f"(last {look:,} trading days).")
     out.set_verdict(status, title, detail)

@@ -14,47 +14,51 @@ from .. import charts as C
 from ..core import ToolError
 from ..data import index_axis
 
-LEVELS = [{"value": v, "label": l} for v, l in ((0.95, "95 %"), (0.975, "97,5 %"), (0.99, "99 %"))]
-STATE_NAMES = {2: ["ruhig", "Stress"], 3: ["ruhig", "erhöht", "Stress"]}
+LEVELS = [{"value": v, "label": l} for v, l in ((0.95, "95%"), (0.975, "97.5%"), (0.99, "99%"))]
+STATE_NAMES = {2: ["Calm", "Stress"], 3: ["Calm", "Elevated", "Stress"]}
 STATE_COLORS = {2: ["good", "critical"], 3: ["good", "warning", "critical"]}
-VOL_NAMES = {"LOW_VOL": "niedrig", "MEDIUM_VOL": "mittel", "HIGH_VOL": "hoch"}
+VOL_NAMES = {"LOW_VOL": "Low", "MEDIUM_VOL": "Medium", "HIGH_VOL": "High"}
 DAYS = 252
+MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
 SPEC = {
     "id": "regimes",
-    "title": "Volatilitätsregime (Markov)",
+    "title": "Volatility regimes (Markov)",
     "group": "regime",
     "order": 10,
-    "summary": "Erkennt ruhige und gestresste Marktphasen mit einem Markov-Regimewechselmodell und zeigt, wie "
-               "stark VaR und Expected Shortfall vom Regime abhängen.",
+    "summary": "Detects calm and stressed market phases with a Markov regime-switching model and shows how "
+               "strongly VaR and Expected Shortfall depend on the regime.",
     "description": (
-        "Das **Markov-Regimewechselmodell** (`MarkovRegimeSwitching`) nimmt an, dass der Markt zwischen wenigen "
-        "Zuständen springt, jeder mit eigener Volatilität. Welcher Zustand gerade herrscht, ist unbeobachtet; der "
-        "EM-Algorithmus lernt aus der ganzen Reihe Mittelwerte, Volatilitäten und die **Übergangsmatrix**; mit "
-        "diesen Parametern schätzt der **Hamilton-Filter** die Wahrscheinlichkeit jeden Tag nur aus den Renditen "
-        "bis zu diesem Tag. Die Diagonale der Übergangsmatrix ist die Beharrung: p = 0,98 heißt, ein Regime hält "
-        "im Mittel 1/(1 − p) = 50 Tage.\n\n"
-        "Daneben steht eine einfache Klassifikation über die realisierte 20-Tage-Volatilität "
-        "(`detect_vol_regime`): oberhalb des gewählten Perzentils hoch, unterhalb des Gegenperzentils niedrig. "
-        "`RegimeAwareTailRisk` rechnet damit den VaR je Regime – im Stress ist er oft doppelt so hoch wie im "
-        "Durchschnitt. Der **Ljung-Box-Test** auf quadrierte Renditen prüft, ob Volatilität überhaupt clustert.\n\n"
-        "So liest du die Diagramme: Die Kursfarbe zeigt das wahrscheinlichste Markov-Regime, daneben die "
-        "Stress-Wahrscheinlichkeit und die realisierte Volatilität mit den Grenzen der Vola-Regime. Der **3D-Regimeraum** (`compute_regime_coordinates`) zeigt Volatilitätsniveau, "
-        "Beharrung und Wechselneigung; hohe Volatilität mit geringer Beharrung ist die instabilste Lage."
+        "The **Markov regime-switching model** (`MarkovRegimeSwitching`) assumes that the market jumps between a "
+        "small number of states, each with its own volatility. Which state prevails is unobserved: the EM "
+        "algorithm learns the means, volatilities and the **transition matrix** from the full series, and with "
+        "these parameters the **Hamilton filter** estimates each day's state probabilities from the returns up to "
+        "that day only. The diagonal of the transition matrix measures persistence: p = 0.98 means that a regime "
+        "lasts 1/(1 − p) = 50 days on average.\n\n"
+        "Alongside this sits a simple classification based on realised 20-day volatility "
+        "(`detect_vol_regime`): above the chosen percentile is high, below the opposite percentile is low. "
+        "`RegimeAwareTailRisk` uses it to compute VaR per regime – under stress it is often twice the average. "
+        "The **Ljung-Box test** on squared returns checks whether volatility clusters at all.\n\n"
+        "How to read the charts: the colour of the price line shows the most likely Markov regime; further charts "
+        "show the stress probability and realised volatility with the boundaries of the volatility regimes. The "
+        "**3D regime space** (`compute_regime_coordinates`) shows volatility level, persistence and switching "
+        "tendency; high volatility combined with low persistence is the most unstable configuration."
     ),
     "needs": ["returns"],
     "params": [
-        {"name": "n_states", "type": "select", "default": 3, "label": "Markov-Zustände",
-         "options": [{"value": 2, "label": "2 (ruhig / Stress)"}, {"value": 3, "label": "3 (ruhig / erhöht / Stress)"}]},
-        {"name": "confidence", "type": "select", "default": 0.99, "label": "VaR-Konfidenz", "options": LEVELS},
+        {"name": "n_states", "type": "select", "default": 3, "label": "Markov states",
+         "options": [{"value": 2, "label": "2 (calm / stress)"}, {"value": 3, "label": "3 (calm / elevated / stress)"}]},
+        {"name": "confidence", "type": "select", "default": 0.99, "label": "VaR confidence level", "options": LEVELS},
         {"name": "vol_percentile", "type": "int", "default": 75, "min": 55, "max": 95, "step": 5,
-         "label": "Perzentil für hohe Volatilität", "help": "75: die volatilsten 25 % der Tage gelten als „hoch“."},
+         "label": "High-volatility percentile", "help": "75: the most volatile 25% of days count as ‘high’."},
         {"name": "forecast_days", "type": "int", "default": 20, "min": 1, "max": 120, "step": 1,
-         "label": "Prognosehorizont (Tage)"},
+         "label": "Forecast horizon (days)"},
         {"name": "coord_window", "type": "int", "default": 30, "min": 8, "max": 120, "step": 2,
-         "label": "Fenster für den 3D-Regimeraum", "help": "Handelstage je Schätzung von Volatilität und Wechselneigung."},
+         "label": "Window for the 3D regime space",
+         "help": "Trading days per estimate of volatility and switching tendency."},
         {"name": "max_years", "type": "int", "default": 15, "min": 2, "max": 60, "step": 1,
-         "label": "Zeitraum (letzte Jahre)", "help": "Lange Reihen werden auf die letzten Jahre gekürzt (Rechenzeit)."},
+         "label": "Period (most recent years)",
+         "help": "Long series are cut to the most recent years to limit computation time."},
     ],
     "covers": [
         "src.models.regime_detection.MarkovRegimeSwitching",
@@ -76,22 +80,29 @@ SPEC = {
 }
 
 
-def _de(x, digits=2):
-    return f"{x:.{digits}f}".replace(".", ",")
+def _num(x, digits=2):
+    """Number inside text: decimal point, thousands comma."""
+    return f"{x:,.{digits}f}"
+
+
+def _ordinal(k):
+    k = int(k)
+    suffix = "th" if 10 <= k % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(k % 10, "th")
+    return f"{k}{suffix}"
 
 
 def _fmt_date(s):
     if isinstance(s, str) and len(s) == 10 and s[4] == "-":
-        return f"{s[8:10]}.{s[5:7]}.{s[:4]}"
-    return f"Tag {s}"
+        return f"{int(s[8:10])} {MONTHS[int(s[5:7]) - 1]} {s[:4]}"
+    return f"Day {s}"
 
 
 def _pct0(p):
-    return "unter 1 %" if p < 0.01 else f"{_de(100 * p, 0)} %"
+    return "below 1%" if p < 0.01 else f"{_num(100 * p, 0)}%"
 
 
 def _days(d):
-    return "1 Tag" if round(d) == 1 else f"{d:.0f} Tage"
+    return "1 day" if round(d) == 1 else f"{d:,.0f} days"
 
 
 def _var_es(x, conf):
@@ -120,17 +131,17 @@ def run(params, data, out):
     r = r_all[off:]
     n = len(r)
     if n < 250:
-        raise ToolError(f"Für Regime braucht es mindestens 250 Tage (vorhanden: {n}).")
+        raise ToolError(f"Regime detection needs at least 250 days of data (available: {n:,}).")
     if np.std(r) <= 0:
-        raise ToolError("Die Renditen sind konstant – es gibt keine Volatilitäts-Regime.")
+        raise ToolError("The returns are constant – there are no volatility regimes.")
     lvl = next(o["label"] for o in LEVELS if o["value"] == params["confidence"])
     names, colors = STATE_NAMES[k], STATE_COLORS[k]
 
-    out.progress("Erkenne Volatilitäts-Regime (EM-Algorithmus) …", 0.1)
+    out.progress("Detecting volatility regimes (EM algorithm) …", 0.1)
     ra = RegimeAwareTailRisk(r, vol_percentile=float(params["vol_percentile"]), markov_states=k)
     msm: MarkovRegimeSwitching = ra.markov
     if msm.filtered_probs is None:
-        raise ToolError("Das Markov-Modell ist nicht konvergiert. Wähle einen anderen Zeitraum.")
+        raise ToolError("The Markov model did not converge. Choose a different period.")
 
     probs = np.asarray(msm.filtered_probs, dtype=float)
     state = np.argmax(probs, axis=1)
@@ -157,64 +168,66 @@ def run(params, data, out):
 
     persistent = bool(lb["significant"]) and float(np.min(np.diag(P))) > 0.5
     status = {"good": "good", "warning": "warning", "critical": "serious"}
-    out.metric("Aktuelles Regime (Markov)", names[cur], "text", hint=f"Wahrscheinlichkeit {_de(100 * cur_p[cur], 0)} %",
+    out.metric("Current regime (Markov)", names[cur], "text", hint=f"Probability {_num(100 * cur_p[cur], 0)}%",
                status=status[colors[cur]] if persistent else None)
-    out.metric("P(Stress-Regime) heute", cur_p[-1], "pct", digits=1 if cur_p[-1] >= 0.01 else 2)
-    out.metric("Vola im Stress-Regime", stds[-1] * np.sqrt(DAYS), "pct", digits=1,
-               hint=f"ruhig: {_de(100 * stds[0] * np.sqrt(DAYS), 1)} % p. a.")
-    out.metric("Ø Dauer des Stress-Regimes", stay[-1], "num", digits=0, unit="Tag" if round(stay[-1]) == 1 else "Tage",
-               hint=f"ruhig: {_days(stay[0])}")
+    out.metric("P(stress regime) today", cur_p[-1], "pct", digits=1 if cur_p[-1] >= 0.01 else 2)
+    out.metric("Volatility in the stress regime", stds[-1] * np.sqrt(DAYS), "pct", digits=1,
+               hint=f"calm: {_num(100 * stds[0] * np.sqrt(DAYS), 1)}% p.a.")
+    out.metric("Avg. duration of the stress regime", stay[-1], "num", digits=0,
+               unit="day" if round(stay[-1]) == 1 else "days", hint=f"calm: {_days(stay[0])}")
     if var_by_state[-1][0] is not None and var_all[0]:
-        out.metric(f"VaR {lvl} im Stress ÷ gesamt", var_by_state[-1][0] / var_all[0], "x",
-                   hint=f"{_de(100 * var_by_state[-1][0])} % statt {_de(100 * var_all[0])} % · aus "
-                        f"{int(np.sum(state == k - 1))} Stresstagen")
-    out.metric("Realisierte Vola heute (20 Tage)", rv[-1], "pct", digits=1,
-               hint=f"Vola-Regime: {VOL_NAMES.get(simple['simple_regime'], simple['simple_regime'])}")
+        out.metric(f"VaR {lvl} under stress ÷ overall", var_by_state[-1][0] / var_all[0], "x",
+                   hint=f"{_num(100 * var_by_state[-1][0])}% vs. {_num(100 * var_all[0])}% · from "
+                        f"{int(np.sum(state == k - 1)):,} stress days")
+    out.metric("Realised volatility today (20 days)", rv[-1], "pct", digits=1,
+               hint=f"Volatility regime: {VOL_NAMES.get(simple['simple_regime'], simple['simple_regime']).lower()}")
     p_lb = float(lb["p_value"])
-    out.metric("Volatilitäts-Clustering", "ja" if lb["significant"] else "nein", "text",
-               hint="Ljung-Box auf quadrierte Renditen · " + ("p < 0,001" if p_lb < 0.001 else f"p = {_de(p_lb, 3)}"))
+    out.metric("Volatility clustering", "yes" if lb["significant"] else "no", "text",
+               hint="Ljung-Box on squared returns · " + ("p < 0.001" if p_lb < 0.001 else f"p = {_num(p_lb, 3)}"))
 
     # --- chart 1: price coloured by regime
     if data.prices is not None:
-        level, ylab = np.asarray(data.prices, dtype=float)[off:], "Kurs"
+        level, ylab = np.asarray(data.prices, dtype=float)[off:], "Price"
     else:
-        level, ylab = np.exp(np.cumsum(r)), "Vermögen (Start = 1)"
+        level, ylab = np.exp(np.cumsum(r)), "Wealth (start = 1)"
     segs = _segments(x, level, state, k)
     out.chart(C.xy(
-        "Kursverlauf nach wahrscheinlichstem Markov-Regime",
-        [C.trace(f"Regime {names[s]}", x, segs[s], color=colors[s], width=1.8) for s in range(k) if np.any(state == s)],
+        "Price path by most likely Markov regime",
+        [C.trace(f"{names[s]} regime", x, segs[s], color=colors[s], width=1.8) for s in range(k) if np.any(state == s)],
         x=xa, y=C.axis(ylab, type="log" if level.max() / max(level.min(), 1e-12) > 8 else "linear"),
-        subtitle="Gefilterte Zustände: Jeder Tag nutzt nur Renditen bis zu diesem Tag, die Modellparameter "
-                 "stammen aus der ganzen Reihe.",
+        subtitle="Filtered states: each day uses only the returns up to that day; the model parameters are "
+                 "estimated from the full series.",
     ))
 
     # --- chart 2: probability of the stress regime
     out.chart(C.xy(
-        "Wahrscheinlichkeit des Stress-Regimes",
-        [C.trace("P(Stress)", x, probs[:, -1], type="area", color="critical", width=1)],
-        x=xa, y=C.axis("Wahrscheinlichkeit", fmt="pct", digits=0, range=(0, 1)),
-        hlines=[C.hline(0.5, "50 %")],
-        subtitle="Gefilterte Wahrscheinlichkeit des volatilsten Zustands; über 50 % ist er der wahrscheinlichste.",
+        "Probability of the stress regime",
+        [C.trace("P(stress)", x, probs[:, -1], type="area", color="critical", width=1)],
+        x=xa, y=C.axis("Probability", fmt="pct", digits=0, range=(0, 1)),
+        hlines=[C.hline(0.5, "50%")],
+        subtitle="Filtered probability of the most volatile state; above 50% it is the most likely one.",
     ))
 
     # --- chart 3: realised volatility and the simple vol regimes
     vp = float(params["vol_percentile"])
     lo_thr, hi_thr = float(np.nanpercentile(rv, 100 - vp)), float(np.nanpercentile(rv, vp))
     out.chart(C.xy(
-        "Realisierte 20-Tage-Volatilität und Vola-Regime",
-        [C.trace("realisierte Vola p. a.", x, rv, color=1, width=1.5)],
-        x=xa, y=C.axis("Volatilität p. a.", fmt="pct", digits=0),
-        hlines=[C.hline(hi_thr, f"hoch: über {int(vp)}. Perzentil"), C.hline(lo_thr, f"niedrig: unter {int(100 - vp)}. Perzentil")],
-        subtitle="Grundlage der Tabelle „VaR je Volatilitäts-Regime“. Die Perzentile stammen aus der ganzen Reihe.",
+        "Realised 20-day volatility and volatility regimes",
+        [C.trace("Realised volatility p.a.", x, rv, color=1, width=1.5)],
+        x=xa, y=C.axis("Volatility p.a.", fmt="pct", digits=0),
+        hlines=[C.hline(hi_thr, f"high: above {_ordinal(vp)} percentile"),
+                C.hline(lo_thr, f"low: below {_ordinal(100 - vp)} percentile")],
+        subtitle="Basis of the table ‘VaR by volatility regime’. The percentiles are taken from the full series.",
         height=260 + 30 * k,
     ))
 
     # --- chart 4: transition matrix
+    lower = [s.lower() for s in names]
     out.chart(C.heatmap(
-        "Übergangsmatrix: P(morgen | heute)", [f"nach {s}" for s in names], [f"von {s}" for s in names], P,
-        z=C.axis("Wahrscheinlichkeit", fmt="pct", digits=1, range=(0, 1)), scale="sequential", annotate=True,
+        "Transition matrix: P(tomorrow | today)", [f"to {s}" for s in lower], [f"from {s}" for s in lower], P,
+        z=C.axis("Probability", fmt="pct", digits=1, range=(0, 1)), scale="sequential", annotate=True,
         height=260 + 30 * k,
-        subtitle="Diagonale = Beharrung. Ø Verweildauer: " + ", ".join(f"{s} {_days(d)}" for s, d in zip(names, stay)),
+        subtitle="Diagonal = persistence. Avg. duration: " + ", ".join(f"{s} {_days(d)}" for s, d in zip(lower, stay)),
     ))
 
     # --- chart 5: 3D regime space coloured by Markov state
@@ -222,18 +235,18 @@ def run(params, data, out):
     if n - start > 20:
         idx = np.arange(start, n)
         step = max(1, len(idx) // 3000)
-        lab = [_fmt_date(v) if dates else f"Tag {v}" for v in x]
+        lab = [_fmt_date(v) if dates else f"Day {v}" for v in x]
         traces = []
         for s in range(k):
             sel = idx[state[idx] == s][::step]
             if sel.size:
-                traces.append(C.path3d(f"Regime {names[s]}", X[sel], Y[sel], Z[sel], color=colors[s], mode="markers",
+                traces.append(C.path3d(f"{names[s]} regime", X[sel], Y[sel], Z[sel], color=colors[s], mode="markers",
                                        size=2.5, text=[lab[i] for i in sel]))
-        traces.append(C.path3d("Heute", [X[-1]], [Y[-1]], [Z[-1]], color=1, mode="markers", size=8, text=[lab[-1]]))
+        traces.append(C.path3d("Today", [X[-1]], [Y[-1]], [Z[-1]], color=1, mode="markers", size=8, text=[lab[-1]]))
         out.chart(C.scatter3d(
-            "3D-Regimeraum", traces,
-            x=C.axis("Volatilitätsniveau (0–1)"), y=C.axis("Beharrung (0–1)"), z=C.axis("Wechselneigung (0–1)"),
-            subtitle="Hohe Volatilität, geringe Beharrung und hohe Wechselneigung = instabiler Stress.",
+            "3D regime space", traces,
+            x=C.axis("Volatility level (0–1)"), y=C.axis("Persistence (0–1)"), z=C.axis("Switching tendency (0–1)"),
+            subtitle="High volatility, low persistence and a high switching tendency = unstable stress.",
         ))
 
     # --- tables
@@ -243,56 +256,60 @@ def run(params, data, out):
         v_s, e_s = var_by_state[s]
         rows.append([names[s], stds[s] * np.sqrt(DAYS), means[s], P[s, s], round(float(stay[s])), share, v_s, e_s,
                      cur_p[s]])
-    out.table("Markov-Zustände", ["Regime", "Vola p. a.", "Ø Tagesrendite", "Beharrung p", "Ø Dauer (Tage)",
-                                  "Anteil Tage", f"VaR {lvl}", f"ES {lvl}", "P heute"], rows,
+    out.table("Markov states", ["Regime", "Volatility p.a.", "Avg. daily return", "Persistence p",
+                                "Avg. duration (days)", "Share of days", f"VaR {lvl}", f"ES {lvl}", "P today"], rows,
               formats=["text", "pct", "pct", "pct", "int", "pct", "pct", "pct", "pct"],
-              note="VaR und ES historisch aus den Tagen, an denen das Regime am wahrscheinlichsten war "
-                   "(– = weniger als 20 solche Tage).")
+              note="Historical VaR and ES from the days on which the regime was the most likely one "
+                   "(– = fewer than 20 such days).")
 
     vrows = []
     for key in ("LOW_VOL", "MEDIUM_VOL", "HIGH_VOL", "UNCONDITIONAL"):
         c = cond[key]
         sub = r if key == "UNCONDITIONAL" else r[ra.regimes == ["LOW_VOL", "MEDIUM_VOL", "HIGH_VOL"].index(key)]
-        vrows.append([VOL_NAMES.get(key, "alle Tage"), c["n_observations"], c["var"], _var_es(sub, conf)[1]])
-    out.table(f"VaR {lvl} je Volatilitäts-Regime (realisierte 20-Tage-Vola)",
-              ["Vola-Regime", "Tage", f"VaR {lvl}", f"ES {lvl}"], vrows, formats=["text", "int", "pct", "pct"],
-              note=f"Hoch = über dem {int(params['vol_percentile'])}. Perzentil, niedrig = unter dem "
-                   f"{100 - int(params['vol_percentile'])}. Perzentil der realisierten Volatilität.")
+        vrows.append([VOL_NAMES.get(key, "All days"), c["n_observations"], c["var"], _var_es(sub, conf)[1]])
+    out.table(f"VaR {lvl} by volatility regime (realised 20-day volatility)",
+              ["Volatility regime", "Days", f"VaR {lvl}", f"ES {lvl}"], vrows, formats=["text", "int", "pct", "pct"],
+              note=f"High = above the {_ordinal(params['vol_percentile'])} percentile, low = below the "
+                   f"{_ordinal(100 - int(params['vol_percentile']))} percentile of realised volatility.")
 
     hs = [h for h in (1, 5, 10, 20, 60, 120) if h <= len(fc)]
     if len(fc) not in hs:
         hs.append(len(fc))
-    out.table("Regime-Prognose", ["in … Tagen"] + [f"P({s})" for s in names],
+    out.table("Regime forecast", ["In … days"] + [f"P({s.lower()})" for s in names],
               [[f"{h}"] + list(fc[h - 1]) for h in hs], formats=["text"] + ["pct"] * k,
-              note="Aus der Übergangsmatrix fortgeschrieben; für lange Horizonte nähert sie sich der Langfrist-Verteilung.")
+              note="Projected from the transition matrix; over long horizons it converges to the long-run "
+                   "distribution.")
 
-    out.table("Nach einem Wechsel des Vola-Regimes (folgende 5 Tage)", ["Wechsel", "Anzahl", "Ø Tagesrendite", "Volatilität (täglich)"],
-              [["zu höherer Vola", trans["n_up_transitions"], trans["post_up_mean_return"], trans["post_up_volatility"]],
-               ["zu niedrigerer Vola", trans["n_down_transitions"], trans["post_down_mean_return"],
+    out.table("After a volatility-regime switch (following 5 days)",
+              ["Switch", "Count", "Avg. daily return", "Volatility (daily)"],
+              [["To higher volatility", trans["n_up_transitions"], trans["post_up_mean_return"],
+                trans["post_up_volatility"]],
+               ["To lower volatility", trans["n_down_transitions"], trans["post_down_mean_return"],
                 trans["post_down_volatility"]]],
               formats=["text", "int", "pct", "pct"])
     if off > 0:
-        out.note(f"Analysiert werden die letzten {params['max_years']} Jahre ({n} von {len(r_all)} Tagen).", "info")
+        out.note(f"Analysing the most recent {params['max_years']} years ({n:,} of {len(r_all):,} days).", "info")
 
     if not persistent:
-        out.set_verdict("good", "Keine ausgeprägten Volatilitäts-Regime",
-                        f"Der Ljung-Box-Test findet {'kein' if not lb['significant'] else 'nur schwaches'} "
-                        f"Clustering, und mindestens ein Zustand hält im Mittel nur {_days(float(np.min(stay)))}. "
-                        "Das Modell trennt hier eher normale Tage von Sprüngen als echte Marktphasen.")
+        out.set_verdict("good", "No pronounced volatility regimes",
+                        f"The Ljung-Box test finds {'no' if not lb['significant'] else 'only weak'} "
+                        f"clustering, and at least one state lasts only {_days(float(np.min(stay)))} on average. "
+                        "Here the model separates normal days from jumps rather than identifying genuine market "
+                        "phases.")
         return
 
     p_stress = float(cur_p[-1])
     v_s = var_by_state[-1][0]
-    stress_txt = (f" Im Stress-Regime liegt der VaR {lvl} bei {_de(100 * v_s)} % statt {_de(100 * var_all[0])} % im "
-                  "Gesamtschnitt." if v_s is not None and var_all[0] else "")
+    stress_txt = (f" In the stress regime, VaR {lvl} is {_num(100 * v_s)}% compared with {_num(100 * var_all[0])}% "
+                  "overall." if v_s is not None and var_all[0] else "")
     if p_stress > 0.5:
-        out.set_verdict("serious", f"Der Markt ist im Stress-Regime (P = {_de(100 * p_stress, 0)} %)",
-                        f"Die Volatilität liegt bei rund {_de(100 * stds[-1] * np.sqrt(DAYS), 0)} % p. a.; Stressphasen "
-                        f"halten im Mittel {_days(stay[-1])}." + stress_txt)
+        out.set_verdict("serious", f"The market is in the stress regime (P = {_num(100 * p_stress, 0)}%)",
+                        f"Volatility is around {_num(100 * stds[-1] * np.sqrt(DAYS), 0)}% p.a.; stress phases "
+                        f"last {_days(stay[-1])} on average." + stress_txt)
     elif cur != 0:
-        out.set_verdict("warning", f"Erhöhte Volatilität (Regime „{names[cur]}“)",
-                        f"Stress-Wahrscheinlichkeit {_pct0(p_stress)}." + stress_txt)
+        out.set_verdict("warning", f"Elevated volatility ({names[cur].lower()} regime)",
+                        f"Stress probability {_pct0(p_stress)}." + stress_txt)
     else:
-        out.set_verdict("good", f"Ruhiges Regime (P = {_de(100 * cur_p[0], 0)} %)",
-                        f"Ruhige Phasen halten im Mittel {_days(stay[0])}. Die Stress-Wahrscheinlichkeit liegt bei "
+        out.set_verdict("good", f"Calm regime (P = {_num(100 * cur_p[0], 0)}%)",
+                        f"Calm phases last {_days(stay[0])} on average. The stress probability is "
                         f"{_pct0(p_stress)}." + stress_txt)

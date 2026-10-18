@@ -9,31 +9,11 @@ export function loadPlotly() {
     const s = document.createElement('script');
     s.src = PLOTLY_URL;
     s.async = true;
-    s.onload = () => { registerGermanLocale(window.Plotly); resolve(window.Plotly); };
-    s.onerror = () => { plotlyP = null; reject(new Error('Diagrammbibliothek (Plotly) konnte nicht geladen werden.')); };
+    s.onload = () => resolve(window.Plotly);
+    s.onerror = () => { plotlyP = null; reject(new Error('The chart library (Plotly) could not be loaded.')); };
     document.head.appendChild(s);
   });
   return plotlyP;
-}
-
-// German month/day names and number formats for every chart (config.locale = 'de')
-function registerGermanLocale(Plotly) {
-  Plotly.register({
-    moduleType: 'locale', name: 'de',
-    dictionary: {
-      'Download plot as a png': 'Als PNG herunterladen', 'Zoom': 'Zoom', 'Pan': 'Verschieben',
-      'Zoom in': 'Vergrößern', 'Zoom out': 'Verkleinern', 'Reset axes': 'Achsen zurücksetzen',
-      'Autoscale': 'Automatisch skalieren', 'Reset camera to default': 'Kamera zurücksetzen',
-      'Orbital rotation': 'Rotation', 'Turntable rotation': 'Drehteller-Rotation',
-    },
-    format: {
-      days: ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'],
-      shortDays: ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'],
-      months: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
-      shortMonths: ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'],
-      date: '%d.%m.%Y', decimal: ',', thousands: '.',
-    },
-  });
 }
 
 function tokens() {
@@ -70,16 +50,16 @@ function tickformat(ax) {
 }
 
 function hoverFmt(ax) {
-  if (ax.type === 'date') return '%d.%m.%Y';
+  if (ax.type === 'date') return '%-d %b %Y';
   if (ax.fmt === 'pct') return `.${Math.max(2, (ax.digits ?? 2))}%`;
   if (ax.fmt === 'int') return ',d';
   return '.4~g';
 }
 
-// German date ticks at every zoom level: 09.08.2026 / 9. Aug / Aug 2026 / 2026
+// Date ticks at every zoom level: 9 Aug 2026 / 9 Aug / Aug 2026 / 2026
 const DATE_TICKS = [
-  { dtickrange: [null, 86400000], value: '%d.%m.%Y' },
-  { dtickrange: [86400000, 'M1'], value: '%-d. %b' },
+  { dtickrange: [null, 86400000], value: '%-d %b %Y' },
+  { dtickrange: [86400000, 'M1'], value: '%-d %b' },
   { dtickrange: ['M1', 'M12'], value: '%b %Y' },
   { dtickrange: ['M12', null], value: '%Y' },
 ];
@@ -106,7 +86,7 @@ function baseLayout(spec, t) {
     showlegend: true,
     legend: { orientation: 'h', x: 0, xanchor: 'left', y: 1.02, yanchor: 'bottom', font: { size: 12, color: t.ink2 }, bgcolor: 'rgba(0,0,0,0)' },
     hoverlabel: { bgcolor: t.surface, bordercolor: t.axis, font: { color: t.ink, family: t.font, size: 12 } },
-    separators: ',.',
+    separators: '.,',
   };
 }
 
@@ -223,7 +203,7 @@ function heatmapFigure(spec, t) {
   const data = [{ type: 'heatmap', x: spec.xs, y: spec.ys, z: spec.zs, colorscale: riskScale(t, spec.scale), xgap: gap, ygap: gap,
     zmin: spec.z.range ? spec.z.range[0] : undefined, zmax: spec.z.range ? spec.z.range[1] : undefined,
     colorbar: { thickness: 12, tickfont: { color: t.muted, size: 11 }, tickformat: tickformat(spec.z), outlinewidth: 0 },
-    hovertemplate: `%{y} · %{x}<br>${escapeHtml(spec.z.label || 'Wert')}: %{z:${hoverFmt(spec.z)}}<extra></extra>`,
+    hovertemplate: `%{y} · %{x}<br>${escapeHtml(spec.z.label || 'Value')}: %{z:${hoverFmt(spec.z)}}<extra></extra>`,
     zmid: spec.scale === 'diverging' ? 0 : undefined,
     texttemplate: spec.annotate ? `%{z:${spec.z.fmt === 'pct' ? `.${spec.z.digits ?? 1}%` : `.${spec.z.digits ?? 2}f`}}` : undefined,
     textfont: spec.annotate ? { size: 12 } : undefined }];
@@ -251,9 +231,9 @@ export async function renderChart(el, spec) {
   const Plotly = await loadPlotly();
   const t = tokens();
   const { data, layout } = (BUILDERS[spec.kind] || xyFigure)(spec, t);
-  const config = { responsive: true, displaylogo: false, locale: 'de',
+  const config = { responsive: true, displaylogo: false, locale: 'en',
     modeBarButtonsToRemove: ['select2d', 'lasso2d', 'autoScale2d', 'toggleSpikelines', 'hoverClosestCartesian', 'hoverCompareCartesian'],
-    toImageButtonOptions: { format: 'png', filename: (spec.title || 'diagramm').toLowerCase().replace(/[^a-z0-9äöüß]+/gi, '-'), scale: 2 } };
+    toImageButtonOptions: { format: 'png', filename: (spec.title || 'chart').toLowerCase().replace(/[^a-z0-9]+/gi, '-'), scale: 2 } };
   await Plotly.react(el, data, layout, config);
   el.__spec = spec;
 }
@@ -266,10 +246,10 @@ export function rerenderAll(root = document) {
 /** Plain table twin of a chart (accessibility + Excel export). */
 export function chartRows(spec) {
   if (spec.kind === 'xy') {
-    const cols = ['Reihe', spec.x.label || (spec.x.type === 'date' ? 'Datum' : 'x'), spec.y.label || 'y'];
+    const cols = ['Series', spec.x.label || (spec.x.type === 'date' ? 'Date' : 'x'), spec.y.label || 'y'];
     const rows = [];
     for (const tr of spec.traces) {
-      if (tr.type === 'envelope') tr.x.forEach((x, i) => { rows.push([`${tr.name} (unten)`, x, tr.y0[i]]); rows.push([`${tr.name} (oben)`, x, tr.y[i]]); });
+      if (tr.type === 'envelope') tr.x.forEach((x, i) => { rows.push([`${tr.name} (lower)`, x, tr.y0[i]]); rows.push([`${tr.name} (upper)`, x, tr.y[i]]); });
       else tr.x.forEach((x, i) => rows.push([tr.name, x, tr.y[i]]));
     }
     return { cols, rows, fmts: ['text', spec.x.type === 'date' ? 'text' : spec.x.fmt, spec.y.fmt] };
@@ -281,8 +261,8 @@ export function chartRows(spec) {
   if (spec.kind === 'scatter3d') {
     const rows = [];
     for (const tr of spec.traces) tr.x.forEach((x, i) => rows.push([tr.name, x, tr.y[i], tr.z[i]]));
-    return { cols: ['Reihe', spec.x.label || 'x', spec.y.label || 'y', spec.z.label || 'z'], rows, fmts: ['text', 'num', 'num', 'num'] };
+    return { cols: ['Series', spec.x.label || 'x', spec.y.label || 'y', spec.z.label || 'z'], rows, fmts: ['text', 'num', 'num', 'num'] };
   }
-  if (spec.kind === 'gauge') return { cols: ['Wert', 'Maximum'], rows: [[spec.value, spec.max]], fmts: ['num', 'num'] };
+  if (spec.kind === 'gauge') return { cols: ['Value', 'Maximum'], rows: [[spec.value, spec.max]], fmts: ['num', 'num'] };
   return { cols: [], rows: [], fmts: [] };
 }
