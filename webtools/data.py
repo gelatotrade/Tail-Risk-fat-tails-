@@ -133,7 +133,8 @@ def synthetic(model: str = "levy_jump", n: int = 2520, seed: int = 42) -> Datase
                    meta={"source": "synthetic", "model": model, "seed": int(seed)})
 
 
-def crisis(seed: int = 43, n_pre: int = 500, n_crisis: int = 100, n_post: int = 400) -> Dataset:
+def crisis(seed: int = 42, n_pre: int = 500, n_crisis: int = 100, n_post: int = 400) -> Dataset:
+    # seed 42: -34 % over the crisis window (seed 43, used by main.py, happens to rally +39 %)
     from src.utils.data_loader import generate_crisis_scenario, generate_vix_from_returns
 
     returns, meta = generate_crisis_scenario(n_pre=int(n_pre), n_crisis=int(n_crisis), n_post=int(n_post), seed=int(seed))
@@ -155,7 +156,7 @@ def build(descriptor: Dict[str, Any], arrays: Optional[Dict[str, Any]] = None) -
     if source == "synthetic":
         return synthetic(descriptor.get("model", "levy_jump"), descriptor.get("n", 2520), descriptor.get("seed", 42))
     if source == "crisis":
-        return crisis(descriptor.get("seed", 43))
+        return crisis(descriptor.get("seed", 42))
     if source in ("market", "upload"):
         return from_arrays(
             descriptor.get("name", "Eigene Daten"),

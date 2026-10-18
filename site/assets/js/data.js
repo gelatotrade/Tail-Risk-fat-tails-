@@ -77,7 +77,7 @@ export async function resolve(choice, base) {
       arrays: null, label: `Synthetisch · ${m.label}`, detail: `${n.toLocaleString('de-DE')} Tage · Seed ${seed}`, shareable: true };
   }
   if (choice.kind === 'crisis') {
-    const seed = Number(choice.seed) || 43;
+    const seed = Number.isFinite(Number(choice.seed)) && choice.seed !== '' ? Number(choice.seed) : 42;
     return { key: `crisis:${seed}`, descriptor: { source: 'crisis', seed }, arrays: null,
       label: 'Synthetisches Krisenszenario', detail: `1.000 Tage: ruhig → Crash → Erholung · Seed ${seed}`, shareable: true };
   }

@@ -57,6 +57,7 @@ export function richText(text) {
     .split(/\n\s*\n/)
     .map((para) => `<p>${escapeHtml(para.trim())
       .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+      .replace(/(^|[\s(])\*([^*\s][^*]*?)\*(?=[\s.,;:!?)]|$)/g, '$1<i>$2</i>')
       .replace(/`([^`]+)`/g, '<code>$1</code>')
       .replace(/\n/g, '<br>')}</p>`)
     .join('');

@@ -144,7 +144,7 @@ function xyFigure(spec, t) {
   layout.showlegend = data.length > 1;
   const shapes = [], annotations = [];
   for (const b of spec.bands || []) {
-    shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: b.x0, x1: b.x1, y0: 0, y1: 1, fillcolor: withAlpha(color(b.color, t), 0.10), line: { width: 0 }, layer: 'below' });
+    shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: b.x0, x1: b.x1, y0: 0, y1: 1, fillcolor: withAlpha(color(b.color, t), 0.18), line: { width: 0 }, layer: 'below' });
     if (b.label) annotations.push({ x: b.x0, xref: 'x', y: 1, yref: 'paper', text: escapeHtml(b.label), showarrow: false, xanchor: 'left', yanchor: 'top', font: { size: 11, color: t.ink2 }, bgcolor: withAlpha(t.surface.length === 7 ? t.surface : '#ffffff', 0.7) });
   }
   // labels of nearby reference lines alternate between the right and the left edge so they never overlap

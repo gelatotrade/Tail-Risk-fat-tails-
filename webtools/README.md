@@ -30,7 +30,7 @@ SPEC = {
     "group": "risk",                    # data | risk | physics | regime | warning | surface | dashboard | scripts
     "order": 20,                        # Reihenfolge innerhalb der Gruppe (optional)
     "summary": "Ein Satz, was man lernt.",
-    "description": "Absätze durch Leerzeile getrennt. **fett** und `code` erlaubt.",
+    "description": "Absätze durch Leerzeile getrennt. **fett**, *kursiv* und `code` erlaubt.",
     "needs": ["returns"],               # [] = Simulation; sonst returns / prices / vix / vix3m / dates
     "params": [
         {"name": "confidence", "type": "float", "default": 0.99, "min": 0.9, "max": 0.999,

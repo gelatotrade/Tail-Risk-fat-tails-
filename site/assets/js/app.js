@@ -420,9 +420,9 @@ function openDatasetDialog() {
       pending = () => ({ kind: 'synthetic', model, n: Number(body.querySelector('[data-k="n"]').value), seed: Number(body.querySelector('[data-k="seed"]').value) });
     },
     crisis() {
-      const seed = app.choice.kind === 'crisis' ? app.choice.seed : 43;
+      const seed = app.choice.kind === 'crisis' ? app.choice.seed : 42;
       body.innerHTML = `<p>Ein künstlicher Markt mit drei Phasen: 500 ruhige Tage mit Selbstzufriedenheit, 100 Tage Crash mit Volatilitätsspitze und fetten Rändern, 400 Tage nervöse Erholung. Ideal, um zu sehen, ob Frühwarnsignale <i>vor</i> dem Crash anschlagen.</p>
-        <label class="field" style="max-width:260px"><span class="lbl"><b>Zufalls-Seed</b></span><input type="number" min="0" max="999999" value="${seed}" data-k="seed"></label>
+        <label class="field" style="max-width:260px"><span class="lbl"><b>Zufalls-Seed</b></span><input type="number" min="0" max="999999" value="${seed}" data-k="seed"><span class="help">Die Krise ist zufällig: Seed 42 ergibt −34 % im Krisenfenster (ähnlich COVID 2020), Seed 50 −59 %; manche Seeds erholen sich schon im Crash.</span></label>
         <p class="privacy">${icon('cpu')}<span>Erzeugt mit <code>generate_crisis_scenario</code> aus <code>src/utils/data_loader.py</code>.</span></p>`;
       pending = () => ({ kind: 'crisis', seed: Number(body.querySelector('[data-k="seed"]').value) });
     },
