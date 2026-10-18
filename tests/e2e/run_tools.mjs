@@ -18,8 +18,12 @@ for (let i = 0; i < args.length; i++) {
   else ids.push(args[i]);
 }
 const catalogue = JSON.parse(await readFile(join(root, 'py', 'catalogue.json'), 'utf8'));
-const tools = ids.length ? catalogue.tools.filter((t) => ids.includes(t.id)) : catalogue.tools;
-const unknown = ids.filter((id) => !catalogue.tools.some((t) => t.id === id));
+// ids may carry parameters: 'chaos?rp_scale=day' runs the tool with that query string
+const wanted = ids.map((raw) => { const [id, qs] = raw.split('?'); return { id, qs: qs || '' }; });
+const tools = wanted.length
+  ? wanted.map((w) => ({ ...catalogue.tools.find((t) => t.id === w.id), qs: w.qs })).filter((t) => t.id)
+  : catalogue.tools.map((t) => ({ ...t, qs: '' }));
+const unknown = wanted.map((w) => w.id).filter((id) => !catalogue.tools.some((t) => t.id === id));
 if (unknown.length) { console.error('unknown tool ids:', unknown.join(', ')); process.exit(2); }
 if (shots) await mkdir(shots, { recursive: true });
 
@@ -29,7 +33,9 @@ await page.waitForSelector('.hero-chart svg', { timeout: 60000 });
 const report = [];
 for (const t of tools) {
   errors.length = 0;
-  const q = dataset && t.needs.length ? `?ds=${encodeURIComponent(dataset)}` : '';
+  const qp = new URLSearchParams(t.qs);
+  if (dataset && t.needs.length) qp.set('ds', dataset);
+  const q = String(qp) ? `?${qp}` : '';
   const t0 = Date.now();
   await page.goto(`${ORIGIN}/index.html#/tool/${t.id}${q}`);
   const timeout = t.cost === 'slow' ? 600000 : 240000;
@@ -49,9 +55,16 @@ for (const t of tools) {
   const pyErrors = errors.filter((e) => !/favicon/.test(e));
   if (status === 'ok' && pyErrors.length) { status = 'FAIL'; detail = pyErrors.join(' | ').slice(0, 1500); }
   const meta = await page.$eval('.result-bar .meta', (e) => e.innerText).catch(() => '');
-  if (shots) await page.screenshot({ path: join(shots, `${t.id}.png`), fullPage: true });
-  report.push({ id: t.id, status, seconds, meta, detail });
-  console.log(`${status === 'ok' ? 'ok  ' : 'FAIL'} ${t.id.padEnd(34)} ${seconds.toFixed(1).padStart(6)} s  ${status === 'ok' ? meta : detail}`);
+  if (shots) {
+    // lazy images far below the fold would otherwise be empty in a full-page screenshot
+    await page.$$eval('img[loading="lazy"]', (imgs) => imgs.forEach((i) => { i.loading = 'eager'; }));
+    await page.waitForFunction(() => [...document.images].every((i) => i.complete), null, { timeout: 15000 }).catch(() => {});
+    const name = t.qs ? `${t.id}__${t.qs.replace(/[^\w=-]+/g, '_')}` : t.id;
+    await page.screenshot({ path: join(shots, `${name}.png`), fullPage: true });
+  }
+  const label = t.qs ? `${t.id}?${t.qs}` : t.id;
+  report.push({ id: label, status, seconds, meta, detail });
+  console.log(`${status === 'ok' ? 'ok  ' : 'FAIL'} ${label.padEnd(34)} ${seconds.toFixed(1).padStart(6)} s  ${status === 'ok' ? meta : detail}`);
 }
 await browser.close();
 const failed = report.filter((r) => r.status !== 'ok');

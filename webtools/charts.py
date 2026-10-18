@@ -141,16 +141,18 @@ def scatter3d(title: str, traces: Iterable[dict], *, x: Optional[dict] = None, y
 
 def heatmap(title: str, xs: Sequence, ys: Sequence, zs, *, x: Optional[dict] = None,
             y: Optional[dict] = None, z: Optional[dict] = None, scale: str = "sequential",
-            subtitle: str = "", height: int = 380, annotate: bool = False) -> Dict[str, Any]:
+            subtitle: str = "", height: int = 380, annotate: bool = False, gap: int = 2) -> Dict[str, Any]:
     """Matrix view (correlations, warning matrices).  scale: sequential | diverging | risk.
 
     ``annotate=True`` prints every cell value (formatted with the z axis' fmt/digits) -
     use it for small matrices such as transition or correlation matrices.
+    ``gap=0`` draws dense matrices (recurrence plots) without cell gaps.
+    ``z=axis(..., range=(lo, hi))`` fixes the colour scale, so several heatmaps can share it.
     """
     return {"kind": "heatmap", "title": title, "subtitle": subtitle, "xs": list(xs), "ys": list(ys),
             "zs": np.asarray(zs, dtype=float), "x": x or axis(type="category"),
             "y": y or axis(type="category"), "z": z or axis(), "scale": scale, "height": height,
-            "annotate": bool(annotate)}
+            "annotate": bool(annotate), "gap": int(gap)}
 
 
 def gauge(title: str, value: float, *, max_value: float = 100.0,

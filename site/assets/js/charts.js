@@ -186,7 +186,9 @@ function scatter3dFigure(spec, t) {
 }
 
 function heatmapFigure(spec, t) {
-  const data = [{ type: 'heatmap', x: spec.xs, y: spec.ys, z: spec.zs, colorscale: riskScale(t, spec.scale), xgap: 2, ygap: 2,
+  const gap = spec.gap ?? 2;
+  const data = [{ type: 'heatmap', x: spec.xs, y: spec.ys, z: spec.zs, colorscale: riskScale(t, spec.scale), xgap: gap, ygap: gap,
+    zmin: spec.z.range ? spec.z.range[0] : undefined, zmax: spec.z.range ? spec.z.range[1] : undefined,
     colorbar: { thickness: 12, tickfont: { color: t.muted, size: 11 }, tickformat: tickformat(spec.z), outlinewidth: 0 },
     hovertemplate: `%{y} · %{x}<br>${escapeHtml(spec.z.label || 'Wert')}: %{z:${hoverFmt(spec.z)}}<extra></extra>`,
     zmid: spec.scale === 'diverging' ? 0 : undefined,
