@@ -647,13 +647,17 @@ class VIXTermStructure:
 
     def _compute_warning_score(self, ratio: float, vix: float) -> float:
         """Compute warning score from term structure."""
-        # Ratio component (0-60 points)
+        # Ratio component (0-60 points), non-decreasing in M1/M2: 0 up to
+        # 0.95, 0-25 while the curve flattens (0.95-1.0), 30-60 once it is
+        # inverted (1.0-1.1); the inversion itself adds a 5-point step.
+        # (The flattening ramp used to run backwards: 30 at 0.95 falling to
+        # 0 at 1.0, then jumping back to 30.)
         if ratio > 1.1:
             ratio_score = 60
         elif ratio > 1.0:
             ratio_score = 30 + (ratio - 1.0) * 300
         elif ratio > 0.95:
-            ratio_score = (1.0 - ratio) / 0.05 * 30
+            ratio_score = (ratio - 0.95) / 0.05 * 25
         else:
             ratio_score = 0
 
