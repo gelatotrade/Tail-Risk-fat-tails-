@@ -200,10 +200,11 @@ def run(params, data, out):
         ["Zeitschritte", str(n_steps)],
         ["Effektives dt", T / max(n_steps, 1)],
         ["Massenbilanz: |Spaltensumme| ÷ |Diagonale| (Gittermitte, max.)", balance],
-        ["Masse bei |x| > 8 zu t = T", edge_mass],
     ], formats=["text", "num"],
         note="Eine Spaltensumme nahe 0 heißt: Der diskrete Operator erhält die Wahrscheinlichkeit. Beim fraktionalen "
              "Operator fehlt der Anteil der Sprünge, die über den Gitterrand hinausführen würden.")
+    out.metric("Masse am Gitterrand", edge_mass, "pct", hint="Anteil bei |x| > 8 zu t = T",
+               status="warning" if edge_mass > 1e-3 else None)
     if edge_mass > 1e-3:
         out.note(f"{_de(100 * edge_mass, 1)} % der Masse liegt bei |x| > 8 – die Ränder stoßen an das Gitter. "
                  "Varianz und Kurtosis beschreiben dann die abgeschnittene Verteilung.", "warning")
