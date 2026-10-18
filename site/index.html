@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tail Risk Lab · Fette Ränder live im Browser</title>
+  <meta name="description" content="Physikbasiertes Tail-Risk-Framework – Lévy-Flüge, Fokker-Planck, Tsallis, Extremwerttheorie und Frühwarnsystem – läuft per Pyodide direkt im Browser. Mit FRED-Marktdaten oder eigenen Excel-Daten.">
+  <meta name="theme-color" content="#f6f6f3" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+  <meta property="og:title" content="Tail Risk Lab">
+  <meta property="og:description" content="Krisen leben in den Rändern der Verteilung. Das komplette Tail-Risk-Framework, live im Browser.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="assets/img/favicon.svg?v=__BUILD__" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/css/app.css?v=__BUILD__">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="modulepreload" href="assets/js/app.js?v=__BUILD__">
+  <script>
+    try { const t = localStorage.getItem('trl.theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+</head>
+<body>
+  <a class="sr-only" href="#view">Zum Inhalt springen</a>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="#/" aria-label="Tail Risk Lab – Startseite">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h18" opacity=".35"/><path d="M3 19c3 0 4-1 5.5-5S11 4 12 4s2 6 3.5 10S19 18 21 18"/><path d="M3 19c1.4 0 2.3-.3 3.1-1" stroke="var(--critical)" stroke-width="2.4"/><circle cx="4.3" cy="16.4" r="1.6" fill="var(--critical)" stroke="none"/></svg>
+        Tail Risk Lab
+      </a>
+      <nav class="nav" aria-label="Hauptnavigation">
+        <a href="#/" data-route="home">Start</a>
+        <a href="#/werkzeuge" data-route="tools">Werkzeuge</a>
+        <a href="#/galerie" data-route="gallery">Galerie</a>
+        <a href="#/methodik" data-route="method">Methodik</a>
+      </nav>
+      <div class="spacer"></div>
+      <span class="engine-pill" id="engine-pill" data-state="idle" role="status"><span class="dot"></span><span class="txt">Python bereit zum Start</span></span>
+      <button class="icon-btn" id="theme-btn" type="button" aria-label="Farbschema wechseln"></button>
+      <a class="icon-btn" href="https://github.com/gelatotrade/Tail-Risk-fat-tails-" rel="noopener" aria-label="Quellcode auf GitHub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a>
+      <button class="icon-btn menu-btn" type="button" aria-label="Menü"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    </div>
+  </header>
+
+  <div id="view" tabindex="-1">
+    <div class="wrap" style="padding:80px 0"><div class="skeleton" style="height:42px;max-width:520px"></div><div class="skeleton" style="height:18px;max-width:680px;margin-top:18px"></div><div class="skeleton" style="height:320px;margin-top:28px"></div></div>
+  </div>
+
+  <footer class="footer">
+    <div class="wrap">
+      <p class="disclaimer">Forschung &amp; Ausbildung – keine Anlageberatung. Marktdaten: Federal Reserve Bank of St. Louis (FRED). Python im Browser: <a href="https://pyodide.org" rel="noopener">Pyodide</a>. Quellcode: <a href="https://github.com/gelatotrade/Tail-Risk-fat-tails-" rel="noopener">GitHub</a>.</p>
+      <p id="build-info" class="num"></p>
+    </div>
+  </footer>
+  <noscript><div class="wrap empty">Diese Seite benötigt JavaScript, weil das Python-Framework direkt im Browser läuft.</div></noscript>
+  <script type="module" src="assets/js/app.js?v=__BUILD__"></script>
+</body>
+</html>

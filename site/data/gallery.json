@@ -1,0 +1,63 @@
+{
+  "sections": [
+    {
+      "title": "Grundlagen: Warum fette Ränder",
+      "items": [
+        {"file": "fat_tails_comparison.png", "title": "Fette Ränder vs. Normalverteilung", "caption": "Linear sehen die Spitzen ähnlich aus – logarithmisch zeigt sich, wie viel häufiger Extreme sind.", "teaser": true},
+        {"file": "physics_finance_mapping.png", "title": "Physik → Finanzen", "caption": "Welche physikalischen Konzepte welches Marktphänomen beschreiben."},
+        {"file": "tail_index_interpretation.png", "title": "Tail-Index α richtig lesen", "caption": "Von α = 2 (Gauß) bis α ≈ 1 (extreme Ränder)."},
+        {"file": "var_comparison.png", "title": "VaR-Methoden im Vergleich", "caption": "Historisch, Gauß, Cornish-Fisher und EVT bei unterschiedlichen Konfidenzniveaus."},
+        {"file": "early_warning_signals.png", "title": "Kritische Verlangsamung", "caption": "Steigende Autokorrelation und Varianz vor Phasenübergängen."}
+      ]
+    },
+    {
+      "title": "3D-Tail-Risk-Fläche",
+      "items": [
+        {"file": "tail_risk_surface_3d.png", "title": "3D-Tail-Risk-Fläche", "caption": "Crash-Wahrscheinlichkeit über Volatilität und Tail-Index mit historischen Krisenpfaden.", "teaser": true},
+        {"file": "tail_risk_surface_animation.gif", "title": "Animierte Risikofläche", "caption": "Die Crash-Schwelle wandert, ein Marktpfad läuft vom ruhigen Regime in die Krise."},
+        {"file": "tail_risk_3d_dashboard.png", "title": "3D-Phasenraum-Dashboard", "caption": "Lévy-, Tsallis- und Phasenübergangs-Koordinaten im Vergleich."},
+        {"file": "early_warning_3d_phase_space.png", "title": "Frühwarnung im 3D-Phasenraum", "caption": "Trajektorien der Indikatoren vor den Crashs."}
+      ]
+    },
+    {
+      "title": "Frühwarnsystem",
+      "items": [
+        {"file": "warning_matrix.png", "title": "Warnmatrix", "caption": "Die fünf Indikatoren und ihre Warnzustände."},
+        {"file": "early_warning_indicators.png", "title": "Die fünf Frühwarnindikatoren", "caption": "GEX, TailDex, VIX-Laufzeitstruktur, DIX und Smart-Money-Flow."},
+        {"file": "early_warning_dashboard_demo.png", "title": "Frühwarn-Dashboard", "caption": "Composite-Score mit Einzelindikatoren.", "teaser": true},
+        {"file": "crash_timeline_indicators.png", "title": "Zeitachse der Signale", "caption": "Wann welcher Indikator vor den Crashs angeschlagen hat."},
+        {"file": "crash_comparison_indicators.png", "title": "Indikatoren im Crash-Vergleich", "caption": "Signalstärke über die vier Krisen."},
+        {"file": "ews_analysis_jan2026.png", "title": "Frühwarnanalyse Januar 2026", "caption": "Stand der Indikatoren zum Jahresbeginn 2026."}
+      ]
+    },
+    {
+      "title": "Historische Krisen",
+      "items": [
+        {"file": "crisis_comparison.png", "title": "Krisenvergleich", "caption": "COVID-19 2020, Bärenmarkt 2022 und Zoll-Crash 2025 im direkten Vergleich."},
+        {"file": "crash_comparison_with_dates.png", "title": "Crashs mit Datumsachsen", "caption": "Alle vier Krisen mit echten Kalenderdaten."},
+        {"file": "volmageddon_2018_deep_dive.png", "title": "Volmageddon 2018 im Detail", "caption": "VIX +115 % an einem Tag – Gamma-Squeeze ohne Vorlaufzeit."},
+        {"file": "covid_2020_deep_dive.png", "title": "COVID-Crash 2020 im Detail", "caption": "Schnellster Bärenmarkt der Geschichte: −33,9 % in 23 Handelstagen."},
+        {"file": "bear_2022_deep_dive.png", "title": "Bärenmarkt 2022 im Detail", "caption": "Langsamer, zinsgetriebener Rückgang über 282 Tage."},
+        {"file": "tariff_2025_deep_dive.png", "title": "Zoll-Crash 2025 im Detail", "caption": "TailDex- und DIX-Divergenz vier bis sechs Wochen vor dem Crash."},
+        {"file": "covid_crash_analysis.png", "title": "COVID-Crash: Analyse", "caption": "Renditen, Volatilität und Tail-Index im Krisenverlauf."},
+        {"file": "bear_2022_analysis.png", "title": "Bärenmarkt 2022: Analyse", "caption": "Renditen, Volatilität und Tail-Index im Krisenverlauf."},
+        {"file": "tariff_crash_analysis.png", "title": "Zoll-Crash 2025: Analyse", "caption": "Renditen, Volatilität und Tail-Index im Krisenverlauf."},
+        {"file": "tariff_crash_deep_dive.png", "title": "Zoll-Crash 2025: Vertiefung", "caption": "Indikatoren im Zeitverlauf."},
+        {"file": "covid_crash_dashboard.png", "title": "Dashboard COVID-19", "caption": "Vollständiges Tail-Risk-Dashboard für 2020."},
+        {"file": "bear_2022_dashboard.png", "title": "Dashboard Bärenmarkt 2022", "caption": "Vollständiges Tail-Risk-Dashboard für 2022."},
+        {"file": "tariff_crash_dashboard.png", "title": "Dashboard Zoll-Crash 2025", "caption": "Vollständiges Tail-Risk-Dashboard für 2025."},
+        {"file": "crisis_dashboard.png", "title": "Krisen-Dashboard", "caption": "Synthetisches Krisenszenario im Gesamtbild."}
+      ]
+    },
+    {
+      "title": "Marktlage & Dashboards",
+      "items": [
+        {"file": "full_dashboard.png", "title": "Vollständiges Dashboard", "caption": "Alle Kennzahlen und Modelle auf einen Blick."},
+        {"file": "current_market_dashboard.png", "title": "Aktuelles Markt-Dashboard", "caption": "Marktlage zum Analysezeitpunkt."},
+        {"file": "current_market_analysis.png", "title": "Aktuelle Marktanalyse", "caption": "Einordnung der Marktlage."},
+        {"file": "current_state_jan2026.png", "title": "Marktlage Januar 2026", "caption": "Alle Frühwarnindikatoren im Normalbereich."},
+        {"file": "crisis_vs_current_comparison.png", "title": "Krisen vs. heute", "caption": "Die aktuelle Lage im Vergleich zu den Krisen."}
+      ]
+    }
+  ]
+}

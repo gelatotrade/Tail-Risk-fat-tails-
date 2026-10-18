@@ -34,3 +34,8 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Built website (GitHub Pages artifact)
+_site/
+tests/e2e/.cdn-cache/
+tests/e2e/shots/
