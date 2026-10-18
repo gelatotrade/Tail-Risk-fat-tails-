@@ -193,7 +193,7 @@ def run(params, data, out):
         x=C.axis("Überschreitungswahrscheinlichkeit 1 − c", type="log", fmt="pct", digits=1,
                  range=(0.1, float(tail_p[0]))),
         y=C.axis("Value at Risk (Verlust)", fmt="pct", digits=1),
-        subtitle="Links häufige Verluste (90-%-VaR), rechts die extremen Niveaus (99,9 % und mehr).",
+        subtitle="Links häufige Verluste (90-%-VaR), rechts immer seltenere – bis an den Rand der Daten.",
     ))
 
     # --- tables

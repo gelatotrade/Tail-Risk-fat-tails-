@@ -51,6 +51,14 @@ export function fmtDate(iso) {
 export function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
+/** Inline variant of richText (no paragraphs): **bold**, *italic*, `code`. Input is escaped first. */
+export function inlineText(text) {
+  return escapeHtml(text)
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/(^|[\s(])\*([^*\s][^*]*?)\*(?=[\s.,;:!?)]|$)/g, '$1<i>$2</i>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+
 /** Minimal text -> HTML: paragraphs on blank lines, **bold**, `code`. Input is escaped first. */
 export function richText(text) {
   return String(text || '')

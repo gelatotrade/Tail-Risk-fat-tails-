@@ -78,6 +78,10 @@ def run(params, data, out):
   min/max-erhaltend ausgedünnt. Fächer und Konfidenzbänder mit `C.envelope(name, x, unten, oben)`,
   Referenzlinien mit `C.hline` / `C.vline` (Beschriftungen weichen sich automatisch aus).
 * `set_verdict` nur, wenn das Werkzeug eine echte Einschätzung liefert.
+* Parameter, die nur für eine Ansicht oder einen Schalter gelten, bekommen `"show_if": {"param": [werte]}`;
+  sie werden dann nur angezeigt, wenn die Bedingung erfüllt ist (keine „Nur …“-Hinweise im Hilfetext).
+* Texte in Beschreibungen, Hinweisen, Untertiteln, Tabellennotizen und Urteilen dürfen **fett**, *kursiv*
+  und `code` enthalten.
 * Matplotlib-Figuren aus `src/visualization` sind willkommen (`out.figure`), interaktive
   Plotly-Specs (`out.chart`) sind die Hauptdarstellung.
 

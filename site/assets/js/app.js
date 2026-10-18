@@ -21,6 +21,7 @@ const app = {
   params: new Map(),   // toolId -> values
   results: new Map(),  // toolId -> {key, result, stdout}
   run: null,           // currently running job
+  view: 0,             // increments on every navigation; stale views must not act
 };
 
 // --------------------------------------------------------------------------- persistence
@@ -90,6 +91,7 @@ function setNav(active) {
 async function route() {
   const { parts, query } = parseHash();
   const [first, second] = parts;
+  app.view += 1;
   if (app.run && !app.run.done) app.run.detach = true; // keeps running; result is cached for re-entry
   window.scrollTo({ top: 0 });
   if (!first) { setNav('home'); return renderHome(); }
@@ -590,6 +592,12 @@ async function renderTool(id, query, { autorun } = {}) {
       <h1>${escapeHtml(spec.title)}</h1><p class="summary">${escapeHtml(spec.summary)}</p></div></header>
     <div class="tool-layout"><aside class="panel" aria-label="Einstellungen"></aside><main class="results" id="results" aria-live="polite"></main></div></div>`;
   const panel = view.querySelector('.panel'), results = view.querySelector('#results');
+  // A form or timer of a view the user already left (e.g. a 'change' fired by the blur of a removed
+  // input, or a pending live update) must neither rewrite the URL nor cancel the new view's run.
+  app.view += 1;
+  if (app.run && !app.run.done) app.run.detach = true;
+  const myView = app.view;
+  const current = () => app.view === myView;
 
   let dsCard = null;
   if (spec.needs.length) { dsCard = datasetCard(spec); panel.appendChild(dsCard); }
@@ -597,6 +605,7 @@ async function renderTool(id, query, { autorun } = {}) {
   const runBtn = h(`<button class="btn primary block lg" type="button">${icon('play')} Berechnen</button>`);
   const runHint = h(`<div class="hint"></div>`);
   const form = buildForm(spec, values, (state, { commit }) => {
+    if (!current()) return;
     values = state; app.params.set(id, values);
     const q = queryFromParams(spec, values);
     if (app.dataset.shareable && spec.needs.length) q.set('ds', D.encodeChoice(app.choice));
@@ -621,15 +630,21 @@ async function renderTool(id, query, { autorun } = {}) {
 
   // toggle: the button (reads "Abbrechen" while this tool runs) cancels; otherwise a new run replaces the old.
   const run = async ({ toggle = false } = {}) => {
-    if (app.run && !app.run.done) {
-      if (toggle && app.run.toolId === id) { engine.cancel(); return; }
-      if (app.run.toolId === id && spec.cost === 'fast' && !app.run.detach) {
-        app.run.rerun = true;         // fast tool: let it finish, then recompute with the latest values
-        return;
+    if (!current()) return;
+    const prev = app.run && !app.run.done ? app.run : null;
+    if (prev) {
+      if (toggle && prev.toolId === id && !prev.detach) { engine.cancel(); return; }
+      if (prev.cost === 'fast') {
+        // a fast run finishes within a second or two: let it, then compute with the latest values
+        // (a cancel would reboot Python, ~20 s)
+        prev.detach = true;
+        await prev.promise;
+        if (!current() || (app.run && app.run !== prev && !app.run.done)) return;
+      } else {
+        engine.cancel();
       }
-      engine.cancel();                // a cancel reboots Python, only worth it for long runs
     }
-    const job = { toolId: id, key: resultKey(), done: false, stdout: [], detach: false };
+    const job = { toolId: id, cost: spec.cost, key: resultKey(), done: false, stdout: [], detach: false };
     let finish;
     job.promise = new Promise((r) => { finish = r; });
     app.run = job;
@@ -674,7 +689,6 @@ async function renderTool(id, query, { autorun } = {}) {
       job.done = true;
       finish();
       if (!job.detach) markDirty();
-      if (job.rerun && !job.detach) run();
     }
   };
   runBtn.addEventListener('click', () => run({ toggle: true }));

@@ -1,5 +1,5 @@
 // Turn a tool result (webtools Result.to_dict) into DOM.
-import { fmt, escapeHtml, richText } from './format.js';
+import { fmt, escapeHtml, richText, inlineText } from './format.js';
 import { icon, STATUS_ICON, STATUS_LABEL, BADGE_LABEL } from './icons.js';
 import { renderChart, chartRows } from './charts.js';
 
@@ -25,7 +25,7 @@ function tableHtml(columns, rows, formats, { limit = 2000 } = {}) {
 
 function chartCard(spec) {
   const card = h(`<section class="card chart-card">
-    <div class="head"><div><h3>${escapeHtml(spec.title)}</h3>${spec.subtitle ? `<p class="sub">${escapeHtml(spec.subtitle)}</p>` : ''}</div>
+    <div class="head"><div><h3>${escapeHtml(spec.title)}</h3>${spec.subtitle ? `<p class="sub">${inlineText(spec.subtitle)}</p>` : ''}</div>
       <div class="tools">
         <button class="btn ghost sm" data-act="table" title="Als Tabelle anzeigen" aria-pressed="false">${icon('table')}<span class="sr-only">Tabelle</span></button>
         <button class="btn ghost sm" data-act="png" title="Als PNG speichern">${icon('download')}<span class="sr-only">PNG</span></button>
@@ -79,14 +79,14 @@ export function renderResult(root, result) {
   if (result.verdict) {
     const v = result.verdict;
     root.appendChild(h(`<section class="verdict ${v.level}" role="status">${icon(STATUS_ICON[v.level])}
-      <div><div class="lvl">${escapeHtml(STATUS_LABEL[v.level])}</div><h3>${escapeHtml(v.title)}</h3>${v.text ? `<p>${escapeHtml(v.text)}</p>` : ''}</div></section>`));
+      <div><div class="lvl">${escapeHtml(STATUS_LABEL[v.level])}</div><h3>${escapeHtml(v.title)}</h3>${v.text ? `<p>${inlineText(v.text)}</p>` : ''}</div></section>`));
   }
   if (result.metrics?.length) {
     const grid = h('<section class="metrics" aria-label="Kennzahlen"></section>');
     for (const m of result.metrics) {
       grid.appendChild(h(`<div class="metric"><div class="l">${escapeHtml(m.label)}</div>
         <div class="v">${escapeHtml(fmt(m.value, m.fmt, m.digits, m.unit))}</div>
-        ${m.status ? statusBadge(m.status, m.badge || BADGE_LABEL[m.status]) : ''}${m.hint ? `<div class="h">${escapeHtml(m.hint)}</div>` : ''}</div>`));
+        ${m.status ? statusBadge(m.status, m.badge || BADGE_LABEL[m.status]) : ''}${m.hint ? `<div class="h">${inlineText(m.hint)}</div>` : ''}</div>`));
     }
     root.appendChild(grid);
   }
@@ -107,7 +107,7 @@ export function renderResult(root, result) {
   }
   if (pair && pair.children.length === 1) pair.classList.remove('grid-2');
   for (const t of result.tables || []) {
-    root.appendChild(h(`<section class="card table-card"><h3>${escapeHtml(t.title)}</h3>${tableHtml(t.columns, t.rows, t.formats)}${t.note ? `<p class="table-note">${escapeHtml(t.note)}</p>` : ''}</section>`));
+    root.appendChild(h(`<section class="card table-card"><h3>${escapeHtml(t.title)}</h3>${tableHtml(t.columns, t.rows, t.formats)}${t.note ? `<p class="table-note">${inlineText(t.note)}</p>` : ''}</section>`));
   }
   (result.figures || []).forEach((f, i) => root.appendChild(figureCard(f, i)));
   for (const d of result.downloads || []) {

@@ -60,6 +60,7 @@ SPEC = {
 }
 
 REGIME_DE = {"LOW_VOL": "Ruhig (niedrige Vola)", "NORMAL": "Normal", "HIGH_VOL": "Stress (hohe Vola)"}
+RANK_COLORS = (1, 4, 2, 7, 5, 8)  # attractors ordered calm -> stress: blue, amber, orange, ... (never green for stress)
 MAX_CLOUD = 500   # points per attractor in the 3D cloud: denser clouds hide the recent path (the original figure
                   # and the 2D charts always get every day)
 
@@ -186,7 +187,7 @@ def run(params, data, out):
             ii, thinned = ii[::int(np.ceil(ii.size / MAX_CLOUD))], True
         if ii.size:
             traces.append(C.path3d(f"{names[cid]} · {int(np.sum(labels[idx] == cid))} Tage",
-                                   X[ii], Y[ii], Z[ii], color=rank[cid] + 1, mode="markers", size=2,
+                                   X[ii], Y[ii], Z[ii], color=RANK_COLORS[rank[cid]], mode="markers", size=2,
                                    text=[day_txt[i] for i in ii]))
     traces.append(C.path3d("Attraktor-Zentren", centers[:, 0], centers[:, 1], centers[:, 2], color="muted",
                            mode="markers", size=9, text=[names[c + 1] for c in range(len(centers))]))
@@ -209,7 +210,7 @@ def run(params, data, out):
     for cid in sorted(rank, key=rank.get):
         ii = idx[labels[idx] == cid]
         if ii.size:
-            tr.append(C.trace(names[cid], [x_time[i] for i in ii], Y[ii], type="scatter", color=rank[cid] + 1,
+            tr.append(C.trace(names[cid], [x_time[i] for i in ii], Y[ii], type="scatter", color=RANK_COLORS[rank[cid]],
                               size=3, decimate_to=None, text=[day_txt[i] for i in ii]))
     out.chart(C.xy(
         "Volatilität im Zeitverlauf – gefärbt nach Attraktor", tr,
