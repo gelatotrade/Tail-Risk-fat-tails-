@@ -39,7 +39,7 @@ SPEC = {
          "label": "Herdentrieb J", "help": "Kopplung an die beiden Nachbarn. 0 = jeder entscheidet unabhängig."},
         {"name": "h", "type": "float", "default": 0.0, "min": -1.0, "max": 1.0, "step": 0.05,
          "label": "Marktstimmung h", "help": "> 0 Kaufdruck, < 0 Verkaufsdruck für alle Händler."},
-        {"name": "T", "type": "float", "default": 1.0, "min": 0.1, "max": 6.0, "step": 0.05,
+        {"name": "T", "type": "float", "default": 0.8, "min": 0.1, "max": 6.0, "step": 0.05,
          "label": "Temperatur T (Rauschen)", "help": "Klein = Händler folgen den Nachbarn, groß = Zufall dominiert."},
         {"name": "n_steps", "type": "int", "default": 400, "min": 50, "max": 4000, "step": 50,
          "label": "Monte-Carlo-Sweeps", "help": "Ein Sweep = N einzelne Entscheidungen."},
@@ -69,7 +69,8 @@ SPEC = {
     "cost": "medium",
 }
 
-N_VIEW = 80               # sweeps shown in the space-time picture
+N_VIEW = 60               # sweeps shown in the space-time picture
+N_ROWS = 50               # agents shown in the space-time picture (bigger cells)
 EQUILIBRATION = 100       # sweeps phase_diagram spends per temperature before measuring
 MAX_FLIPS = 1_500_000     # spin-flip attempts (~15 s native, pure-Python Metropolis loop)
 
@@ -172,12 +173,14 @@ def run(params, data, out):
         hlines=[C.hline(100.0, "Start")],
         subtitle="Je Aufzeichnung ändert sich der Kurs um M × 1 % – Herden erzeugen Trends.",
     ))
+    rows = min(n, N_ROWS)
     out.chart(C.heatmap(
-        f"Raum-Zeit-Bild: die nächsten {N_VIEW} Sweeps",
-        list(range(n_steps + 1, n_steps + N_VIEW + 1)), list(range(1, n + 1)), history.T,
+        f"Raum-Zeit-Bild: die nächsten {N_VIEW} Sweeps" + (f" (Händler 1–{rows} von {n})" if rows < n else ""),
+        list(range(n_steps + 1, n_steps + N_VIEW + 1)), list(range(1, rows + 1)), history[:, :rows].T,
         x=C.axis("Monte-Carlo-Sweep", fmt="int"), y=C.axis("Händler", fmt="int"),
-        z=C.axis("Position (+1 kauft, −1 verkauft)"), scale="diverging", height=420,
-        subtitle="Jede Zeile ist ein Händler. Einfarbige Streifen sind Herden, ihre Breite ≈ ξ.",
+        z=C.axis("Position (+1 kauft, −1 verkauft)"), scale="diverging", height=400,
+        subtitle="Jede Zeile ist ein Händler: rot kauft, blau verkauft. Gleichfarbige Blöcke sind Herden – "
+                 "ihre Höhe ≈ ξ, ihre Lebensdauer wächst mit ξ².",
     ))
 
     if not params["phase"]:
@@ -191,21 +194,32 @@ def run(params, data, out):
     exact = np.array([_exact_ring(n, J, h, t) for t in grid])
     exact_at = np.array([_exact_ring(n, J, h, t) for t in pd["temperature"]])
 
-    vlines = [C.vline(T, "dein T", color=2)]
-    if t_lo <= tc <= t_hi:
-        vlines.append(C.vline(tc, "T_c (2D-Referenz)"))
+    def markers(top):
+        """Vertical reference lines as legend entries (your T, the 2D reference T_c)."""
+        out_ = []
+        if t_lo <= T <= t_hi:
+            out_.append(C.trace("dein T", [T, T], [0, top], color=2, dash=True, width=1.5, decimate_to=None))
+        if t_lo <= tc <= t_hi:
+            out_.append(C.trace("T_c (2D-Referenz)", [tc, tc], [0, top], color="ink", dash=True, width=1.5,
+                                decimate_to=None))
+        return out_
+
     out.chart(C.xy(
         "Phasendiagramm: Ordnung ⟨|M|⟩ über der Temperatur",
-        [C.trace("Exakt (1D-Ring)", grid, exact[:, 0], color="muted"),
-         C.trace("Simulation", pd["temperature"], pd["magnetization"], type="scatter", color=1, size=9)],
-        x=C.axis("Temperatur T"), y=C.axis("⟨|M|⟩", range=(0, 1.02)), vlines=vlines,
-        subtitle="Fließender Übergang statt Sprung bei T_c. Unterhalb der exakten Kurve: eingefrorene Herden.",
+        [C.trace("Exakt (1D-Ring)", grid, exact[:, 0], color="muted", width=2.5),
+         C.trace("Simulation", pd["temperature"], pd["magnetization"], type="scatter", color=1, size=9)]
+        + markers(1.0),
+        x=C.axis("Temperatur T"), y=C.axis("⟨|M|⟩", range=(0, 1.02)),
+        subtitle="Fließender Übergang statt Sprung bei T_c. Liegt die Simulation darunter, sind die Herden "
+                 "eingefroren.",
     ))
+    chi_top = float(np.nanmax(np.concatenate([exact[:, 1], pd["susceptibility"]]))) * 1.05
     out.chart(C.xy(
         "Suszeptibilität χ über der Temperatur",
-        [C.trace("Exakt (1D-Ring)", grid, exact[:, 1], color="muted"),
-         C.trace("Simulation", pd["temperature"], pd["susceptibility"], type="scatter", color=1, size=9)],
-        x=C.axis("Temperatur T"), y=C.axis("χ = N·Var(|M|)/T"), vlines=vlines,
+        [C.trace("Exakt (1D-Ring)", grid, exact[:, 1], color="muted", width=2.5),
+         C.trace("Simulation", pd["temperature"], pd["susceptibility"], type="scatter", color=1, size=9)]
+        + markers(chi_top),
+        x=C.axis("Temperatur T"), y=C.axis("χ = N·Var(|M|)/T", range=(0, chi_top)),
         subtitle="Wo χ groß ist, kippt die Stimmung schon bei kleinen Anstößen. Das Maximum ist ein "
                  "Finite-Size-Effekt und wandert mit wachsendem N zu T → 0.",
     ))

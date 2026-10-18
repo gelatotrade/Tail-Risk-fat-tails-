@@ -6,6 +6,7 @@ from scipy import stats
 from src.physics.ornstein_uhlenbeck import OUWithJumps
 
 from .. import charts as C
+from ..core import ToolError
 
 SPEC = {
     "id": "ou-jumps",
@@ -68,6 +69,7 @@ SPEC = {
 }
 
 LEVELS = [0.9, 0.95, 0.975, 0.99, 0.995, 0.999]
+MAX_PATH_STEPS = 300_000  # paths x steps: OUWithJumps.simulate draws the jumps path by path in Python
 N_EXAMPLES = 3
 
 
@@ -95,6 +97,10 @@ def run(params, data, out):
     plain = OUWithJumps(jump_intensity=0.0, **kw)
     h = params["horizon_days"] / 252
     conf, n_sim, seed = params["confidence"], params["n_simulations"], params["seed"]
+    path_steps = int(round(params["path_years"] * 252))
+    if path_steps * params["n_paths"] > MAX_PATH_STEPS:
+        raise ToolError(f"{params['n_paths']} Pfade × {path_steps} Tage sind zu viel für den Browser (Grenze "
+                        f"{MAX_PATH_STEPS // 1000}.000 Pfad-Tage). Verringere die Pfadlänge oder die Anzahl der Pfade.")
 
     # VaR / ES from the framework (same seed -> the same sample for both, and common random numbers)
     var_j = model.compute_var(0.0, h, conf, n_sim, seed=seed)
@@ -125,8 +131,7 @@ def run(params, data, out):
               note=f"{n_sim} Monte-Carlo-Szenarien über {hz}, Start auf dem Mittel (x₀ = μ = 0).")
 
     # Example paths with jump markers
-    sim = model.simulate(0.0, params["path_years"], n_steps=int(round(params["path_years"] * 252)),
-                         n_paths=params["n_paths"], seed=seed + 1)
+    sim = model.simulate(0.0, params["path_years"], n_steps=path_steps, n_paths=params["n_paths"], seed=seed + 1)
     paths, times = sim["paths"], sim["times"]
     dt = times[1] - times[0]
     traces = []
