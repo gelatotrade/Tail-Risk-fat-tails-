@@ -68,6 +68,9 @@ def _de(x, digits=2):
 
 
 def _signed(x, digits=2, unit=""):
+    """Signed German number with at least two significant digits (tiny daily changes must not round to 0)."""
+    if x != 0 and np.isfinite(x):
+        digits = int(min(7, max(digits, 1 - np.floor(np.log10(abs(x))))))
     s = _de(abs(x), digits)
     return ("+" if x > 0 else "−" if x < 0 else "±") + s + unit
 

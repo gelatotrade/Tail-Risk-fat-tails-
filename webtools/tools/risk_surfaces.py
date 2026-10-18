@@ -218,9 +218,9 @@ def _model_view(params, data, out, r, k):
         out.metric("Gleiche Vola, Normalverteilung", gauss, "pct", digits=1,
                    hint="ν → ∞: was ein Gauß-Modell sagen würde")
     else:
-        exp = str(int(np.floor(np.log10(max(gauss, 1e-300))))).replace("-", "−")
+        exp = str(int(np.floor(np.log10(max(gauss, 1e-300))))).translate(str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹"))
         out.metric("Gleiche Vola, Normalverteilung", "< 0,001 %", "text",
-                   hint=f"ν → ∞: was ein Gauß-Modell sagen würde (≈ 10^{exp})")
+                   hint=f"ν → ∞: was ein Gauß-Modell sagen würde (≈ 10{exp})")
 
     out.chart(C.surface(
         f"Student-t-Crashfläche: P(Tagesverlust > {thr_txt} in {horizon} Tagen)", vols, nus, Z,
@@ -305,7 +305,10 @@ def _joint_view(params, data, out, r, k):
         vlines=[C.vline(float(qa), "5-%-Quantil")], hlines=[C.hline(float(qb), "5-%-Quantil"),
                                                             C.hline(float(qb_hi), "95-%-Quantil")],
         height=440,
-        subtitle="Unabhängig verteilte Reihen hätten im linken unteren Eck nur 0,25 % der Tage.",
+        subtitle=(f"Unabhängige Reihen hätten im linken oberen Eck (Crash und VIX-Sprung) nur 0,25 % der Tage – "
+                  f"hier sind es {_pct(float(joint_cross.mean()), 2)}." if vix_mode else
+                  f"Unabhängige Reihen hätten im linken unteren Eck (zwei Verlusttage in Folge) nur 0,25 % der Tage – "
+                  f"hier sind es {_pct(float(joint_low.mean()), 2)}."),
     ))
     rows = []
     for q in (0.10, 0.05, 0.01):

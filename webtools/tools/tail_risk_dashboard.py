@@ -63,7 +63,8 @@ REPORT_LABELS = {"Mean Return": "Mittlere Tagesrendite", "Standard Deviation": "
                  "VaR (99%)": "VaR 99 % (historisch)", "ES (99%)": "Expected Shortfall 99 %",
                  "ES/VaR Ratio": "Verhältnis ES / VaR", "Gaussian Probability": "Normalverteilung: P(|r| > 3σ)",
                  "Empirical Probability": "Beobachtet: P(|r| > 3σ)", "Fat Tail Ratio": "Faktor beobachtet / Gauß"}
-REPORT_REMARKS = {"(Fat tails!)": "fette Ränder", "(Normal)": "im Normalbereich", "(High tail risk)": "hohes Tail-Risiko"}
+REPORT_REMARKS = {"(Fat tails!)": "fette\u00a0Ränder", "(Normal)": "im\u00a0Normalbereich",
+                  "(High tail risk)": "hohes\u00a0Tail-Risiko"}
 REPORT_LINES = {
     "Distribution has significant fat tails": "Die Verteilung hat deutlich fette Ränder (Exzess-Kurtosis > 3)",
     "Distribution close to normal": "Verteilung nahe der Normalverteilung (Exzess-Kurtosis ≤ 3)",

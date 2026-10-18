@@ -12,7 +12,7 @@ from src.visualization.early_warning_dashboard import (
 
 from .. import charts as C
 from ..data import index_axis
-from ._ews_common import ACTION, KEYS, LEVEL, assessment_de, de, status_of
+from ._ews_common import ACTION, KEYS, LEVEL, assessment_de, de
 
 SPEC = {
     "id": "ews-dashboard",
@@ -33,7 +33,9 @@ SPEC = {
         "illustrativ, keine echten Messwerte. Fehlt der VIX, wird er aus den Renditen geschätzt. Enthält der "
         "Datensatz VIX3M (S&P 500), ist die VIX-Kurve echt. Gerechnet wird kausal: Jeder Tag nutzt nur Daten "
         "bis zu diesem Tag.\n\n"
-        "So liest du es: Tacho und Beitragsbalken zeigen den letzten Tag. Die Panels darunter zeigen die Verläufe "
+        "So liest du es: Tacho und Beitragsbalken zeigen den letzten Tag. Jeder Indikator hat einen Teil-Score von "
+        "0 bis 100 (ab 50 ist seine Warnschwelle überschritten), der Komposit ist deren gewichtete Summe. Die Panels "
+        "darunter zeigen die Verläufe "
         "mit den Schwellen des Frameworks, der 3D-Phasenraum die Bahn aus GEX-Risiko, TDEX-Risiko und Komposit. "
         "Darunter folgen die Statustabelle und die Original-Grafiken. Der **Seed** steuert das Modellrauschen."
     ),
@@ -114,6 +116,11 @@ def _runs(mask, gap=2):
     return out
 
 
+def _sub_status(score):
+    """Status of one indicator's 0-100 sub-score: 50 = its warning threshold is crossed, 100 = extreme."""
+    return "critical" if score >= 75 else "serious" if score >= 50 else "warning" if score >= 25 else "good"
+
+
 def _split_sign(values):
     v = np.asarray(values, dtype=float)
     return np.where(v >= 0, v, np.nan), np.where(v < 0, v, np.nan)
@@ -157,17 +164,17 @@ def run(params, data, out):
 
     out.metric("Komposit (letzter Tag)", comp[-1], "num", digits=0, unit="/ 100", status=status,
                hint=f"{level_de} · {action_de}")
-    out.metric("Net Gamma (GEX)", g, "num", digits=1, unit="Mrd. $", status=status_of(score["gex"][-1]),
+    out.metric("Net Gamma (GEX)", g, "num", digits=1, unit="Mrd. $", status=_sub_status(score["gex"][-1]),
                hint=("negativ: Dealer verstärken Bewegungen" if g < 0 else "positiv: Dealer dämpfen Bewegungen")
                + " · " + sub("gex"))
-    out.metric("TailDex (TDEX)", td, "num", digits=1, status=status_of(score["tdex"][-1]),
+    out.metric("TailDex (TDEX)", td, "num", digits=1, status=_sub_status(score["tdex"][-1]),
                hint="über 15 erhöht, über 20 extrem · " + sub("tdex"))
-    out.metric(f"VIX-Kurve {ratio_name}", ratio[-1], "num", digits=3, status=status_of(score["vix_term"][-1]),
+    out.metric(f"VIX-Kurve {ratio_name}", ratio[-1], "num", digits=3, status=_sub_status(score["vix_term"][-1]),
                hint=("> 1: invertiert, akute Angst" if ratio[-1] > 1 else "≤ 1: Contango, normal") + " · "
                + sub("vix_term"))
-    out.metric("Dark Index (DIX)", dx / 100, "pct", digits=1, status=status_of(score["dix"][-1]),
+    out.metric("Dark Index (DIX)", dx / 100, "pct", digits=1, status=_sub_status(score["dix"][-1]),
                hint="unter 43 % schwach, unter 40 % Distribution · " + sub("dix"))
-    out.metric("Smart Money Flow (SMFI)", sm, "num", digits=1, status=status_of(score["smfi"][-1]),
+    out.metric("Smart Money Flow (SMFI)", sm, "num", digits=1, status=_sub_status(score["smfi"][-1]),
                hint="Warnung, wenn er in 20 Tagen um mehr als 5 fällt · " + sub("smfi"))
 
     i_max = int(np.argmax(comp))
@@ -344,4 +351,4 @@ def run(params, data, out):
         out.progress("3D-Phasenraum …", 0.85)
         fig = EarlyWarning3DVisualization().create_3d_phase_space(ind["gex_score"], ind["tdex_score"], comp,
                                                                    figsize=(10, 8))
-        out.figure(fig, "3D-Phasenraum des Frameworks (EarlyWarning3DVisualization)", dpi=80)
+        out.figure(fig, "3D-Phasenraum des Frameworks (EarlyWarning3DVisualization)", dpi=90)
