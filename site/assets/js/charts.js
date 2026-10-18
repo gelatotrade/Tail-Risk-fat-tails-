@@ -76,9 +76,18 @@ function hoverFmt(ax) {
   return '.4~g';
 }
 
+// German date ticks at every zoom level: 09.08.2026 / 9. Aug / Aug 2026 / 2026
+const DATE_TICKS = [
+  { dtickrange: [null, 86400000], value: '%d.%m.%Y' },
+  { dtickrange: [86400000, 'M1'], value: '%-d. %b' },
+  { dtickrange: ['M1', 'M12'], value: '%b %Y' },
+  { dtickrange: ['M12', null], value: '%Y' },
+];
+
 function axisLayout(ax, t, extra = {}) {
   const type = ax.type === 'category' ? 'category' : ax.type || 'linear';
   return {
+    tickformatstops: type === 'date' ? DATE_TICKS : undefined,
     title: ax.label ? { text: ax.label, font: { size: 12, color: t.ink2 }, standoff: 8 } : undefined,
     type, tickformat: tickformat(ax), hoverformat: hoverFmt(ax),
     range: ax.range && type === 'log' ? ax.range.map((r) => Math.log10(r)) : ax.range,
