@@ -75,7 +75,7 @@ SPEC = {
     "cost": "medium",
 }
 
-DPI = 64
+FIG_PX = 900       # target width of the original figures (they are shown at about 860 px)
 
 
 def _de(x, digits=2):
@@ -86,6 +86,11 @@ def _pct(x, digits=1):
     return f"{100 * x:.{digits}f} %".replace(".", ",").replace("-", "−")
 
 
+def _date_de(d):
+    s = str(d)
+    return f"{s[8:10]}.{s[5:7]}.{s[:4]}" if len(s) == 10 and s[4] == "-" else s
+
+
 def _x(data, k):
     if data.dates:
         return list(data.dates[-k:]), C.axis("", type="date")
@@ -93,8 +98,9 @@ def _x(data, k):
 
 
 def _fig(out, fig, caption):
-    fig.set_dpi(DPI)
-    out.figure(fig, caption, dpi=DPI)
+    dpi = int(np.clip(FIG_PX / fig.get_figwidth(), 48, 88))   # sharp 10-inch figures, light 20-inch dashboards
+    fig.set_dpi(dpi)
+    out.figure(fig, caption, dpi=dpi)
 
 
 def run(params, data, out):
@@ -208,8 +214,13 @@ def _model_view(params, data, out, r, k):
     out.metric("Volatilität p. a. (60 T)", vol_now, "pct", digits=1)
     out.metric("Tail-Index ν (Hill, 60 T)", nu_raw, "num", digits=2,
                hint=f"auf der Fläche {_de(nu_now)}" if abs(nu_now - nu_raw) > 1e-9 else "kleiner = fettere Ränder")
-    out.metric("Gleiche Vola, Normalverteilung", gauss, "pct", digits=1,
-               hint="ν → ∞: was ein Gauß-Modell sagen würde")
+    if gauss >= 1e-5:
+        out.metric("Gleiche Vola, Normalverteilung", gauss, "pct", digits=1,
+                   hint="ν → ∞: was ein Gauß-Modell sagen würde")
+    else:
+        exp = str(int(np.floor(np.log10(max(gauss, 1e-300))))).replace("-", "−")
+        out.metric("Gleiche Vola, Normalverteilung", "< 0,001 %", "text",
+                   hint=f"ν → ∞: was ein Gauß-Modell sagen würde (≈ 10^{exp})")
 
     out.chart(C.surface(
         f"Student-t-Crashfläche: P(Tagesverlust > {thr_txt} in {horizon} Tagen)", vols, nus, Z,
@@ -252,19 +263,30 @@ def _joint_view(params, data, out, r, k):
         a, b = r[1:], r[:-1]
         names = ("Heute", "Vortag")
         lab_a, lab_b = "Tagesrendite heute", "Tagesrendite am Vortag"
+    vix_mode = params["partner"] == "vix"
     tm = TailRiskMetrics(a)
-    dep = tm.tail_dependence(b, quantile=0.95)
+    # the VIX rises when stocks fall: its "crash tail" is the upper one, so the dependence is measured on -ΔVIX
+    dep = tm.tail_dependence(-b if vix_mode else b, quantile=0.95)
+    corr = -dep["standard_correlation"] if vix_mode else dep["standard_correlation"]
     qa, qb = np.percentile(a, 5), np.percentile(b, 5)
-    qa_hi, qb_hi = np.percentile(a, 95), np.percentile(b, 95)
+    qb_hi = np.percentile(b, 95)
     joint_low = (a < qa) & (b < qb)
     joint_cross = (a < qa) & (b > qb_hi)       # crash today with a VIX spike / a rally the day before
-    out.metric("Korrelation", dep["standard_correlation"], "num", digits=2)
-    out.metric("Gemeinsamer linker Rand (5 %)", dep["lower_tail_dependence"], "pct", digits=1,
-               hint="P(beide unter ihrem 5-%-Quantil) ÷ 5 % · unabhängig: 5 %")
-    out.metric("Gemeinsamer rechter Rand (5 %)", dep["upper_tail_dependence"], "pct", digits=1,
-               hint="P(beide über ihrem 95-%-Quantil) ÷ 5 %")
-    out.metric("Asymmetrie (links − rechts)", dep["tail_asymmetry"], "pct", digits=1,
-               hint="> 0: Abstürze treten häufiger gemeinsam auf als Rallyes")
+    out.metric("Korrelation", corr, "num", digits=2)
+    if vix_mode:
+        out.metric("Crash & VIX-Sprung (5 %)", dep["lower_tail_dependence"], "pct", digits=1,
+                   hint="P(Rendite unter 5-%-Quantil und VIX-Veränderung über 95-%-Quantil) ÷ 5 % · unabhängig: 5 %")
+        out.metric("Rallye & VIX-Rückgang (5 %)", dep["upper_tail_dependence"], "pct", digits=1,
+                   hint="P(Rendite über 95-%-Quantil und VIX-Veränderung unter 5-%-Quantil) ÷ 5 %")
+        out.metric("Asymmetrie (Crash − Rallye)", dep["tail_asymmetry"], "pct", digits=1,
+                   hint="> 0: Crashs kommen öfter mit VIX-Sprung als Rallyes mit VIX-Rückgang")
+    else:
+        out.metric("Gemeinsamer linker Rand (5 %)", dep["lower_tail_dependence"], "pct", digits=1,
+                   hint="P(beide unter ihrem 5-%-Quantil) ÷ 5 % · unabhängig: 5 %")
+        out.metric("Gemeinsamer rechter Rand (5 %)", dep["upper_tail_dependence"], "pct", digits=1,
+                   hint="P(beide über ihrem 95-%-Quantil) ÷ 5 %")
+        out.metric("Asymmetrie (links − rechts)", dep["tail_asymmetry"], "pct", digits=1,
+                   hint="> 0: Abstürze treten häufiger gemeinsam auf als Rallyes")
 
     dates = data.dates[-k:][1:] if data.dates else None
     normal = ~(joint_low | joint_cross)
@@ -289,12 +311,16 @@ def _joint_view(params, data, out, r, k):
     for q in (0.10, 0.05, 0.01):
         both = float(np.mean((a < np.percentile(a, 100 * q)) & (b < np.percentile(b, 100 * q))))
         cross = float(np.mean((a < np.percentile(a, 100 * q)) & (b > np.percentile(b, 100 * (1 - q)))))
-        rows.append([_pct(q, 0), both, cross, q * q, both / (q * q) if q > 0 else None])
+        key = cross if vix_mode else both
+        rows.append([_pct(q, 0), both, cross, q * q, key / (q * q) if q > 0 else None])
     out.table("Gemeinsame Extremtage gegen Unabhängigkeit", [
-        "Rand", "beide links", f"{names[0]} links, {names[1]} rechts", "unabhängig erwartet", "Faktor (links)"],
+        "Rand", "beide links", f"{names[0]} links, {names[1]} rechts", "unabhängig erwartet",
+        "Faktor (Crash & VIX-Sprung)" if vix_mode else "Faktor (beide links)"],
         rows, formats=["text", "pct", "pct", "pct", "x"],
-        note="Faktor > 1: Extremtage kommen gemeinsam (Volatilitäts-Cluster). Für die VIX-Reihe zählt vor allem "
-             "die Spalte „links/rechts“: Crash und VIX-Sprung am selben Tag.")
+        note=("Faktor = beobachtet ÷ unabhängig erwartet. Crash und VIX-Sprung am selben Tag sind die Regel, nicht die "
+              "Ausnahme – deshalb taugt der VIX als Absicherungssignal." if vix_mode else
+              "Faktor > 1: Extremtage kommen gemeinsam (Volatilitäts-Cluster); die Spalte links/rechts zählt "
+              "Crash-Tage direkt nach einem starken Plus-Tag."))
     fig = TailRiskDensityPlot(figsize=(10, 8)).create_joint_tail_density(a, b, asset_names=names,
                                                                          title="Joint Tail Density")
     _fig(out, fig, "Original: TailRiskDensityPlot.create_joint_tail_density")
@@ -327,7 +353,7 @@ def _critical_view(params, data, out, r, k):
                hint=f"AC(1) > {_de(thr)} und Varianz > 80. Perzentil · {_pct(crit.mean(), 1)} der Tage")
     if crit.any():
         last = x[int(np.flatnonzero(crit)[-1])]
-        out.metric("Zuletzt nahe kritisch", last if isinstance(last, str) else f"Tag {last}", "text")
+        out.metric("Zuletzt nahe kritisch", _date_de(last) if isinstance(last, str) else f"Tag {last}", "text")
 
     step = max(1, len(idx) // 900)
     keep = idx[::step]

@@ -103,7 +103,7 @@ def _report_rows(report):
             continue
         num, unit, remark = m.groups()
         digits = len(num.split(".")[1]) if "." in num else 0
-        shown = _de(float(num), digits) + (" %" if unit == "%" else "×" if unit == "x" else "")
+        shown = _de(float(num), digits) + ("\u00a0%" if unit == "%" else "×" if unit == "x" else "")
         rows.append([section, REPORT_LABELS.get(label, label), shown, REPORT_REMARKS.get(remark or "", "")])
     return rows
 
