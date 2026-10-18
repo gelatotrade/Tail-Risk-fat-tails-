@@ -121,13 +121,13 @@ def run(params, data, out):
     for space, name, series, _fmt in spaces:
         s = series[np.isfinite(series)]
         now = float(series[-1])
-        pct = float(np.mean(s <= now)) if s.size else None
+        pct = float(0.5 * (np.mean(s < now) + np.mean(s <= now))) if s.size else None  # mid-rank (ties)
         place = "oberes Dezil" if pct is not None and pct >= 0.9 else "unteres Dezil" if pct is not None and pct <= 0.1 else "üblich"
         rows.append([space, name, now, float(np.median(s)), pct, place])
     out.table("Heute im Vergleich zur eigenen Geschichte", ["Raum", "Koordinate", "heute", "Median", "Perzentil heute",
                                                              "Einordnung"],
               rows, formats=["text", "text", "num", "num", "pct", "text"],
-              note=f"Perzentil = Anteil der {len(days)} Tage mit kleinerem oder gleichem Wert. Drift ist eine mittlere "
+              note=f"Perzentil = Anteil der {len(days)} Tage mit kleinerem Wert (Gleichstände zur Hälfte). Drift ist eine mittlere "
                    "Tagesrendite als Dezimalzahl.")
 
     vol_pct = rows[0][4]

@@ -1154,7 +1154,8 @@ class CompositeEarlyWarningSystem:
                                  returns: np.ndarray,
                                  prices: np.ndarray,
                                  vix: np.ndarray,
-                                 causal: bool = False) -> Dict[str, np.ndarray]:
+                                 causal: bool = False,
+                                 vix3m: Optional[np.ndarray] = None) -> Dict[str, np.ndarray]:
         """
         Simulate all 5 indicators from basic market data.
 
@@ -1166,6 +1167,12 @@ class CompositeEarlyWarningSystem:
                 to day t (no look-ahead; required for backtests on real data).
                 The default keeps the original illustrative model, whose
                 simulated DIX peeks 5 days ahead.
+            vix3m: Optional observed 3-month VIX (CBOE VIX3M), aligned with
+                ``vix``. If given, the term structure is the OBSERVED curve
+                (``vix_m1`` = VIX, ``vix_m2`` = VIX3M, so ``vix_m1/vix_m2`` is
+                the real VIX/VIX3M ratio) instead of the futures curve
+                simulated from VIX. The random stream - and therefore every
+                other indicator - is the same as without ``vix3m``.
 
         Returns:
             Dict with all simulated indicator time series
@@ -1176,6 +1183,12 @@ class CompositeEarlyWarningSystem:
         gex = self.gex.simulate_gex(returns)
         tdex = self.tdex.simulate_tdex(returns, vix)
         vix_m1, vix_m2 = self.vix_term.simulate_term_structure(vix)
+        if vix3m is not None:
+            vix3m = np.asarray(vix3m, dtype=float)
+            if vix3m.shape != np.shape(vix):
+                raise ValueError("vix3m must have the same length as vix")
+            # simulated curve above is still drawn so the RNG stream is unchanged
+            vix_m1, vix_m2 = np.asarray(vix, dtype=float).copy(), vix3m.copy()
         dix = self.dix.simulate_dix(returns, lookahead=0 if causal else 5)
         smfi = self.smfi.simulate_smfi(returns, prices)
 
@@ -1208,14 +1221,12 @@ class CompositeEarlyWarningSystem:
             else:
                 tdex_scores[i] = 0
 
-            # VIX term structure score
+            # VIX term structure score: the same rule as the snapshot
+            # (calculate_term_structure), 0-100 and non-decreasing in M1/M2.
+            # (The former branch max(0, (1 - ratio) * 100) scored a deep,
+            # calm contango higher than a flat curve, i.e. backwards.)
             ratio = vix_m1[i] / vix_m2[i] if vix_m2[i] > 0 else 1.0
-            if ratio > 1.1:
-                vix_term_scores[i] = 100
-            elif ratio > 1.0:
-                vix_term_scores[i] = (ratio - 1.0) * 1000
-            else:
-                vix_term_scores[i] = max(0, (1.0 - ratio) * 100)
+            vix_term_scores[i] = self.vix_term._compute_warning_score(ratio, vix[i])
 
             # DIX score (low DIX = warning): 0 at DIX 43 rising linearly to
             # 100 at the simulated floor of 35 (all scores are 0-100; the
@@ -1303,7 +1314,8 @@ ACTION: Maintain standard risk management.
 def compute_early_warning_coordinates(returns: np.ndarray,
                                        vix: np.ndarray,
                                        window: int = 60,
-                                       causal: bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+                                       causal: bool = False,
+                                       vix3m: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Transform early warning indicators into 3D phase space.
 
@@ -1322,7 +1334,7 @@ def compute_early_warning_coordinates(returns: np.ndarray,
     prices = 100 * np.exp(np.cumsum(returns))
 
     # Simulate all indicators
-    indicators = ews.simulate_all_indicators(returns, prices, vix, causal=causal)
+    indicators = ews.simulate_all_indicators(returns, prices, vix, causal=causal, vix3m=vix3m)
 
     # Extract coordinates
     X = indicators['gex_score'] / 100  # Normalize to [0, 1]
@@ -1336,7 +1348,8 @@ def compute_early_warning_coordinates(returns: np.ndarray,
 def analyze_crash_risk(returns: np.ndarray,
                        vix: np.ndarray,
                        verbose: bool = True,
-                       causal: bool = False) -> Dict:
+                       causal: bool = False,
+                       vix3m: Optional[np.ndarray] = None) -> Dict:
     """
     Comprehensive crash risk analysis using all 5 indicators.
 
@@ -1346,6 +1359,8 @@ def analyze_crash_risk(returns: np.ndarray,
         verbose: Print detailed analysis
         causal: Use only past data for every indicator (no look-ahead);
             see CompositeEarlyWarningSystem.simulate_all_indicators
+        vix3m: Optional observed VIX3M; the term structure is then the real
+            VIX/VIX3M curve instead of the simulated futures curve
 
     Returns:
         Dict with all indicator values and composite assessment
@@ -1353,7 +1368,7 @@ def analyze_crash_risk(returns: np.ndarray,
     ews = CompositeEarlyWarningSystem()
     prices = 100 * np.exp(np.cumsum(returns))
 
-    indicators = ews.simulate_all_indicators(returns, prices, vix, causal=causal)
+    indicators = ews.simulate_all_indicators(returns, prices, vix, causal=causal, vix3m=vix3m)
 
     # Get latest values
     latest = {

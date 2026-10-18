@@ -69,7 +69,8 @@ class TailRiskDashboard:
             regime_analyzer = RegimeAwareTailRisk(self.returns)
             self.current_regime = regime_analyzer.current_regime()
             self.regime_var = regime_analyzer.regime_conditional_var()
-        except:
+        except Exception as exc:  # the regime panel is optional; never swallow Ctrl-C
+            warnings.warn(f"Regime analysis failed: {exc}", RuntimeWarning)
             self.current_regime = {'simple_regime': 'UNKNOWN'}
             self.regime_var = {}
 
@@ -146,9 +147,14 @@ class TailRiskDashboard:
 
         # 2.2 Log-Scale Tails
         ax6 = fig.add_subplot(gs[1, 1])
-        ax6.hist(self.returns, bins=50, density=True, alpha=0.7,
-                color='blue', log=True)
+        hist_density, _, _ = ax6.hist(self.returns, bins=50, density=True, alpha=0.7,
+                                      color='blue', log=True)
         ax6.plot(x, gaussian, 'r-', linewidth=2)
+        # The Gaussian falls to ~1e-15 and below at the sample extremes; without a
+        # floor single-observation bins are drawn as bars spanning 15 decades.
+        positive = hist_density[hist_density > 0]
+        if positive.size:
+            ax6.set_ylim(bottom=positive.min() / 10)
         ax6.set_xlabel('Returns', fontsize=9)
         ax6.set_ylabel('Log Density', fontsize=9)
         ax6.set_title('Fat Tails (Log Scale)', fontsize=10, fontweight='bold')
@@ -156,7 +162,10 @@ class TailRiskDashboard:
         # 2.3 QQ Plot
         ax7 = fig.add_subplot(gs[1, 2])
         sorted_returns = np.sort(self.returns)
-        theoretical_quantiles = stats.norm.ppf(np.linspace(0.01, 0.99, len(self.returns)))
+        # Plotting positions (i - 0.5) / n. linspace(0.01, 0.99, n) clipped the
+        # theoretical quantiles at +/-2.33 and stacked the tails into vertical spikes.
+        n_qq = len(sorted_returns)
+        theoretical_quantiles = stats.norm.ppf((np.arange(1, n_qq + 1) - 0.5) / n_qq)
         ax7.scatter(theoretical_quantiles, sorted_returns, s=5, alpha=0.5)
         ax7.plot([-4, 4], [np.mean(self.returns) - 4*np.std(self.returns),
                           np.mean(self.returns) + 4*np.std(self.returns)],
@@ -341,15 +350,18 @@ def create_summary_report(returns: np.ndarray) -> str:
     # Tail analysis
     try:
         tail_index = estimate_tail_index(returns)
-    except:
+    except Exception:  # e.g. fewer than 2 non-zero returns
         tail_index = 2.0
 
     # VaR and ES
     var_99 = metrics.var_historical(0.99)
     es_99 = metrics.expected_shortfall(0.99)
 
-    # Tail ratios
+    # Tail ratios at 3 sigma, both sides: P(|r| > 3 sigma) vs 2 * (1 - Phi(3))
     tail_ratio = metrics.tail_ratio(3)
+    gaussian_two_sided = 2 * tail_ratio['gaussian_tail_prob']
+    empirical_two_sided = tail_ratio['left_tail_prob'] + tail_ratio['right_tail_prob']
+    fat_tail_ratio = empirical_two_sided / gaussian_two_sided
 
     report = f"""
 ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -372,17 +384,35 @@ def create_summary_report(returns: np.ndarray) -> str:
 ║                                                                              ║
 ║  TAIL PROBABILITY COMPARISON (3σ)                                            ║
 ║  ────────────────────────────────                                            ║
-║  Gaussian Probability:   {tail_ratio['gaussian_tail_prob']*100:>8.4f}%                           ║
-║  Empirical Probability:  {(tail_ratio['left_tail_prob'] + tail_ratio['right_tail_prob'])*100:>8.4f}%                           ║
-║  Fat Tail Ratio:         {tail_ratio['left_ratio']:>8.2f}x                                    ║
+║  Gaussian Probability:   {gaussian_two_sided*100:>8.4f}%                           ║
+║  Empirical Probability:  {empirical_two_sided*100:>8.4f}%                           ║
+║  Fat Tail Ratio:         {fat_tail_ratio:>8.2f}x                                    ║
 ║                                                                              ║
 ║  INTERPRETATION                                                              ║
 ║  ──────────────                                                              ║
 ║  {'⚠️  Distribution has significant fat tails' if kurtosis > 3 else '✓  Distribution close to normal':<74} ║
 ║  {'⚠️  Negative skewness indicates crash risk' if skewness < -0.5 else '✓  Symmetric distribution':<74} ║
-║  {'⚠️  Tail events are significantly more likely than Gaussian predicts' if tail_ratio['left_ratio'] > 2 else '✓  Tail probabilities close to Gaussian':<74} ║
+║  {'⚠️  Tail events are significantly more likely than Gaussian predicts' if fat_tail_ratio > 2 else '✓  Tail probabilities close to Gaussian':<74} ║
 ║                                                                              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 """
 
-    return report
+    return _align_box(report)
+
+
+def _align_box(report: str) -> str:
+    """Pad every '║ ... ║' row so the right border lines up with the frame.
+
+    The f-string field widths above do not add up to the frame width, so the
+    right border used to be ragged. len() is used as display width: the warning
+    sign is followed by U+FE0F, which matches its two-column emoji rendering.
+    """
+    lines = report.split("\n")
+    width = max((len(line) for line in lines if line.startswith("╔")), default=0)
+    out = []
+    for line in lines:
+        if width and line.startswith("║") and line.endswith("║"):
+            body = line[1:-1].rstrip()
+            line = "║" + body.ljust(width - 2) + "║"
+        out.append(line)
+    return "\n".join(out)
