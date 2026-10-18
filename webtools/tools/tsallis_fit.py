@@ -104,22 +104,22 @@ def run(params, data, out):
               note="Kleineres AIC = bessere Beschreibung der gesamten Verteilung. β ist für Tagesrenditen groß, weil "
                    "1/√β die Breite in Renditeeinheiten ist.")
 
-    # --- table: model vs data in the tails
+    # --- table: model vs data in the tails, as numbers of days
     med = float(np.median(r))
     trows = []
     for k in (3, 4, 5, 6):
         key = f"{k}sigma"
         obs = int(np.sum(np.abs(r - med) > k * sd))
         p_mle = float(mle.tail_probability(mle.mu + k * sd, "both", exact=True))
-        g = float(2 * stats.norm.sf(k))
-        trows.append([f"{k} σ", obs, obs / n, float(u["extreme_probabilities"][key]), p_mle, g,
-                      p_mle * n, float(u["fat_tail_ratio"][key])])
+        ratio = float(u["fat_tail_ratio"][key])
+        trows.append([f"{k} σ", obs, p_mle * n, float(u["extreme_probabilities"][key]) * n,
+                      float(2 * stats.norm.sf(k)) * n, "> 10⁵" if ratio > 1e5 else ratio])
     out.table("Extreme Tage: Modell vs. Daten",
-              ["Schwelle", "Tage beobachtet", "Anteil beobachtet", "q-Gauß (Momente)", "q-Gauß (MLE)", "Gauß",
-               "Tage erwartet (MLE)", "Faktor Momente / Gauß"],
-              trows, formats=["text", "int", "pct", "pct", "pct", "pct", "num", "x"],
-              note="Schwelle = k Standardabweichungen um den Median. Die Momente-Spalte und der Faktor stammen direkt "
-                   "aus `TsallisTailRiskModel.update`.")
+              ["Schwelle", "Tage beobachtet", "erwartet q-Gauß (MLE)", "erwartet q-Gauß (Momente)", "erwartet Gauß",
+               "Faktor Momente / Gauß"],
+              trows, formats=["text", "int", "num", "num", "num", "x"],
+              note=f"Tage mit |r − Median| > k·σ unter {n} Tagen; erwartet = Modellwahrscheinlichkeit × {n}. Die "
+                   "Momente-Spalte und der Faktor stammen direkt aus `TsallisTailRiskModel.update`.")
 
     # --- chart 1: histogram vs both fits, log scale
     centers, heights = C.histogram(r, bins=params["bins"], density=True)
@@ -143,16 +143,16 @@ def run(params, data, out):
     exact = np.asarray(chosen.tail_probability(chosen.mu + xs, "both", exact=True), dtype=float)
     asym = np.asarray(chosen.tail_probability(chosen.mu + xs, "both"), dtype=float)
     y_lo = 0.5 / n
-    pos = lambda y: np.where(np.asarray(y) >= y_lo, y, np.nan)  # noqa: E731
+    pos = lambda y: np.where((np.asarray(y) >= y_lo) & (np.asarray(y) < 1), y, np.nan)  # noqa: E731
     out.chart(C.xy(
         "Ränder im Log-Log-Plot: P(|r − μ| > x)",
         [C.trace("Beobachtet", xs, pos(np.where(emp > 0, emp, np.nan)), type="step", color=1, width=2.5),
-         C.trace(f"q-Gauß {cname} (exakt)", xs, pos(exact), color=2),
-         C.trace(f"q-Gauß {cname} (Asymptote)", xs, pos(asym), color=2, dash=True, width=1.5),
-         C.trace("Normalverteilung", xs, pos(2 * stats.norm.sf(xs / sd)), color="muted", dash=True)],
+         C.trace(f"q-Gauß {cname}", xs, pos(exact), color=2),
+         C.trace("Asymptote", xs, pos(asym), color=2, dash=True, width=1.5),
+         C.trace("Gauß", xs, pos(2 * stats.norm.sf(xs / sd)), color="muted", dash=True)],
         x=C.axis("Abstand x vom Zentrum", type="log", fmt="pct", digits=1),
         y=C.axis("Anteil der Tage", type="log", fmt="pct", range=(y_lo, 1.0)),
-        subtitle="Potenzgesetze sind Geraden. Die Asymptote gilt erst weit draußen.",
+        subtitle="Potenzgesetze sind Geraden. Die Asymptote aus `tail_probability` gilt erst weit draußen.", height=370,
     ))
 
     # --- chart 3: QQ plot against the chosen fit (tails kept, centre thinned)

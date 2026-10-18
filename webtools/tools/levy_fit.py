@@ -153,13 +153,14 @@ def run(params, data, out):
     out.chart(C.xy(
         "Ränder im Log-Log-Plot: P(|r| > x)",
         [C.trace("Beobachtet", xs, pos(np.where(emp > 0, emp, np.nan)), type="step", color=1, width=2.5),
-         C.trace(f"Hill-Potenzgesetz (α = {_de(hill)})", xs[xs >= a[k]], pos(hill_line[xs >= a[k]]), color=3, dash=True),
-         C.trace(f"Lévy-Fit (α = {_de(dist.alpha)}), Simulation", xs, pos(np.where(lev_mc > 0, lev_mc, np.nan)), color=2),
-         C.trace("Lévy-Asymptote", xs, pos(lev_asym), color=2, dash=True, width=1.5),
-         C.trace("Normalverteilung", xs, pos(gauss), color="muted", dash=True)],
+         C.trace(f"Hill (α = {_de(hill)})", xs[xs >= a[k]], pos(hill_line[xs >= a[k]]), color=3, dash=True),
+         C.trace(f"Lévy (α = {_de(dist.alpha)})", xs, pos(np.where(lev_mc > 0, lev_mc, np.nan)), color=2),
+         C.trace("Lévy-Asymptote", xs, pos(np.where(lev_asym < 1, lev_asym, np.nan)), color=2, dash=True, width=1.5),
+         C.trace("Gauß", xs, pos(gauss), color="muted", dash=True)],
         x=C.axis("Absolute Tagesrendite x", type="log", fmt="pct", digits=1),
         y=C.axis("Anteil der Tage", type="log", fmt="pct", range=(y_lo, 1.0)),
-        subtitle="Steigung = −Tail-Index. Ist die Lévy-Gerade flacher als die Daten, überschätzt das Modell Crashs.",
+        subtitle="Steigung = −Tail-Index. Die Lévy-Linie ist eine Simulation aus dem Fit. Ist sie flacher als die "
+                 "Daten, überschätzt das Modell Crashs.", height=380,
     ))
 
     # --- chart 3: VaR across confidence levels

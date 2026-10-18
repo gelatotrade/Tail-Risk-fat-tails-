@@ -113,17 +113,16 @@ def run(params, data, out):
         subtitle="Logarithmische Skala: Der Kern bleibt fast gleich, die Ränder heben sich von der Gauß-Parabel ab.",
     ))
 
-    # --- chart 2: tail mass as a function of the distance in sigma
+    # --- chart 2: how many times more tail mass than a Gaussian, as a function of the distance in sigma
     ks = np.linspace(0.5, 6.0, 56)
     tails = np.array([sum(solver.tail_probability(P, k)) for k in ks])
-    gauss = 2 * stats.norm.sf(ks)
+    ratio = tails / (2 * stats.norm.sf(ks))
     out.chart(C.xy(
-        "Tail-Masse nach Abstand vom Mittelwert",
-        [C.trace("Fokker-Planck-Prognose", ks, np.where(tails > 1e-10, tails, np.nan), color=1, width=2.5),
-         C.trace("Normalverteilung", ks, gauss, color="muted", dash=True)],
-        x=C.axis("Abstand k (in σ der Prognose)"),
-        y=C.axis("P(|X − μ| > kσ)", type="log", fmt="pct", range=(1e-9, 1.2)),
-        subtitle="Bis etwa 3σ liegen beide Kurven aufeinander – darüber fällt die Gauß-Kurve viel schneller.",
+        "Tail-Masse ggü. Gauß nach Abstand",
+        [C.trace("Fokker-Planck-Prognose", ks, np.where(tails > 1e-12, ratio, np.nan), color=1, width=2.5),
+         C.trace("Normalverteilung = 1", [ks[0], ks[-1]], [1.0, 1.0], color="muted", dash=True)],
+        x=C.axis("Abstand k (in σ der Prognose)"), y=C.axis("P(|X − μ| > kσ) ÷ Gauß-Wert", type="log"),
+        subtitle="Bis etwa 3σ liegt die Prognose beim Gauß-Wert – weiter draußen hat sie ein Vielfaches an Masse.",
     ))
 
     rows = []
@@ -144,7 +143,7 @@ def run(params, data, out):
     points = []
     if params["current_return"] == 0 and params["current_vol"] == 1:
         own = float(sum(solver.tail_probability(P, thr)))
-        points.append(C.path3d("Deine Prognose", [h], [regime], [own], color="critical", mode="markers", size=7))
+        points.append(C.path3d("Deine Prognose", [h], [regime], [own], color="critical", mode="markers", size=9))
     out.chart(C.surface(
         f"Risikofläche: P(|X| > {_de(thr, 1)}σ)", hs.tolist(), vols.tolist(), Z,
         x=C.axis("Horizont (Tage)", fmt="int"), y=C.axis("Vola-Regime"), z=C.axis("Tail-Wahrscheinlichkeit", fmt="pct"),
@@ -152,6 +151,9 @@ def run(params, data, out):
         subtitle=f"{len(vols)} × {len(hs)} Prognosen ab N(0, 1). Gauß-Niveau: {200 * stats.norm.sf(thr):.3g} %".replace(".", ",")
                  + ". Ziehen dreht, Mausrad zoomt.",
     ))
-    out.table(f"Risikofläche: P(|X| > {_de(thr, 1)}σ)", ["Vola-Regime"] + [f"{d} Tage" for d in hs],
-              [[float(v)] + [float(z) for z in Z[i]] for i, v in enumerate(vols)],
-              formats=["num"] + ["pct"] * len(hs))
+    g_thr = float(2 * stats.norm.sf(thr))
+    out.table(f"Risikofläche als Vielfaches des Gauß-Werts ({200 * stats.norm.sf(thr):.3g} %)".replace(".", ","),
+              ["Vola-Regime"] + [f"{d} Tage" for d in hs],
+              [[float(v)] + [float(z) / g_thr for z in Z[i]] for i, v in enumerate(vols)],
+              formats=["num"] + ["x"] * len(hs),
+              note=f"P(|X| > {_de(thr, 1)}σ) jeder Zelle geteilt durch den Wert einer Normalverteilung.")

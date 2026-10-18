@@ -19,6 +19,13 @@ from mpl_toolkits.mplot3d import Axes3D
 from typing import Tuple, Optional, Dict, List, Callable
 import warnings
 
+__all__ = [
+    'PhaseSpaceAnimator',
+    'DistributionMorphAnimator',
+    'RiskGaugeAnimator',
+    'create_comprehensive_animation',
+]
+
 
 class PhaseSpaceAnimator:
     """
@@ -74,6 +81,7 @@ class PhaseSpaceAnimator:
         trail, = ax.plot([], [], [], 'b-', alpha=0.5, linewidth=1)
         current_point = ax.scatter([], [], [], c='red', s=100, marker='o')
         history = ax.scatter([], [], [], c=[], cmap='viridis', s=10, alpha=0.3)
+        history.set_clim(0, max(self.n - 1, 1))  # colour = time index
 
         def init():
             return trail, current_point, history
@@ -87,6 +95,10 @@ class PhaseSpaceAnimator:
 
             # Update current point
             current_point._offsets3d = ([self.X[frame]], [self.Y[frame]], [self.Z[frame]])
+
+            # Update history cloud (all states visited so far, coloured by time)
+            history._offsets3d = (self.X[:frame+1], self.Y[:frame+1], self.Z[:frame+1])
+            history.set_array(np.arange(frame + 1))
 
             # Update title with current state
             ax.set_title(f'Phase Space Evolution (t={frame})\n'
@@ -132,6 +144,11 @@ class DistributionMorphAnimator:
 
         Shows both the histogram and fitted distribution changing.
         """
+        frames = range(self.window, self.n, 5)
+        if len(frames) == 0:
+            raise ValueError(f"DistributionMorphAnimator needs more than window={self.window} "
+                             f"returns to animate, got {self.n}")
+
         fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 
         # x-axis for distributions
@@ -155,9 +172,10 @@ class DistributionMorphAnimator:
             axes[0].hist(window_returns, bins=30, density=True, alpha=0.7,
                         color='blue', label='Empirical')
 
-            # Gaussian
+            # Gaussian N(mean, std^2): x is in sigma units, so the density at
+            # mean + x*std is phi(x)/std (phi = standard normal pdf)
             from scipy.stats import norm
-            gaussian = norm.pdf(x, mean, std)
+            gaussian = norm.pdf(x)
             axes[0].plot(x * std + mean, gaussian / std, 'r-', linewidth=2,
                         label='Gaussian')
 
@@ -180,7 +198,6 @@ class DistributionMorphAnimator:
             axes[1].set_title(f'Log Scale (Excess Kurtosis: {kurtosis:.2f})')
             axes[1].set_xlim(-0.1, 0.1)
 
-        frames = range(self.window, self.n, 5)
         anim = FuncAnimation(fig, update, frames=frames, interval=interval)
 
         if save_path:
@@ -245,9 +262,9 @@ class RiskGaugeAnimator:
             ax.plot([needle_theta], [0.9], 'ko', markersize=10)
 
             # Settings
+            # default polar orientation (theta=0 right, counter-clockwise) gives the
+            # upper half-dial with 0 on the left and 100 on the right
             ax.set_ylim(0, 1.2)
-            ax.set_theta_offset(np.pi / 2)
-            ax.set_theta_direction(-1)
             ax.set_thetalim(0, np.pi)
 
             # Remove radial ticks
@@ -278,7 +295,20 @@ def create_comprehensive_animation(returns: np.ndarray,
     """
     from scipy import stats
 
+    returns = np.asarray(returns, dtype=float)
     n = len(returns)
+    window = 60
+    frames = range(window + 10, n, 5)
+    if len(frames) == 0:
+        raise ValueError(f"create_comprehensive_animation needs more than {window + 10} "
+                         f"returns, got {n}")
+    if min(len(c) for c in levy_coords) <= frames[-1]:
+        raise ValueError("each array in levy_coords needs as many points as returns")
+
+    # Rolling 99% VaR, computed once: var_all[j] = -q_1%(returns[j:j+window]),
+    # i.e. the VaR known at time j+window (same values as the former per-frame loop)
+    windows = np.lib.stride_tricks.sliding_window_view(returns, window)
+    var_all = -np.percentile(windows, 1, axis=1)
 
     fig = plt.figure(figsize=(16, 12))
 
@@ -293,8 +323,6 @@ def create_comprehensive_animation(returns: np.ndarray,
 
     # VaR evolution
     ax4 = fig.add_subplot(224)
-
-    window = 60
 
     def update(frame):
         if frame < window:
@@ -341,10 +369,8 @@ def create_comprehensive_animation(returns: np.ndarray,
         ax3.set_title('Tail Risk Evolution')
         ax3.legend()
 
-        # 4. Rolling VaR
-        var_series = []
-        for i in range(window, frame):
-            var_series.append(-np.percentile(returns[i-window:i], 1))
+        # 4. Rolling VaR (VaR at time i uses returns[i-window:i])
+        var_series = var_all[:frame - window]
         ax4.plot(range(window, frame), var_series, 'b-', linewidth=1)
         if len(var_series) > 0:
             ax4.scatter([frame-1], [var_series[-1]], c='red', s=50, zorder=5)
@@ -352,10 +378,10 @@ def create_comprehensive_animation(returns: np.ndarray,
         ax4.set_ylabel('VaR (99%)')
         ax4.set_title('Rolling Value at Risk')
 
-        plt.suptitle(f'Tail Risk Dashboard - Time: {frame}', fontsize=14, fontweight='bold')
-        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+        # fig.*, not plt.*: the current pyplot figure may be a different one
+        fig.suptitle(f'Tail Risk Dashboard - Time: {frame}', fontsize=14, fontweight='bold')
+        fig.tight_layout(rect=[0, 0.03, 1, 0.95])
 
-    frames = range(window + 10, n, 5)
     anim = FuncAnimation(fig, update, frames=frames, interval=100)
 
     if save_path:

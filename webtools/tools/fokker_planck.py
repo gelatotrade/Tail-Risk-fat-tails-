@@ -114,20 +114,20 @@ def run(params, data, out):
     out.metric("Rückstellkraft μ(x₀)", drift0, "num", hint="Drift am Startpunkt: −θ(x₀ − μ∞)")
 
     # --- chart 1: heatmap of log density over (x, t)
-    fstep = max(1, int(np.ceil(len(times) / 60)))
+    fstep = max(1, int(np.ceil(len(times) / 34)))
     rows = list(range(0, len(times), fstep))
     if rows[-1] != len(times) - 1:
         rows.append(len(times) - 1)
-    xstep = max(1, int(np.ceil(n / 151)))
+    xstep = max(1, int(np.ceil(n / 75)))
     logP = np.log10(np.maximum(Pe[rows][:, ::xstep], 1e-12))
     top = float(np.max(logP))
-    logP = np.round(np.maximum(logP, top - 7), 3)
+    logP = np.round(np.maximum(logP, top - 6), 3)
     out.chart(C.heatmap(
         "Wahrscheinlichkeitsdichte P(x, t)",
         np.round(x[::xstep], 3), np.round(times[rows], 3), logP,
         x=C.axis("x (standardisierte Rendite)"), y=C.axis("Zeit t", type="linear"),
         z=C.axis("log₁₀ Dichte"), scale="sequential", height=420,
-        subtitle="Zeit läuft nach unten. Helle Ausläufer an den Seiten sind die fetten Ränder (log-Skala, 7 Dekaden).",
+        subtitle="Zeit läuft nach unten. Helle Ausläufer an den Seiten sind die fetten Ränder (log-Skala, 6 Dekaden).",
     ))
 
     # --- chart 2: snapshots on a log scale vs a Gaussian with the same variance
@@ -144,14 +144,16 @@ def run(params, data, out):
         subtitle="Logarithmische Skala: Liegt die Kurve an den Rändern über der Gauß-Parabel, sind die Ränder fett.",
     ))
 
-    # --- chart 3: tail mass over time
+    # --- chart 3: tail mass over time, as a multiple of the Gaussian value
+    r3, r4 = tails3 / G3, tails4 / G4
     out.chart(C.xy(
-        "Masse in den Rändern über die Zeit",
-        [C.trace("jenseits 3σ", times, tails3, color=1),
-         C.trace("jenseits 4σ", times, np.where(tails4 > 1e-9, tails4, np.nan), color=2)],
-        x=C.axis("Zeit t"), y=C.axis("Wahrscheinlichkeit (beide Ränder)", type="log", fmt="pct"),
-        hlines=[C.hline(G3, "Gauß 3σ"), C.hline(G4, "Gauß 4σ")],
-        subtitle="σ ist jeweils die aktuelle Streuung der Dichte. Über den gestrichelten Gauß-Linien: fette Ränder.",
+        "Fette Ränder über die Zeit: Faktor ggü. Gauß",
+        [C.trace("Masse jenseits 3σ", times, np.where(r3 > 0, r3, np.nan), color=1),
+         C.trace("Masse jenseits 4σ", times, np.where(r4 > 1e-6, r4, np.nan), color=2),
+         C.trace("Normalverteilung = 1", [times[0], times[-1]], [1.0, 1.0], color="muted", dash=True)],
+        x=C.axis("Zeit t"), y=C.axis("Vielfaches des Gauß-Werts", type="log"),
+        subtitle="Tail-Masse jenseits k·σ (σ = aktuelle Streuung der Dichte) geteilt durch den Gauß-Wert "
+                 f"({_de(100 * G3)} % bzw. {_de(100 * G4, 4)} %). Über 1: fette Ränder.",
     ))
 
     # --- chart 4: what the operator does
@@ -196,11 +198,10 @@ def run(params, data, out):
     balance = float(np.max(np.abs(L_full[:, mid].sum(axis=0)) / np.abs(np.diag(L_full)[mid])))
     edge_mass = float(np.sum(Pe[-1][np.abs(x) > 8]) * solver.dx)
     out.table("Numerik", ["Größe", "Wert"], [
-        ["Gitterabstand dx", float(solver.dx)],
-        ["Zeitschritte", str(n_steps)],
-        ["Effektives dt", T / max(n_steps, 1)],
-        ["Massenbilanz: |Spaltensumme| ÷ |Diagonale| (Gittermitte, max.)", balance],
-    ], formats=["text", "num"],
+        ["Gitter", f"{n} Punkte auf [−10, 10], dx = {_de(float(solver.dx), 4)}"],
+        ["Zeitschritte", f"{n_steps} × dt = {_de(T / max(n_steps, 1), 4)}"],
+        ["Massenbilanz: |Spaltensumme| ÷ |Diagonale| (Gittermitte, max.)", f"{balance:.1e}".replace(".", ",")],
+    ], formats=["text", "text"],
         note="Eine Spaltensumme nahe 0 heißt: Der diskrete Operator erhält die Wahrscheinlichkeit. Beim fraktionalen "
              "Operator fehlt der Anteil der Sprünge, die über den Gitterrand hinausführen würden.")
     out.metric("Masse am Gitterrand", edge_mass, "pct", hint="Anteil bei |x| > 8 zu t = T",

@@ -67,11 +67,6 @@ def _de(x, digits=2):
     return f"{x:.{digits}f}".replace(".", ",")
 
 
-def _pair(x, y1, y2):
-    """Two lines as one legend entry: concatenated with a NaN gap."""
-    return list(x) + [None] + list(x), np.r_[y1, np.nan, y2]
-
-
 def _stats(paths, c):
     """Simple total return, max drawdown per path, VaR/ES of the total return (all in decimals)."""
     with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
@@ -122,26 +117,28 @@ def run(params, data, out):
                hint="mindestens ein Tag mit mehr als 10 % Verlust")
     out.metric("Sprünge je Pfad", lam * years, "num", digits=1, hint="erwartet: λ × Laufzeit")
 
-    # --- chart 1: price fan
+    # --- chart 1: price fan. Example path: its worst day is a "1-in-20" crash (5 % quantile over all paths)
     t = np.arange(n_steps + 1) / 252.0
     price = S0 * np.exp(logp)
     q = np.quantile(price, [0.01, 0.05, 0.5, 0.95, 0.99], axis=0)
-    i_worst = int(np.argmin(worst_day))
+    i_crash = int(np.argmin(np.abs(worst_day - np.quantile(worst_day, 0.05))))
+    crash_day = float(np.expm1(worst_day[i_crash]))
     order = np.argsort(total)
     i_mid = int(order[len(order) // 2])
     traces = [
+        C.envelope("1–99 %", t, q[0], q[4], color=1),
+        C.envelope("5–95 %", t, q[1], q[3], color=1),
         C.trace("Median", t, q[2], color=1, width=2.5),
-        C.trace("5 %- und 95 %-Quantil", *_pair(t, q[1], q[3]), color=1, width=1.2, decimate_to=None),
-        C.trace("1 %- und 99 %-Quantil", *_pair(t, q[0], q[4]), color=1, width=1, dash=True, decimate_to=None),
         C.trace("Median ohne Sprünge", t, np.quantile(ref, 0.5, axis=0), color="muted", dash=True),
-        C.trace("Pfad mit dem größten Tagescrash", t, price[i_worst], color="critical", width=1.3),
+        C.trace(f"Crash-Beispiel ({_de(100 * crash_day, 1).replace('-', '−')} %)", t, price[i_crash],
+                color="critical", width=1.3),
         C.trace("Typischer Pfad", t, price[i_mid], color=3, width=1.3),
     ]
     out.chart(C.xy(
         "Kursfächer mit Lévy-Sprüngen", traces,
-        x=C.axis("Zeit (Jahre)"), y=C.axis("Kurs (Start 100)", type="log"),
-        subtitle="Logarithmische Achse. Die Sprünge ziehen vor allem das untere 1 %-Band nach unten.",
-        hlines=[C.hline(S0, "Start")], height=380,
+        x=C.axis("Zeit (Jahre)"), y=C.axis("Kurs (Start 100)"),
+        subtitle="Bänder: Quantile über alle Pfade. Das Crash-Beispiel ist ein Pfad, dessen schlimmster Tag (Wert "
+                 "in Klammern) so schlecht ist wie bei jedem 20. Pfad.", height=380,
     ))
 
     # --- chart 2: drawdown exceedance curve
@@ -175,19 +172,20 @@ def run(params, data, out):
                  "sind am Rand gesammelt.",
     ))
 
-    # --- chart 4: Lévy phase space of the path with the largest crash
-    rets = daily[i_worst]
+    # --- chart 4: Lévy phase space of the crash example (the first `win` points are placeholders)
+    rets = daily[i_crash]
     win = int(min(20, max(5, len(rets) // 4)))
-    X, Y, Z = levy_flight_3d_coordinates(rets, window=win)
-    days = np.arange(1, len(rets) + 1)
-    txt = [f"Tag {d}: {100 * (np.exp(v) - 1):+.1f} %".replace(".", ",") for d, v in zip(days, rets)]
-    j = int(np.argmin(rets))
+    X, Y, Z = (np.asarray(v, dtype=float)[win:] for v in levy_flight_3d_coordinates(rets, window=win))
+    days = np.arange(win + 1, len(rets) + 1)
+    txt = [f"Tag {d}: {100 * np.expm1(v):+.1f} %".replace(".", ",") for d, v in zip(days, rets[win:])]
+    j = int(np.argmin(rets[win:]))
     out.chart(C.scatter3d(
-        "Der Crash-Pfad im Lévy-Phasenraum",
+        "Das Crash-Beispiel im Lévy-Phasenraum",
         [C.path3d("Tagesweise Bahn", X, Y, Z, color=1, mode="lines+markers", size=2, text=txt),
-         C.path3d("Größter Tagescrash", [X[j]], [Y[j]], [Z[j]], color="critical", mode="markers", size=8, text=[txt[j]])],
+         C.path3d("Schlimmster Tag", [X[j]], [Y[j]], [Z[j]], color="critical", mode="markers", size=8, text=[txt[j]])],
         x=C.axis("X: Volatilität (Mittel = 1)"), y=C.axis("Y: 2 / Tail-Index"), z=C.axis("Z: |Rendite| / σ"),
-        subtitle=f"`levy_flight_3d_coordinates` mit Fenster {win} Tage. Ziehen dreht, Mausrad zoomt.",
+        subtitle=f"`levy_flight_3d_coordinates` mit Fenster {win} Tage auf den Tagesrenditen des roten Pfads. "
+                 "Ziehen dreht, Mausrad zoomt.",
         height=520,
     ))
 

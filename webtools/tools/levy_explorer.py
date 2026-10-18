@@ -64,12 +64,14 @@ def _tiny(p):
     """Probability cell: values far below anything observable become text instead of 1e-200 %."""
     if p is None or not np.isfinite(p):
         return None
-    return "< 10⁻¹²" if 0 < p < 1e-12 else float(p)
+    return "< 10⁻¹²" if p < 1e-12 else float(p)
 
 
 def _ratio(a, b):
-    if not (np.isfinite(a) and np.isfinite(b)) or b <= 0 or a <= 0:
+    if not (np.isfinite(a) and np.isfinite(b)) or a <= 0:
         return None
+    if b <= 0:
+        return "> 10⁶"
     r = a / b
     return "> 10⁶" if r > 1e6 else float(r)
 
@@ -108,12 +110,12 @@ def run(params, data, out):
     if alpha < 2:
         out.metric("Varianz", "∞", "text", hint="Für jedes α < 2 ist die Varianz unendlich",
                    status="serious" if alpha < 1.5 else "warning")
-        out.metric("Endliche Momente", f"E|X|^p für p < {_de(alpha)}", "text",
+        out.metric("Endliche Momente E|X|^p", f"p < {_de(alpha)}", "text",
                    hint="Mittelwert existiert nur für α > 1" if alpha > 1 else "Auch der Mittelwert existiert nicht")
         out.metric("Dichte-Exponent", 1 + alpha, "num", hint="f(x) ~ |x|^−(1+α) weit draußen")
     else:
         out.metric("Varianz", 2.0, "num", hint="α = 2: Normalverteilung mit σ² = 2γ²")
-        out.metric("Endliche Momente", "alle", "text", hint="Gauß-Fall")
+        out.metric("Endliche Momente E|X|^p", "alle p", "text", hint="Gauß-Fall")
     out.metric("P(X < −5γ)", p_left5, "pct", hint=f"Stichprobe; Gauß: {g5 * 100:.2g} %".replace(".", ","),
                status="critical" if p_left5 > 1000 * g5 else "serious" if p_left5 > 10 * g5 else None)
     out.metric("1 %-Quantil", float(np.quantile(s, 0.01)), "num", hint=f"in γ; Gauß: {_de(stats.norm.ppf(0.01) * g_sd)}")
@@ -136,7 +138,7 @@ def run(params, data, out):
          C.trace(f"Lévy-Dichte (α = {_de(alpha)})", x, clip(pdf), color=2, width=2.5),
          C.trace("Gauß (α = 2, gleiche Skala)", x, clip(gpdf), color="muted", dash=True)],
         x=C.axis("x (in γ)"), y=C.axis("Dichte", type="log", range=(lo, hi)),
-        subtitle="Die Gauß-Parabel stürzt ab, die Lévy-Dichte fällt nur wie |x|^−(1+α).",
+        subtitle="Die Gauß-Parabel stürzt ab, die Lévy-Dichte fällt nur wie |x|^−(1+α).", height=380,
     ))
 
     # --- chart 2: tails on log-log axes
@@ -147,18 +149,18 @@ def run(params, data, out):
     asym_r = np.asarray(dist.tail_probability(d, "right"), dtype=float)
     g_tail = stats.norm.sf(d / g_sd)
     y_lo = 0.3 / m
-    pos = lambda y: np.where(np.asarray(y) >= y_lo, y, np.nan)  # noqa: E731
+    pos = lambda y: np.where((np.asarray(y) >= y_lo) & (np.asarray(y) < 1), y, np.nan)  # noqa: E731
     out.chart(C.xy(
         "Ränder im Log-Log-Plot",
-        [C.trace("P(X < −x) Stichprobe", d, pos(emp_l), color=1, width=2.5),
-         C.trace("P(X > x) Stichprobe", d, pos(emp_r), color=3, width=2.5),
-         C.trace("Asymptote links C_α(1−β)x^−α", d, pos(asym_l), color=1, dash=True, width=1.5),
-         C.trace("Asymptote rechts C_α(1+β)x^−α", d, pos(asym_r), color=3, dash=True, width=1.5),
-         C.trace("Gauß (je Seite)", d, pos(g_tail), color="muted", dash=True)],
+        [C.trace("links: P(X < −x)", d, pos(emp_l), color=1, width=2.5),
+         C.trace("rechts: P(X > x)", d, pos(emp_r), color=3, width=2.5),
+         C.trace("Asymptote links", d, pos(asym_l), color=1, dash=True, width=1.5),
+         C.trace("Asymptote rechts", d, pos(asym_r), color=3, dash=True, width=1.5),
+         C.trace("Gauß", d, pos(g_tail), color="muted", dash=True)],
         x=C.axis("Abstand x vom Zentrum (in γ)", type="log"),
         y=C.axis("Wahrscheinlichkeit", type="log", fmt="pct", range=(y_lo, 1.5)),
-        subtitle=f"Ein Potenzgesetz ist hier eine Gerade mit Steigung −α = −{_de(alpha)}. "
-                 "Die Gauß-Kurve knickt senkrecht ab.",
+        subtitle=f"Durchgezogen: Stichprobe. Gestrichelt: Asymptote C_α(1 ± β)·x^−α – eine Gerade mit Steigung "
+                 f"−α = −{_de(alpha)}. Die Gauß-Kurve knickt senkrecht ab.", height=380,
     ))
 
     # --- chart 3: random walk with the same scale

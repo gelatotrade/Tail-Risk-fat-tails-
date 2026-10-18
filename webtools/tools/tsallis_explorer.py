@@ -122,7 +122,7 @@ def run(params, data, out):
     asym = np.asarray(dist.tail_probability(d, "left"), dtype=float) if q > 1 else np.full_like(d, np.nan)
     emp = np.searchsorted(s_sorted, -d, side="left") / len(s)
     y_lo = 0.3 / len(s)
-    pos = lambda y: np.where(np.asarray(y) >= y_lo, y, np.nan)  # noqa: E731
+    pos = lambda y: np.where((np.asarray(y) >= y_lo) & (np.asarray(y) < 1), y, np.nan)  # noqa: E731
     out.chart(C.xy(
         "Linker Rand im Log-Log-Plot: P(X < −x)",
         [C.trace("Stichprobe", d, pos(np.where(emp > 0, emp, np.nan)), color=1, width=2.5),
@@ -135,15 +135,15 @@ def run(params, data, out):
     ))
 
     # --- chart 3: the q-exponential behind it all
-    u = np.linspace(0, 40, 401)
+    u = np.linspace(0, 20, 401)
     eq = dist.q_exponential(-u)
     out.chart(C.xy(
         "q-Exponentialfunktion exp_q(−u)",
-        [C.trace(f"exp_q(−u), q = {_de(q)}", u, np.where(eq > 1e-14, eq, np.nan), color=2, width=2.5),
-         C.trace("exp(−u)", u, np.where(np.exp(-u) > 1e-14, np.exp(-u), np.nan), color="muted", dash=True)],
-        x=C.axis("u = βx²"), y=C.axis("Wert", type="log", range=(1e-14, 2)),
+        [C.trace(f"exp_q(−u), q = {_de(q)}", u, np.where(eq > 1e-9, eq, np.nan), color=2, width=2.5),
+         C.trace("exp(−u)", u, np.where(np.exp(-u) > 1e-9, np.exp(-u), np.nan), color="muted", dash=True)],
+        x=C.axis("u = βx²"), y=C.axis("Wert", type="log", range=(1e-9, 1.5)),
         subtitle="Die Dichte ist A·exp_q(−βx²). Für q > 1 fällt exp_q wie u^(−1/(q−1)) statt exponentiell.",
-        height=300,
+        height=320,
     ))
 
     # --- table: quantiles

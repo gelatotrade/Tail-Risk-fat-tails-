@@ -160,8 +160,8 @@ class TailRisk3DSurface:
         ax.scatter([X[0]], [Y[0]], [Z[0]], c='green', s=100, marker='o', label='Start')
         ax.scatter([X[-1]], [Y[-1]], [Z[-1]], c='red', s=100, marker='s', label='Current')
 
-        # Mark extreme points
-        max_z_idx = np.argmax(Z)
+        # Mark extreme points (np.argmax would pick the first NaN)
+        max_z_idx = int(np.nanargmax(Z)) if np.any(np.isfinite(Z)) else 0
         ax.scatter([X[max_z_idx]], [Y[max_z_idx]], [Z[max_z_idx]],
                   c='purple', s=150, marker='*', label='Peak Risk')
 

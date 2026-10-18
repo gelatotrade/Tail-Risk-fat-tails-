@@ -61,15 +61,28 @@ def _de(x, digits=2):
     return f"{x:.{digits}f}".replace(".", ",")
 
 
+def _show(v, fmt):
+    """German number text: daily drift in %, everything else with 3 significant digits."""
+    if not np.isfinite(v):
+        return "–"
+    if fmt == "pct":
+        return f"{100 * v:.3f} %".replace(".", ",").replace("-", "−")
+    txt = f"{v:.3g}"
+    if "e" in txt:
+        mant, exp = txt.split("e")
+        txt = f"{mant}·10^{int(exp)}"
+    return txt.replace(".", ",").replace("-", "−")
+
+
 def _space(title, coords, labels, fmts, days, k_recent, subtitle):
     X, Y, Z = (_sig(c) for c in coords)
     hist = slice(0, max(0, len(X) - k_recent))
     rec = slice(max(0, len(X) - k_recent), len(X))
     traces = [
-        C.path3d("Geschichte", X[hist], Y[hist], Z[hist], color="muted", mode="markers", size=2, text=days[hist]),
+        C.path3d("Geschichte", X[hist], Y[hist], Z[hist], color="muted", mode="markers", size=1.5, text=days[hist]),
         C.path3d(f"Letzte {k_recent} Tage", X[rec], Y[rec], Z[rec], color=1, mode="lines+markers", size=3,
                  text=days[rec]),
-        C.path3d("Heute", [X[-1]], [Y[-1]], [Z[-1]], color="critical", mode="markers", size=8, text=[days[-1]]),
+        C.path3d("Heute", [X[-1]], [Y[-1]], [Z[-1]], color="critical", mode="markers", size=11, text=[days[-1]]),
     ]
     return C.scatter3d(title, traces, x=C.axis(labels[0], fmt=fmts[0]), y=C.axis(labels[1], fmt=fmts[1]),
                        z=C.axis(labels[2], fmt=fmts[2]), subtitle=subtitle, height=520)
@@ -118,17 +131,16 @@ def run(params, data, out):
         ("Fokker-Planck", "Ordnung α̂", fpc[2], "num"),
     ]
     rows = []
-    for space, name, series, _fmt in spaces:
+    for space, name, series, fmt in spaces:
         s = series[np.isfinite(series)]
         now = float(series[-1])
         pct = float(0.5 * (np.mean(s < now) + np.mean(s <= now))) if s.size else None  # mid-rank (ties)
         place = "oberes Dezil" if pct is not None and pct >= 0.9 else "unteres Dezil" if pct is not None and pct <= 0.1 else "üblich"
-        rows.append([space, name, now, float(np.median(s)), pct, place])
+        rows.append([space, name, _show(now, fmt), _show(float(np.median(s)), fmt), pct, place])
     out.table("Heute im Vergleich zur eigenen Geschichte", ["Raum", "Koordinate", "heute", "Median", "Perzentil heute",
                                                              "Einordnung"],
-              rows, formats=["text", "text", "num", "num", "pct", "text"],
-              note=f"Perzentil = Anteil der {len(days)} Tage mit kleinerem Wert (Gleichstände zur Hälfte). Drift ist eine mittlere "
-                   "Tagesrendite als Dezimalzahl.")
+              rows, formats=["text", "text", "text", "text", "pct", "text"],
+              note=f"Perzentil = Anteil der {len(days)} Tage mit kleinerem Wert (Gleichstände zur Hälfte).")
 
     vol_pct = rows[0][4]
     out.metric("Datum heute", str(days[-1]), "text", hint=f"Fenster {w} Tage, {len(days)} Punkte je Raum")

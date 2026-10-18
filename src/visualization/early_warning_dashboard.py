@@ -16,6 +16,8 @@ This module provides:
 - Historical comparison with crash events
 """
 
+import zlib
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
@@ -127,7 +129,10 @@ class EarlyWarningDashboard:
         ax_weights = fig.add_subplot(gs[3, 3])
         self._plot_indicator_weights(ax_weights, indicators)
 
-        plt.tight_layout(rect=[0, 0.02, 1, 0.96])
+        # plt.tight_layout skips a GridSpec with explicit hspace/wspace (it only
+        # warned and left twin-axis labels overlapping) and acts on the *current*
+        # figure; lay out this figure's grid directly.
+        gs.tight_layout(fig, rect=[0, 0.02, 1, 0.96])
         return fig
 
     def _plot_price_with_composite(self, ax, x, prices, composite):
@@ -142,7 +147,8 @@ class EarlyWarningDashboard:
 
         # Plot price
         ax.plot(x, prices, color='white', linewidth=1.5, label='Price')
-        ax.fill_between(x, prices, alpha=0.1, color='white')
+        # fill down to the lowest price, not to 0 (which squashed the price line)
+        ax.fill_between(x, prices, np.nanmin(prices), alpha=0.1, color='white')
 
         ax.set_title('Price with Composite Risk Overlay', fontsize=12,
                      fontweight='bold', color='white')
@@ -287,7 +293,7 @@ class EarlyWarningDashboard:
 
         # Add annotation
         current = tdex[-1]
-        level = 'ELEVATED' if current > 15 else ('EXTREME' if current > 20 else 'NORMAL')
+        level = 'EXTREME' if current > 20 else ('ELEVATED' if current > 15 else 'NORMAL')
         ax.text(0.02, 0.98, f'Current: {current:.1f} - {level}',
                 transform=ax.transAxes, fontsize=9, color='white',
                 verticalalignment='top',
@@ -524,7 +530,9 @@ class CrashComparisonChart:
         fig.suptitle('Early Warning Indicators: Historical Crash Comparison',
                      fontsize=16, fontweight='bold', color='white', y=0.98)
 
-        plt.tight_layout(rect=[0, 0.02, 1, 0.95])
+        # see create_dashboard; also keeps the outward third y-axis of the left
+        # panels from overlapping the right panels
+        gs.tight_layout(fig, rect=[0, 0.02, 1, 0.95])
         return fig
 
     def _plot_crash_indicators(self, ax, crash_name, crash_info):
@@ -557,11 +565,12 @@ class CrashComparisonChart:
                            np.where(days < 0, 14 + 0.3 * np.abs(days), 28 - 0.35 * days))
             vix_ratio = np.where(days < 0, 0.94 - 0.001 * np.abs(days), 1.25 - 0.01 * days)
 
-        # Add noise
-        np.random.seed(hash(crash_name) % 2**32)
-        gex += np.random.normal(0, 0.5, len(days))
-        tdex += np.random.normal(0, 1, len(days))
-        vix_ratio += np.random.normal(0, 0.02, len(days))
+        # Add noise. The seed must be stable across processes (str hash() is salted
+        # per interpreter) and must not reset the caller's global NumPy RNG.
+        rng = np.random.default_rng(zlib.crc32(crash_name.encode('utf-8')))
+        gex += rng.normal(0, 0.5, len(days))
+        tdex += rng.normal(0, 1, len(days))
+        vix_ratio += rng.normal(0, 0.02, len(days))
 
         # Normalize for plotting
         ax2 = ax.twinx()
@@ -696,7 +705,9 @@ def create_indicator_summary_table(indicators: Dict[str, np.ndarray]) -> str:
     table += f"║  1. GEX (B$)        │ {latest['GEX']:>10.2f} │  35%   │ {gex_signal:<20} ║\n"
 
     # TDEX
-    tdex_signal = 'ELEVATED' if latest['TDEX'] > 15 else 'NORMAL'
+    # same thresholds as the dashboard panels (TDEX 15/20, DIX 43/40)
+    tdex_signal = ('EXTREME' if latest['TDEX'] > 20 else
+                   'ELEVATED' if latest['TDEX'] > 15 else 'NORMAL')
     table += f"║  2. TDEX            │ {latest['TDEX']:>10.1f} │  25%   │ {tdex_signal:<20} ║\n"
 
     # VIX Ratio
@@ -704,7 +715,8 @@ def create_indicator_summary_table(indicators: Dict[str, np.ndarray]) -> str:
     table += f"║  3. VIX M1/M2       │ {latest['VIX Ratio']:>10.3f} │  20%   │ {vix_signal:<20} ║\n"
 
     # DIX
-    dix_signal = 'DISTRIBUTION' if latest['DIX'] < 43 else 'NORMAL'
+    dix_signal = ('DISTRIBUTION' if latest['DIX'] < 40 else
+                  'WEAK' if latest['DIX'] < 43 else 'NORMAL')
     table += f"║  4. DIX (%)         │ {latest['DIX']:>10.1f} │  10%   │ {dix_signal:<20} ║\n"
 
     # SMFI

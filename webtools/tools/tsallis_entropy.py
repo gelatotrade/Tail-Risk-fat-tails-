@@ -136,14 +136,15 @@ def run(params, data, out):
 
     # --- does it lead? quintile chart
     labels = ["Q1 niedrig", "Q2", "Q3", "Q4", "Q5 hoch"]
-    traces = [C.trace("nach Entropie S_q", labels, _quintile_means(S, future), type="bar", color=1),
-              C.trace("nach q (Hill)", labels, _quintile_means(q, future), type="bar", color=2),
-              C.trace("nach vergangener Vola", labels, _quintile_means(past, future), type="bar", color=3)]
+    traces = [C.trace("Entropie S_q", labels, _quintile_means(S, future), color=1, width=2.5),
+              C.trace("q (Hill)", labels, _quintile_means(q, future), color=2, width=2.5),
+              C.trace("vergangene Vola", labels, _quintile_means(past, future), color=3, width=2.5)]
     out.chart(C.xy(
         f"Vola der nächsten {h} Tage je Quintil des Signals", traces,
         x=C.axis("Quintil des Signals am Tag t", type="category"),
-        y=C.axis(f"Ø realisierte Vola t … t+{h}", fmt="pct", digits=0), barmode="group",
-        subtitle="Ein gutes Frühwarnsignal steigt von Q1 nach Q5 deutlich an – wie die vergangene Vola.",
+        y=C.axis(f"Ø realisierte Vola t … t+{h}", fmt="pct", digits=0),
+        subtitle="Je Linie werden alle Tage nach einem Signal in fünf gleich große Gruppen sortiert. Ein gutes "
+                 "Frühwarnsignal steigt von Q1 nach Q5 deutlich an.",
     ))
 
     rows = [["Entropie S_q", rho_s, _rho(S, past), _rho(S, vix) if vix is not None else None],
