@@ -80,21 +80,26 @@ class MarkovRegimeSwitching:
         self.transition_matrix = np.full((k, k), 0.1 / (k - 1))
         np.fill_diagonal(self.transition_matrix, 0.9)
 
-        # EM algorithm
+        # EM algorithm (Baum-Welch / Hamilton-Kim)
         log_likelihood_old = -np.inf
+        filtered, predicted, log_likelihood = self._forward(returns)
 
         for iteration in range(max_iter):
-            # E-step: compute filtered probabilities
-            self.filtered_probs = self._filter(returns)
+            # E-step: filtered/smoothed probabilities with current parameters
+            self.filtered_probs = filtered
+            smoothed, transitions = self._backward(filtered, predicted)
 
             # M-step: update parameters
-            self._update_parameters(returns)
+            self._m_step(returns, smoothed, transitions)
 
-            # Check convergence
-            log_likelihood = self._log_likelihood(returns)
+            # Check convergence (log-likelihood of the updated parameters)
+            filtered, predicted, log_likelihood = self._forward(returns)
             if abs(log_likelihood - log_likelihood_old) < tol:
                 break
             log_likelihood_old = log_likelihood
+
+        self.filtered_probs = filtered
+        self._sort_states_by_volatility()
 
         return {
             'transition_matrix': self.transition_matrix,
@@ -104,104 +109,119 @@ class MarkovRegimeSwitching:
             'n_iter': iteration + 1
         }
 
+    def _state_likelihoods(self, returns: np.ndarray) -> np.ndarray:
+        """Gaussian state densities f_j(y_t) as an (n, k) array."""
+        returns = np.asarray(returns, dtype=float)
+        return stats.norm.pdf(returns[:, None], self.state_means[None, :],
+                              self.state_stds[None, :])
+
+    def _forward(self, returns: np.ndarray) -> Tuple[np.ndarray, np.ndarray, float]:
+        """
+        Hamilton filter.
+
+        Returns:
+            filtered P(S_t | Y_t), predicted P(S_t | Y_{t-1}) (both (n, k))
+            and the log-likelihood log p(Y_n).
+        """
+        lik = self._state_likelihoods(returns)
+        n, k = lik.shape
+        P_T = self.transition_matrix.T
+
+        filtered = np.empty((n, k))
+        predicted = np.empty((n, k))
+        log_likelihood = 0.0
+
+        # Initial distribution: uniform
+        pred = np.full(k, 1.0 / k)
+        for t in range(n):
+            predicted[t] = pred
+            joint = pred * lik[t]
+            density = joint.sum()
+            if density > 0 and np.isfinite(density):
+                filtered[t] = joint / density
+            else:
+                filtered[t] = pred  # observation impossible under every state
+            log_likelihood += np.log(max(density, 1e-300))
+            pred = P_T @ filtered[t]
+
+        return filtered, predicted, float(log_likelihood)
+
+    def _backward(self, filtered: np.ndarray,
+                  predicted: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Kim smoother.
+
+        Returns:
+            smoothed P(S_t | Y_n) as (n, k), and the expected transition
+            counts sum_t P(S_{t-1}=i, S_t=j | Y_n) as (k, k).
+        """
+        n, k = filtered.shape
+        P = self.transition_matrix
+
+        smoothed = np.empty((n, k))
+        smoothed[-1] = filtered[-1]
+        ratio = np.zeros((n, k))  # smoothed[t] / predicted[t]
+
+        for t in range(n - 1, 0, -1):
+            pred = predicted[t]
+            ratio[t] = np.divide(smoothed[t], pred, out=np.zeros(k), where=pred > 0)
+            prev = filtered[t - 1] * (P @ ratio[t])
+            smoothed[t - 1] = prev / (prev.sum() or 1.0)
+
+        # P(S_{t-1}=i, S_t=j | Y_n) = filtered[t-1,i] P_ij smoothed[t,j] / predicted[t,j]
+        transitions = P * (filtered[:-1].T @ ratio[1:])
+
+        return smoothed, transitions
+
+    def _m_step(self, returns: np.ndarray, smoothed: np.ndarray,
+                transitions: np.ndarray):
+        """Update means, stds and transition matrix from E-step quantities."""
+        returns = np.asarray(returns, dtype=float)
+        weight = smoothed.sum(axis=0)
+
+        self.state_means = (smoothed * returns[:, None]).sum(axis=0) / (weight + 1e-10)
+        variance = ((smoothed * (returns[:, None] - self.state_means)**2).sum(axis=0)
+                    / (weight + 1e-10))
+        self.state_stds = np.sqrt(np.maximum(variance, 1e-6))
+
+        row_sums = transitions.sum(axis=1, keepdims=True)
+        k = self.n_states
+        self.transition_matrix = np.where(row_sums > 0,
+                                          transitions / np.where(row_sums > 0, row_sums, 1.0),
+                                          1.0 / k)
+
+    def _sort_states_by_volatility(self):
+        """Relabel states so that state 0 has the lowest std (documented order)."""
+        order = np.argsort(self.state_stds, kind='stable')
+        if np.array_equal(order, np.arange(self.n_states)):
+            return
+        self.state_means = self.state_means[order]
+        self.state_stds = self.state_stds[order]
+        self.transition_matrix = self.transition_matrix[np.ix_(order, order)]
+        if self.filtered_probs is not None:
+            self.filtered_probs = self.filtered_probs[:, order]
+
     def _filter(self, returns: np.ndarray) -> np.ndarray:
         """Hamilton filter for state probabilities."""
-        n = len(returns)
-        k = self.n_states
-
-        # Filtered probabilities
-        probs = np.zeros((n, k))
-
-        # Initial distribution: stationary
-        probs[0] = 1 / k
-
-        for t in range(1, n):
-            # Prediction: P(S_t | Y_{t-1})
-            pred = self.transition_matrix.T @ probs[t-1]
-
-            # Update: P(S_t | Y_t)
-            likelihoods = np.array([
-                stats.norm.pdf(returns[t], self.state_means[j], self.state_stds[j])
-                for j in range(k)
-            ])
-
-            probs[t] = pred * likelihoods
-            probs[t] /= np.sum(probs[t]) + 1e-10
-
-        return probs
+        filtered, _, _ = self._forward(returns)
+        return filtered
 
     def _update_parameters(self, returns: np.ndarray):
-        """M-step: update model parameters."""
-        n = len(returns)
-        k = self.n_states
-
-        # Smooth probabilities
-        smoothed = self._smooth(returns)
-
-        # Update means
-        for j in range(k):
-            weight = smoothed[:, j]
-            self.state_means[j] = np.sum(weight * returns) / (np.sum(weight) + 1e-10)
-
-        # Update stds
-        for j in range(k):
-            weight = smoothed[:, j]
-            variance = np.sum(weight * (returns - self.state_means[j])**2) / (np.sum(weight) + 1e-10)
-            self.state_stds[j] = np.sqrt(max(variance, 1e-6))
-
-        # Update transition matrix
-        for i in range(k):
-            for j in range(k):
-                num = 0
-                den = 0
-                for t in range(1, n):
-                    num += smoothed[t-1, i] * self.transition_matrix[i, j] * \
-                           stats.norm.pdf(returns[t], self.state_means[j], self.state_stds[j]) * \
-                           smoothed[t, j]
-                    den += smoothed[t-1, i]
-
-                self.transition_matrix[i, j] = num / (den + 1e-10)
-
-            # Normalize
-            self.transition_matrix[i] /= np.sum(self.transition_matrix[i]) + 1e-10
+        """M-step: update model parameters (E-step with current parameters)."""
+        filtered, predicted, _ = self._forward(returns)
+        smoothed, transitions = self._backward(filtered, predicted)
+        self._m_step(returns, smoothed, transitions)
 
     def _smooth(self, returns: np.ndarray) -> np.ndarray:
         """Kim smoother for smoothed probabilities."""
-        n = len(returns)
-        k = self.n_states
-
-        filtered = self._filter(returns)
-        smoothed = np.zeros((n, k))
-        smoothed[-1] = filtered[-1]
-
-        for t in range(n - 2, -1, -1):
-            for j in range(k):
-                smoothed[t, j] = filtered[t, j] * np.sum(
-                    self.transition_matrix[j] * smoothed[t+1] /
-                    (self.transition_matrix.T @ filtered[t] + 1e-10)
-                )
-
+        filtered, predicted, _ = self._forward(returns)
+        smoothed, _ = self._backward(filtered, predicted)
         return smoothed
 
     def _log_likelihood(self, returns: np.ndarray) -> float:
         """Compute log-likelihood."""
-        n = len(returns)
-        k = self.n_states
-        ll = 0
-
-        probs = np.ones(k) / k
-
-        for t in range(n):
-            likelihoods = np.array([
-                stats.norm.pdf(returns[t], self.state_means[j], self.state_stds[j])
-                for j in range(k)
-            ])
-
-            ll += np.log(np.sum(probs * likelihoods) + 1e-10)
-            probs = self.transition_matrix.T @ (probs * likelihoods)
-            probs /= np.sum(probs) + 1e-10
-
-        return ll
+        _, _, log_likelihood = self._forward(returns)
+        return log_likelihood
 
     def current_regime(self) -> int:
         """Return most likely current regime."""
@@ -301,14 +321,22 @@ class VolatilityClusteringDetector:
             Array with regime labels (0 = low, 1 = medium, 2 = high)
         """
         vol = self.rolling_realized_volatility()
+        valid = ~np.isnan(vol)
+
+        regimes = np.zeros(self.n, dtype=int)
+        if not np.any(valid):
+            return regimes  # series shorter than the volatility window
 
         # Thresholds
         low_threshold = np.nanpercentile(vol, 100 - vol_percentile)
         high_threshold = np.nanpercentile(vol, vol_percentile)
 
-        regimes = np.zeros(self.n, dtype=int)
         regimes[vol > high_threshold] = 2
         regimes[(vol > low_threshold) & (vol <= high_threshold)] = 1
+
+        # Warm-up (no full window yet): use the regime of the first full window
+        first = int(np.argmax(valid))
+        regimes[:first] = regimes[first]
 
         return regimes
 
@@ -327,7 +355,8 @@ class RegimeAwareTailRisk:
 
         Args:
             returns: Array of returns
-            window: Window for regime detection
+            window: Window for regime detection (stored; the realized-vol
+                classification uses its own 20-day window)
         """
         self.returns = np.asarray(returns)
         self.n = len(returns)
@@ -342,12 +371,13 @@ class RegimeAwareTailRisk:
         detector = VolatilityClusteringDetector(self.returns)
         self.regimes = detector.detect_vol_regime()
 
-        # Also fit Markov model
+        # Also fit Markov model (states are sorted by volatility after fit)
         self.markov = MarkovRegimeSwitching(n_states=3)
         try:
             self.markov.fit(self.returns)
-        except:
-            pass
+        except Exception as exc:
+            warnings.warn(f"Markov regime fit failed: {exc}")
+            self.markov.filtered_probs = None
 
     def current_regime(self) -> Dict:
         """Get current regime information."""

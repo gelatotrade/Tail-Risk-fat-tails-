@@ -127,6 +127,10 @@ class GeneralizedExtremeValue:
 
         Divides data into blocks and fits GEV to block maxima.
 
+        The maxima are standardized before the MLE (the GEV is a
+        location-scale family, so μ and σ are mapped back exactly); on raw
+        daily-return scale scipy's optimizer stops far from the optimum.
+
         Args:
             data: Time series of returns
             block_size: Number of observations per block
@@ -134,23 +138,22 @@ class GeneralizedExtremeValue:
         Returns:
             Fitted GEV distribution
         """
-        data = np.asarray(data)
+        data = np.asarray(data, dtype=float)
         n = len(data)
         n_blocks = n // block_size
 
         # Compute block maxima
-        maxima = []
-        for i in range(n_blocks):
-            block = data[i*block_size:(i+1)*block_size]
-            maxima.append(np.max(block))
+        maxima = data[:n_blocks * block_size].reshape(n_blocks, block_size).max(axis=1)
 
-        maxima = np.array(maxima)
+        center = np.mean(maxima)
+        spread = np.std(maxima)
+        if not (np.isfinite(spread) and spread > 0):
+            raise ValueError("block maxima are constant; GEV cannot be fitted")
 
         # Fit using scipy's genextreme (note: scipy uses c = -ξ)
-        params = stats.genextreme.fit(maxima)
-        c, loc, scale = params
+        c, loc, scale = stats.genextreme.fit((maxima - center) / spread)
 
-        return GeneralizedExtremeValue(xi=-c, mu=loc, sigma=scale)
+        return GeneralizedExtremeValue(xi=-c, mu=center + spread * loc, sigma=spread * scale)
 
 
 class GeneralizedParetoDistribution:
@@ -217,18 +220,26 @@ class GeneralizedParetoDistribution:
         else:
             return self.sigma / self.xi * ((1 - p)**(-self.xi) - 1)
 
-    def tail_probability(self, x: float) -> float:
+    def tail_probability(self, x: float, exceedance_prob: Optional[float] = None) -> float:
         """
-        Compute P(X > x) for the original variable.
+        Tail probability of the original variable beyond x.
 
-        Uses the POT estimator:
-        P(X > x) = P(X > u) * P(X > x | X > u)
+        Without ``exceedance_prob`` this is the conditional GPD tail
+        P(X > x | X > u) = 1 - G(x - u) (1.0 for x <= u).
+
+        With ``exceedance_prob`` = P(X > u) (``fit_stats['exceedance_probability']``
+        from fit_pot) it is the unconditional POT estimator
+        P(X > x) = P(X > u) * P(X > x | X > u). The GPD says nothing about
+        x <= u, so that case returns NaN.
         """
         if x <= self.threshold:
-            return 1.0  # Exceedance is certain
+            return 1.0 if exceedance_prob is None else np.nan
 
         y = x - self.threshold
-        return 1 - self.cdf(np.array([y]))[0]
+        conditional = 1 - self.cdf(np.array([y]))[0]
+        if exceedance_prob is None:
+            return conditional
+        return exceedance_prob * conditional
 
     def var(self, p: float, exceedance_prob: float) -> float:
         """
@@ -324,15 +335,17 @@ class EVTTailRiskAnalyzer:
     for robust tail risk estimation.
     """
 
-    def __init__(self, data: np.ndarray):
+    def __init__(self, data: np.ndarray, block_size: int = 20):
         """
         Initialize with historical data.
 
         Args:
             data: Array of returns (or losses)
+            block_size: Observations per block for the GEV block maxima
         """
         self.data = np.asarray(data)
         self.n = len(data)
+        self.block_size = int(block_size)
 
         # Fit both tails
         self._fit_models()
@@ -352,8 +365,8 @@ class EVTTailRiskAnalyzer:
         )
 
         # Block maxima for GEV
-        self.gev_maxima = GeneralizedExtremeValue.fit_block_maxima(self.data)
-        self.gev_minima = GeneralizedExtremeValue.fit_block_maxima(-self.data)
+        self.gev_maxima = GeneralizedExtremeValue.fit_block_maxima(self.data, self.block_size)
+        self.gev_minima = GeneralizedExtremeValue.fit_block_maxima(-self.data, self.block_size)
 
     def tail_index(self, tail: str = 'left') -> float:
         """Get tail index (ξ) for specified tail."""
@@ -367,7 +380,7 @@ class EVTTailRiskAnalyzer:
         Compute Value at Risk.
 
         Args:
-            confidence: Confidence level
+            confidence: Confidence level (per observation, i.e. daily)
             method: 'gpd' (POT) or 'gev' (block maxima)
 
         Returns:
@@ -380,9 +393,11 @@ class EVTTailRiskAnalyzer:
             return var
 
         elif method == 'gev':
-            # Use minima GEV
-            return_period = 1 / (1 - confidence)
-            return -self.gev_minima.return_level(return_period)
+            # Loss block maxima of m days: H(x) = F(x)^m, so the daily
+            # quantile F^{-1}(c) is H^{-1}(c^m).
+            return self.gev_minima.ppf(confidence ** self.block_size)
+
+        raise ValueError(f"Unknown method: {method!r} (use 'gpd' or 'gev')")
 
     def expected_shortfall(self, confidence: float = 0.99) -> float:
         """Compute Expected Shortfall (CVaR)."""
@@ -394,16 +409,26 @@ class EVTTailRiskAnalyzer:
         Compute return level for extreme events.
 
         Args:
-            return_period: Expected time between events of this magnitude
+            return_period: Expected time between events of this magnitude,
+                in observations (trading days for daily data; 252 * 10 is
+                a 10-year event). Must be > 1.
             tail: 'left' (losses) or 'right' (gains)
 
         Returns:
-            Return level (magnitude of extreme event)
+            Return level as a return: negative for 'left', positive for 'right'
         """
+        return_period = np.asarray(return_period, dtype=float)
+        if np.any(return_period <= 1):
+            raise ValueError("return_period must be > 1 observation")
+
+        # Exceeded once every T observations: F(z) = 1 - 1/T. The GEV is
+        # fitted to maxima of block_size observations, H = F^m.
+        p_block = (1 - 1 / return_period) ** self.block_size
+
         if tail == 'left':
-            return -self.gev_minima.return_level(return_period)
+            return -self.gev_minima.ppf(p_block)
         else:
-            return self.gev_maxima.return_level(return_period)
+            return self.gev_maxima.ppf(p_block)
 
     def tail_comparison_to_gaussian(self, threshold: float = 3.0) -> Dict:
         """
@@ -417,10 +442,16 @@ class EVTTailRiskAnalyzer:
         # Empirical tail probability
         empirical_prob = np.mean(np.abs(self.data) > threshold * std)
 
-        # GPD-based estimate
+        # GPD-based estimate (unconditional POT tail of each side). Below a
+        # side's threshold the GPD does not apply; the empirical tail is used.
         x = threshold * std
-        gpd_prob_left = self.gpd_left.tail_probability(x)
-        gpd_prob_right = self.gpd_right.tail_probability(x)
+
+        def _side(gpd, fit_stats, side_data):
+            p = gpd.tail_probability(x, fit_stats['exceedance_probability'])
+            return np.mean(side_data > x) if np.isnan(p) else p
+
+        gpd_prob_left = _side(self.gpd_left, self.stats_left, -self.data)
+        gpd_prob_right = _side(self.gpd_right, self.stats_right, self.data)
         gpd_prob = gpd_prob_left + gpd_prob_right
 
         return {

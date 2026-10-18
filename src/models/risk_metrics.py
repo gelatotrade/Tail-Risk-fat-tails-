@@ -16,6 +16,7 @@ Key Metrics:
 """
 
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 from scipy import stats, optimize
 from typing import Tuple, Optional, Dict, List
 import warnings
@@ -29,17 +30,22 @@ class TailRiskMetrics:
     estimates of tail risk measures.
     """
 
-    def __init__(self, returns: np.ndarray, annualization: int = 252):
+    def __init__(self, returns: np.ndarray, annualization: int = 252,
+                 log_returns: bool = True):
         """
         Initialize with return series.
 
         Args:
-            returns: Array of returns
+            returns: Array of returns (decimal)
             annualization: Trading days per year
+            log_returns: True if ``returns`` are log returns (the convention
+                of this framework); False for simple returns. Only affects
+                how wealth is compounded in maximum_drawdown/calmar_ratio.
         """
         self.returns = np.asarray(returns)
         self.n = len(returns)
         self.annualization = annualization
+        self.log_returns = log_returns
 
         # Precompute basic statistics
         self.mean = np.mean(returns)
@@ -103,7 +109,8 @@ class TailRiskMetrics:
         """
         if method == 'historical':
             var = self.var_historical(confidence)
-            tail_losses = -self.returns[-self.returns < -var]
+            # Losses beyond VaR: returns below -VaR
+            tail_losses = -self.returns[self.returns < -var]
             return np.mean(tail_losses) if len(tail_losses) > 0 else var
 
         elif method == 'gaussian':
@@ -115,9 +122,13 @@ class TailRiskMetrics:
         elif method == 'cornish_fisher':
             # Approximate using CF-adjusted quantile
             var = self.var_cornish_fisher(confidence)
-            # Use kernel density for tail
-            tail_losses = -self.returns[-self.returns < -var]
+            # Average empirical loss beyond the CF-VaR
+            tail_losses = -self.returns[self.returns < -var]
             return np.mean(tail_losses) if len(tail_losses) > 0 else var
+
+        raise ValueError(
+            f"Unknown method: {method!r} (use 'historical', 'gaussian' or 'cornish_fisher')"
+        )
 
     def tail_ratio(self, threshold_sigma: float = 2.0) -> Dict:
         """
@@ -148,9 +159,13 @@ class TailRiskMetrics:
         """
         Compute maximum drawdown and related metrics.
 
-        Drawdown is the peak-to-trough decline.
+        Drawdown is the peak-to-trough decline of wealth: exp(cumsum(r)) for
+        log returns, cumprod(1 + r) for simple returns (see ``log_returns``).
         """
-        cumulative = np.cumprod(1 + self.returns)
+        if self.log_returns:
+            cumulative = np.exp(np.cumsum(self.returns))
+        else:
+            cumulative = np.cumprod(1 + self.returns)
         running_max = np.maximum.accumulate(cumulative)
         drawdowns = (cumulative - running_max) / running_max
 
@@ -279,45 +294,52 @@ class RollingRiskMetrics:
         self.window = window
         self.n = len(returns)
 
+    def _windows(self) -> np.ndarray:
+        """
+        Trailing windows as rows: row i - window is returns[i-window:i] for
+        i = window .. n-1 (the value at i uses data up to i-1 only).
+        """
+        if self.n <= self.window:
+            return np.empty((0, self.window))
+        return sliding_window_view(self.returns, self.window)[:self.n - self.window]
+
     def rolling_var(self, confidence: float = 0.99) -> np.ndarray:
         """Compute rolling VaR."""
         var = np.full(self.n, np.nan)
-
-        for i in range(self.window, self.n):
-            window_returns = self.returns[i-self.window:i]
-            var[i] = -np.percentile(window_returns, (1 - confidence) * 100)
+        windows = self._windows()
+        if len(windows):
+            var[self.window:] = -np.percentile(windows, (1 - confidence) * 100, axis=1)
 
         return var
 
     def rolling_expected_shortfall(self, confidence: float = 0.99) -> np.ndarray:
         """Compute rolling Expected Shortfall."""
         es = np.full(self.n, np.nan)
-
-        for i in range(self.window, self.n):
-            window_returns = self.returns[i-self.window:i]
-            var = -np.percentile(window_returns, (1 - confidence) * 100)
-            tail_losses = -window_returns[window_returns < -var]
-            es[i] = np.mean(tail_losses) if len(tail_losses) > 0 else var
+        windows = self._windows()
+        if len(windows):
+            var = -np.percentile(windows, (1 - confidence) * 100, axis=1)
+            in_tail = windows < -var[:, None]
+            count = in_tail.sum(axis=1)
+            loss_sum = np.where(in_tail, -windows, 0.0).sum(axis=1)
+            es[self.window:] = np.where(count > 0, loss_sum / np.maximum(count, 1), var)
 
         return es
 
     def rolling_kurtosis(self) -> np.ndarray:
         """Compute rolling excess kurtosis."""
         kurt = np.full(self.n, np.nan)
-
-        for i in range(self.window, self.n):
-            window_returns = self.returns[i-self.window:i]
-            kurt[i] = stats.kurtosis(window_returns)
+        windows = self._windows()
+        if len(windows):
+            kurt[self.window:] = stats.kurtosis(windows, axis=1)
 
         return kurt
 
     def rolling_skewness(self) -> np.ndarray:
         """Compute rolling skewness."""
         skew = np.full(self.n, np.nan)
-
-        for i in range(self.window, self.n):
-            window_returns = self.returns[i-self.window:i]
-            skew[i] = stats.skew(window_returns)
+        windows = self._windows()
+        if len(windows):
+            skew[self.window:] = stats.skew(windows, axis=1)
 
         return skew
 
@@ -329,14 +351,17 @@ class RollingRiskMetrics:
         """
         from ..physics.levy_flight import estimate_tail_index
 
+        if method not in ('hill', 'pickands'):
+            raise ValueError(f"Unknown method: {method!r} (use 'hill' or 'pickands')")
+
         alpha = np.full(self.n, np.nan)
 
         for i in range(self.window, self.n):
             window_returns = self.returns[i-self.window:i]
             try:
                 alpha[i] = estimate_tail_index(window_returns, method)
-            except:
-                alpha[i] = np.nan
+            except (ValueError, ZeroDivisionError, FloatingPointError, IndexError):
+                alpha[i] = np.nan  # degenerate window (too few non-zero returns)
 
         return alpha
 
@@ -412,16 +437,22 @@ class TailRiskParity:
         Each asset contributes equally to portfolio ES.
 
         Args:
-            target_risk: Optional target portfolio ES
+            target_risk: Optional target portfolio ES (currently unused;
+                the weights always sum to 1)
 
         Returns:
             Optimal weights
         """
         def objective(w):
             rc = self.risk_contribution(w)
-            # Penalize deviation from equal risk contribution
-            avg_rc = np.mean(rc)
-            return np.sum((rc - avg_rc)**2)
+            total = np.sum(rc)
+            if not np.isfinite(total) or total <= 0:
+                return 1.0  # no tail risk to share (e.g. no tail scenarios)
+            # Penalize deviation from equal ES shares. Shares are
+            # scale-free, so the objective is O(1) instead of O(ES^2), which
+            # sat below SLSQP's tolerance for daily returns.
+            shares = rc / total
+            return np.sum((shares - 1 / self.n_assets)**2)
 
         # Constraints: weights sum to 1, all positive
         constraints = [
