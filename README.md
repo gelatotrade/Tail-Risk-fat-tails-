@@ -7,7 +7,7 @@
 
 ## Live Web App — Tail Risk Lab
 
-**[gelatotrade.github.io/Tail-Risk-fat-tails-](https://gelatotrade.github.io/Tail-Risk-fat-tails-/)**
+**[grzresearch.github.io/Tail-Risk-fat-tails-](https://grzresearch.github.io/Tail-Risk-fat-tails-/)**
 
 Every feature of this repository runs as an interactive tool in the browser — no installation, no server.
 The unmodified `src/` package executes client-side via [Pyodide](https://pyodide.org) (CPython 3.14 compiled to
@@ -335,8 +335,8 @@ The framework was validated against four S&P 500 crashes using historical data. 
 ## Installation & Usage
 
 ```bash
-git clone https://github.com/yourusername/tail-risk-fat-tails.git
-cd tail-risk-fat-tails
+git clone https://github.com/grzresearch/Tail-Risk-fat-tails-.git
+cd Tail-Risk-fat-tails-
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 ```

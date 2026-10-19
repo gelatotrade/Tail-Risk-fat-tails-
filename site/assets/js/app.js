@@ -11,7 +11,7 @@ import { rerenderAll } from './charts.js';
 
 const BUILD = '__BUILD__';
 const BASE = new URL('../../', import.meta.url).href;
-const REPO = 'https://github.com/gelatotrade/Tail-Risk-fat-tails-';
+const REPO = 'https://github.com/grzresearch/Tail-Risk-fat-tails-';
 const engine = new Engine({ base: BASE, build: BUILD });
 const view = document.getElementById('view');
 
